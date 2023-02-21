@@ -1,0 +1,22 @@
+# Notebook support
+jupyterlab
+pandas
+networkx
+matplotlib
+scipy
+# DuckDB is an embedded DB with parquet support
+duckdb
+ipython-sql
+SQLAlchemy
+duckdb-engine
+pyarrow
+# SQL Templating
+# JinjaSQL breaks with anything newer. 1/8/2023
+jinja2==3.0.3
+jinjasql
+# Viz packages
+altair
+# Convenience
+python-dotenv
+ipywidgets
+humanfriendly
