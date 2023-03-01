@@ -1,11 +1,25 @@
-from datetime import datetime, timedelta, timezone
-import os
-import argparse
-import sys
-import boto3
+'''
+Download raw Wintap data from an S3 bucket.
 
+The S3 bucket is expected to be structured as follows:
+  [prefix]/raw_sensor/[event_type]/uploadedDPK=YYYYMMDD/uploadedHPK=HH/[hive dirs]/[hostname=event_type-epoch].parquet
+
+The local structure is:
+  [localpath]/raw_sensor/[event_type]/dayPK=YYYYMMDD/hourPK=HH/[hostname=event_type-epoch].parquet
+
+Note that the S3 structure is partitioned by day/hour uploaded, while the local path is partitoned by 
+the day/hour the data was collected. Difference is notable when the agent has been offline for a period 
+of time.
+'''
+
+import argparse
 import logging
+import os
+import sys
+from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
+
+import boto3
 
 S3File = NamedTuple(
     "S3File",
@@ -78,7 +92,7 @@ def download_files(s3_client, bucket_name, local_path, s3_files):
     count = 0
     for s3_file in s3_files:
         s3_file_path = s3_file.s3_path + "/" + s3_file.filename
-        local_file_path = f"{local_path}/raw_sensor/{s3_file.event_type}/dayPartitionKey={s3_file.dataDPK}/hourPartitionKey={s3_file.dataHPK}"
+        local_file_path = f"{local_path}/raw_sensor/{s3_file.event_type}/dayPK={s3_file.dataDPK}/hourPK={s3_file.dataHPK}"
         if not os.path.exists(local_file_path):
             os.makedirs(local_file_path)
             logging.info("folder '{}' created ".format(local_file_path))
