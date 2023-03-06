@@ -13,6 +13,9 @@ of time.
 '''
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import csv
+from functools import partial
 import logging
 import os
 import sys
@@ -20,10 +23,13 @@ from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
 import boto3
+import botocore
+import tqdm
 
 S3File = NamedTuple(
     "S3File",
     [
+        ("key", str),
         ("filename", str),
         ("s3_path", str),
         ("hostname", str),
@@ -32,6 +38,7 @@ S3File = NamedTuple(
         ("uploadedHPK", str),
         ("dataDPK", str),
         ("dataHPK", str),
+        ("local_file_path", str),
         ("os", str),
         ("sensor_version", str),
         ("event_type", str),
@@ -83,29 +90,80 @@ def _list_s3(s3_client, bucket, prefix, delimiter="/"):
         next_token = response.get("NextContinuationToken")
     return file_names, folders
 
+def download_one_file(bucket: str, client: boto3.client, s3_file: S3File):
+    """
+    Download a single file from S3
+    Args:
+        bucket (str): S3 bucket where images are hosted
+        client (boto3.client): S3 client
+        s3_file (S3File): S3 object metadata
+    """
+    make_dirs(s3_file)
+    client.download_file(
+        Bucket=bucket, Key=s3_file.key, Filename= os.path.join(s3_file.local_file_path, s3_file.filename)
+    )
 
-def download_files(s3_client, bucket_name, local_path, s3_files):
+def download_files_threaded(bucket: str, client: boto3.client, s3_files, retry_attempt: int=0):
+    '''
+    Download files from S3 into the provided root path.
+    Files are written to folders based on the timestamp they were collected, not uploaded.
+    Multi-threaded, TQDM progress output.
+    '''
+    MAX_RETRIES=3
+
+    # The client is shared between threads
+    func = partial(download_one_file, bucket, client)
+
+    # List for storing possible failed downloads to retry later
+    failed_downloads = []
+
+    with tqdm.tqdm(desc="Downloading files from S3", total=len(s3_files)) as pbar:
+        with ThreadPoolExecutor(max_workers=32) as executor:
+            # Using a dict for preserving the downloaded file for each future, to store it as a failure if we need that
+            futures = {
+                executor.submit(func, s3_file): s3_file for s3_file in s3_files
+            }
+            for future in as_completed(futures):
+                if future.exception():
+                    failed_downloads.append(futures[future])
+                pbar.update(1)
+    if len(failed_downloads) > 0:
+        if retry_attempt<MAX_RETRIES:
+            logging.warn(f"  {len(failed_downloads)} downloads have failed. Retrying.")
+            download_files_threaded(bucket,client,failed_downloads,retry_attempt+1)
+        else:
+            logging.warn(f"  {len(failed_downloads)} downloads have failed. Writing to CSV.")
+            with open(
+                os.path.join(".", f"failed_downloads_{datetime.now()}.csv"), "w", newline=""
+            ) as csvfile:
+                wr = csv.writer(csvfile, quoting=csv.QUOTE_ALL)
+                wr.writerow(failed_downloads)
+
+
+def download_files(bucket_name, s3_client, s3_files):
     """
     Download files from S3 into the provided root path.
     Files are written to folders based on the timestamp they were collected, not uploaded.
+    Single-threaded, simple progress output.
     """
     count = 0
     for s3_file in s3_files:
-        s3_file_path = s3_file.s3_path + "/" + s3_file.filename
-        local_file_path = f"{local_path}/raw_sensor/{s3_file.event_type}/dayPK={s3_file.dataDPK}/hourPK={s3_file.dataHPK}"
-        if not os.path.exists(local_file_path):
-            os.makedirs(local_file_path)
-            logging.info("folder '{}' created ".format(local_file_path))
-        s3_client.download_file(
-            bucket_name, s3_file_path, local_file_path + "/" + s3_file.filename
+        make_dirs(s3_file)
+        download_one_file(
+            bucket_name, s3_client, s3_file
         )
         count += 1
         if count % 1000 == 0:
             logging.info(f"      Downloaded: {count}")
     logging.info(f"    Downloaded: {count}")
 
+def make_dirs(s3_file):
+    if not os.path.exists(s3_file.local_file_path):
+        os.makedirs(s3_file.local_file_path)
+        logging.debug("folder '{}' created ".format(s3_file.local_file_path))
 
-def hourrange(start_date, end_date):
+
+def hour_range(start_date, end_date):
     """
     Generate a timestamp for each hour in the range. These will correspond to the paths data is uploaded into.
     """
@@ -113,7 +171,7 @@ def hourrange(start_date, end_date):
         yield start_date + timedelta(hours=n)
 
 
-def parse_s3_metadata(files, uploadedDPK, uploadedHPK, event_type):
+def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
     """
     Parse metadata from S3. This will be used for generating the correct path to write to.
     TODO: Write this data also to a parquet file for metadata analytics.
@@ -126,8 +184,11 @@ def parse_s3_metadata(files, uploadedDPK, uploadedHPK, event_type):
         data_capture_ts = datetime.fromtimestamp(int(data_capture_epoch), timezone.utc)
         datadpk = data_capture_ts.strftime("%Y%m%d")
         datahpk = data_capture_ts.strftime("%H")
+        # Define fully-qualified local name
+        local_file_path = f"{local_path}/raw_sensor/{event_type}/dayPK={datadpk}/hourPK={datahpk}"
 
         s3File = S3File(
+            file.get("Key"),
             filename,
             s3_path,
             hostname,
@@ -136,6 +197,7 @@ def parse_s3_metadata(files, uploadedDPK, uploadedHPK, event_type):
             uploadedHPK,
             datadpk,
             datahpk,
+            local_file_path,
             "windows",
             "v2",
             event_type,
@@ -164,7 +226,7 @@ def main():
         sys.exit(1)
 
     session = boto3.Session(profile_name=args.profile)
-    s3 = session.client("s3")
+    s3 = session.client("s3", config=botocore.client.Config(max_pool_connections=50))
 
     files, folders = list_folders(s3, bucket=args.bucket, prefix=args.prefix)
 
@@ -177,7 +239,7 @@ def main():
     for event_type in event_types:
         logging.info(event_type.get("Prefix"))
         # Within an event type, iterate over date range by hour
-        for single_date in hourrange(start_date, end_date):
+        for single_date in hour_range(start_date, end_date):
             daypk = single_date.strftime("%Y%m%d")
             hourpk = single_date.strftime("%H")
             prefix = (
@@ -189,10 +251,10 @@ def main():
                 logging.info(f"  {prefix}")
                 logging.info(f"    Files: {len(files)}  Folders: {len(folders)}")
                 files_md = parse_s3_metadata(
-                    files, daypk, hourpk, event_type.get("Prefix").split("/")[2]
+                    files,  args.localpath, daypk, hourpk, event_type.get("Prefix").split("/")[2]
                 )
                 logging.info("     Downloading...")
-                download_files(s3, args.bucket, args.localpath, files_md)
+                download_files_threaded(args.bucket, s3, files_md)
 
 
 if __name__ == "__main__":
