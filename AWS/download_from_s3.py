@@ -239,6 +239,7 @@ def main():
     for event_type in event_types:
         logging.info(event_type.get("Prefix"))
         # Within an event type, iterate over date range by hour
+        files_md=[]
         for single_date in hour_range(start_date, end_date):
             daypk = single_date.strftime("%Y%m%d")
             hourpk = single_date.strftime("%H")
@@ -248,13 +249,14 @@ def main():
 
             files, folders = list_files(s3, bucket=args.bucket, prefix=prefix)
             if len(files) > 0 or len(folders) > 0:
-                logging.info(f"  {prefix}")
-                logging.info(f"    Files: {len(files)}  Folders: {len(folders)}")
-                files_md = parse_s3_metadata(
+                logging.debug(f"  {prefix}")
+                logging.debug(f"    Files: {len(files)}  Folders: {len(folders)}")
+                files_md.extend(parse_s3_metadata(
                     files,  args.localpath, daypk, hourpk, event_type.get("Prefix").split("/")[2]
-                )
-                logging.info("     Downloading...")
-                download_files_threaded(args.bucket, s3, files_md)
+                ))
+            logging.info(f"  {prefix}  Files: {len(files)}  Folders: {len(folders)}  Total: {len(files_md)}")
+        logging.info(f"   Downloading {len(files_md)}...")
+        download_files_threaded(args.bucket, s3, files_md)
 
 
 if __name__ == "__main__":
