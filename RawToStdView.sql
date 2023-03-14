@@ -501,3 +501,39 @@ FROM FILES
 GROUP BY 1
 ;
 
+-- Generate Process Trees. There *should* be 1 graph per unique NTOSKRNL.EXE process.
+CREATE TABLE process_tree
+as
+WITH RECURSIVE process_tree
+  (hostname, pid_hash, os_pid, process_name, process_path, level, parent_pid_hash, parent_os_pid, seq)
+AS (
+  SELECT
+    hostname,
+    pid_hash,
+    os_pid,
+    process_name,
+    process_path,
+    0,
+    parent_pid_hash,
+    parent_os_pid,
+    1
+  FROM process
+  WHERE pid_hash=parent_pid_hash
+  UNION ALL
+  SELECT
+    p.hostname,
+    p.pid_hash,
+    p.os_pid,
+    p.process_name,
+    p.process_path,
+    pt.level + 1,
+    pt.pid_hash,
+    pt.os_pid,
+    pt.seq
+  FROM process p, process_tree pt
+  WHERE p.parent_pid_hash = pt.pid_hash
+  and p.parent_pid_hash <> p.pid_hash
+)
+SELECT * FROM process_tree
+ORDER BY level, parent_pid_hash, seq
+;
