@@ -3,7 +3,8 @@
  * SQL Dialect: DuckDB
  *
  */
-CREATE TABLE IF NOT EXISTS HOST AS
+CREATE TABLE IF NOT EXISTS HOST
+AS
 SELECT
  -- Ignore host.id.hash for now as it is really only composed of the hostname.
  -- host.hostid.hash,
@@ -43,17 +44,20 @@ SELECT
  count(DISTINCT collectors) num_collectors,
  count(*) num_rows
 FROM raw_host
-GROUP BY 1 ;
+GROUP BY 1
+;
 
 
-CREATE TABLE IF NOT EXISTS host_ip AS
+CREATE TABLE IF NOT EXISTS host_ip
+AS
 SELECT hostname,
        first('windows') os_family,
        CASE
            WHEN privategateway='' THEN NULL
            ELSE privategateway
        END private_gateway,
-       int_to_ip(cast(ipaddr AS bigint)) ip_addr_no,
+       int_to_ip(cast(ipaddr
+AS bigint)) ip_addr_no,
        CASE
            WHEN mac='' THEN NULL
            ELSE mac
@@ -65,11 +69,13 @@ SELECT hostname,
        to_timestamp(max(eventtime)) last_seen,
        count(*) num_rows,
 FROM raw_macip
-GROUP BY ALL ;
+GROUP BY ALL
+;
 
 -- Summarize Process events into Process entities
 
-CREATE TABLE IF NOT EXISTS process_tmp AS
+CREATE TABLE IF NOT EXISTS process_tmp
+AS
 SELECT p.pidhash pid_hash, -- osfamily will eventually come back as a partition key
  first('windows') os_family,
  first(p.hostname) hostname,
@@ -115,7 +121,7 @@ SELECT p.pidhash pid_hash, -- osfamily will eventually come back as a partition 
              END) file_sha2,
        count(DISTINCT p.filesha2) num_file_sha2,
        min(CASE
-               WHEN p.activitytype IN ('START', 'POLLED') THEN win32_to_epoch(p.eventtime)
+               WHEN p.activitytype IN ('START', 'POLLED') THEN win32_to_epoch(p.EventTime)
                ELSE NULL
            END) process_started_seconds,
        to_timestamp_micros(process_started_seconds) process_started,
@@ -123,7 +129,8 @@ SELECT p.pidhash pid_hash, -- osfamily will eventually come back as a partition 
        to_timestamp_micros(win32_to_epoch(max(p.eventtime))) last_seen,
        count(*) num_start_events
 FROM raw_process p
-GROUP BY p.pidhash ;
+GROUP BY p.pidhash
+;
 
 --== Update process_path
 
@@ -134,16 +141,19 @@ SET filename= CASE
                   ELSE process_path
               END
 WHERE process_path IS NOT NULL
-  OR process_name IS NOT NULL ;
+  OR process_name IS NOT NULL
+;
 
 --== Set file_id on process
 
 UPDATE process_tmp
 SET file_id= md5(concat_ws('||', hostname, filename))
-WHERE filename IS NOT NULL ;
+WHERE filename IS NOT NULL
+;
 
 
-CREATE TABLE IF NOT EXISTS process AS
+CREATE TABLE IF NOT EXISTS process
+AS
 SELECT p.*,
        s.* exclude (pidhash)
 FROM process_tmp p
@@ -165,24 +175,28 @@ LEFT OUTER JOIN
           count(*) num_process_stop
    FROM raw_process_stop --	WHERE dayPk=20221227
 
-   GROUP BY pidhash) s ON p.pid_hash = s.pidhash ;
+   GROUP BY pidhash) s ON p.pid_hash = s.pidhash
+;
 
 
-CREATE TABLE IF NOT EXISTS process_conn_incr AS
+CREATE TABLE IF NOT EXISTS process_conn_incr
+AS
 SELECT 'windows' os_family,
                  hostname hostname,
                  pidhash pid_hash,
                  connid conn_id,
                  protocol protocol, -- Calculate a time range for grouping. Starting with 1 minute.
  -- Can't use the UDF in a view, so here's the direct version:
- to_timestamp_micros(floor(win32_to_epoch(firstseenms)/60)*60) incr_start, --    int(((FirstSeenMs / 1e7) - 11644473600)/60)*60 incr_start_secs,
+ to_timestamp_micros(floor(win32_to_epoch(FirstSeenMs)/60)*60) incr_start, --    int(((FirstSeenMs / 1e7) - 11644473600)/60)*60 incr_start_secs,
  --localiphash,
  -- Can't use a UDF in a view, so dotted-quad IPs are done in the table building.
- int_to_ip(cast(localipaddr AS bigint)) local_ip_addr, 
+ int_to_ip(cast(localipaddr
+AS bigint)) local_ip_addr, 
  localipaddr local_ip_int, 
  localport local_port, 
  localipprivategateway local_pg, --remoteiphash,
- int_to_ip(cast(remoteipaddr AS bigint)) remote_ip_addr, 
+ int_to_ip(cast(remoteipaddr
+AS bigint)) remote_ip_addr, 
  remoteipaddr remote_ip_int, 
  remoteport remote_port, 
  remoteipprivategateway remote_pg, 
@@ -288,13 +302,15 @@ SELECT 'windows' os_family,
  sum(CASE 
          WHEN ipevent='UdpIp/Send' THEN packetsizesquared
      END) sq_udp_send_size,
- to_timestamp_micros(win32_to_epoch(min(firstseenms))) first_seen,
+ to_timestamp_micros(win32_to_epoch(min(FirstSeenMs))) first_seen,
  to_timestamp_micros(win32_to_epoch(max(lastseenms))) last_seen
 FROM raw_process_conn_incr
-GROUP BY ALL ;
+GROUP BY ALL
+;
 
 
-CREATE TABLE IF NOT EXISTS process_net_conn AS
+CREATE TABLE IF NOT EXISTS process_net_conn
+AS
 SELECT os_family,
        hostname,
        pid_hash,
@@ -332,10 +348,12 @@ SELECT os_family,
        min(first_seen) first_seen,
        max(last_seen) last_seen
 FROM process_conn_incr
-GROUP BY ALL ;
+GROUP BY ALL
+;
 
 
-CREATE TABLE IF NOT EXISTS process_net_summary AS
+CREATE TABLE IF NOT EXISTS process_net_summary
+AS
 SELECT os_family,
        pid_hash,
        hostname,
@@ -380,11 +398,13 @@ SELECT os_family,
 FROM process_net_conn
 GROUP BY 1,
          2,
-         3 ;
+         3
+;
 
 -- Summarize file activity to PID_HASH+FILE_HASH
 
-CREATE TABLE IF NOT EXISTS process_file AS
+CREATE TABLE IF NOT EXISTS process_file
+AS
 SELECT hostname hostname,
        pidhash pid_hash, -- generate FileID
  md5(concat_ws('||', hostname, file_path)) file_id,
@@ -399,12 +419,14 @@ SELECT hostname hostname,
  to_timestamp(min(eventtime)) min_event,
  to_timestamp(max(eventtime)) max_event
 FROM raw_process_file
-GROUP BY ALL ;
+GROUP BY ALL
+;
 
 -- Summarize registry event increments.
 -- Should there be multiple levels of summary?
 
-CREATE TABLE IF NOT EXISTS process_registry AS
+CREATE TABLE IF NOT EXISTS process_registry
+AS
 SELECT hosthame hostname,
        pidhash pid_hash,
        reg_path reg_path,
@@ -419,11 +441,13 @@ SELECT hosthame hostname,
  to_timestamp(min(eventtime)) min_event,
  to_timestamp(max(eventtime)) max_event
 FROM raw_process_registry
-GROUP BY ALL ;
+GROUP BY ALL
+;
 
 -- Summarize to PID_HASH+FILENAME
 
-CREATE TABLE IF NOT EXISTS process_image_load AS
+CREATE TABLE IF NOT EXISTS process_image_load
+AS
 SELECT computername hostname,
        pidhash pid_hash,
        md5(concat_ws('||', computername, lower(filename))) file_id,
@@ -445,48 +469,67 @@ SELECT computername hostname,
  to_timestamp_micros(win32_to_epoch(min(eventtime))) first_seen,
  to_timestamp_micros(win32_to_epoch(max(eventtime))) last_seen
 FROM raw_imageload
-GROUP BY ALL ;
+GROUP BY ALL
+;
 
 
-CREATE OR REPLACE VIEW process_exe_file_summary AS
-SELECT 'process' AS SOURCE,
+CREATE OR REPLACE VIEW process_exe_file_summary
+AS
+SELECT 'process'
+AS SOURCE,
        hostname,
        filename,
        file_id,
        min(process_started) min_process_started,
        max(process_term) max_process_term,
-       count(*) AS process_num_rows
+       count(*)
+AS process_num_rows
 FROM process
-GROUP BY ALL ;
+GROUP BY ALL
+;
 
 
-CREATE OR REPLACE VIEW files_tmp_v1 AS
+CREATE OR REPLACE VIEW files_tmp_v1
+AS
 SELECT file_id,
        hostname,
        filename,
        process_num_rows,
-       cast(NULL AS integer) dll_num_rows,
-       cast(NULL AS integer) file_num_rows,
+       cast(NULL
+AS integer) dll_num_rows,
+       cast(NULL
+AS integer) file_num_rows,
        min_process_started,
        max_process_term,
-       cast(NULL AS timestamp) dll_first_seen,
-       cast(NULL AS timestamp) dll_last_seen,
-       cast(NULL AS timestamp) file_first_seen,
-       cast(NULL AS timestamp) file_last_seen
+       cast(NULL
+AS timestamp) dll_first_seen,
+       cast(NULL
+AS timestamp) dll_last_seen,
+       cast(NULL
+AS timestamp) file_first_seen,
+       cast(NULL
+AS timestamp) file_last_seen
 FROM process_exe_file_summary
 UNION
 SELECT file_id,
        hostname,
        filename,
-       NULL AS process_num_rows,
-       count(*) AS dll_num_rows,
-       NULL AS file_num_rows,
-       NULL AS min_process_started,
-       NULL AS max_process_term,
+       NULL
+AS process_num_rows,
+       count(*)
+AS dll_num_rows,
+       NULL
+AS file_num_rows,
+       NULL
+AS min_process_started,
+       NULL
+AS max_process_term,
        min(first_seen) dll_first_seen,
        max(last_seen) dll_last_seen,
-       NULL AS file_first_seen,
-       NULL AS file_last_seen
+       NULL
+AS file_first_seen,
+       NULL
+AS file_last_seen
 FROM process_image_load
 GROUP BY 1,
          2,
@@ -496,22 +539,31 @@ UNION
 SELECT file_id,
        hostname,
        filename,
-       NULL AS process_num_rows,
-       NULL AS dll_num_rows,
-       count(*) AS file_num_rows,
-       NULL AS min_processstarted,
-       NULL AS max_processterm,
-       NULL AS dll_first_seen,
-       NULL AS dll_last_seen,
+       NULL
+AS process_num_rows,
+       NULL
+AS dll_num_rows,
+       count(*)
+AS file_num_rows,
+       NULL
+AS min_processstarted,
+       NULL
+AS max_processterm,
+       NULL
+AS dll_first_seen,
+       NULL
+AS dll_last_seen,
        min(first_seen) file_first_seen,
        max(last_seen) file_last_seen
 FROM process_file
 GROUP BY 1,
          2,
-         3 ;
+         3
+;
 
 
-CREATE TABLE files AS
+CREATE TABLE files
+AS
 SELECT file_id,
        hostname,
        filename,
@@ -527,22 +579,27 @@ SELECT file_id,
 FROM files_tmp_v1
 GROUP BY 1,
          2,
-         3 ;
+         3
+;
 
 -- Create a set of files using just the filename.
 
-CREATE TABLE all_files AS
+CREATE TABLE all_files
+AS
 SELECT filename,
        count(DISTINCT hostname) num_hosts,
        sum(process_num_rows) process_num_rows,
        sum(dll_num_rows) dll_num_rows,
        sum(file_num_rows) file_num_rows
 FROM files
-GROUP BY 1 ;
+GROUP BY 1
+;
 
 -- Generate Process Trees. There *should* be 1 graph per unique NTOSKRNL.EXE process.
 
-CREATE TABLE process_tree AS WITH RECURSIVE process_tree (hostname, pid_hash, os_pid, process_name, process_path, LEVEL, parent_pid_hash, parent_os_pid, seq) AS
+CREATE TABLE process_tree
+AS WITH RECURSIVE process_tree (hostname, pid_hash, os_pid, process_name, process_path, LEVEL, parent_pid_hash, parent_os_pid, seq)
+AS
   (SELECT hostname,
           pid_hash,
           os_pid,
@@ -571,4 +628,5 @@ SELECT *
 FROM process_tree
 ORDER BY LEVEL,
          parent_pid_hash,
-         seq ;
+         seq
+;
