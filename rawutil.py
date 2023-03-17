@@ -61,7 +61,7 @@ def validate_globs(raw_data):
     raw_data is a map of event_type -> list of globs.
     Confirm that:
     * There is only 1 glob per event_type. A poorly formed dataset dir structure could result in multiples.
-    * That there are actually files in the path.
+    * That there are actually files in the path. It's not uncommon for collection of specific feature type to by inconsistent over time.
     * For each file, confirm that it has data. Wintap does produce empty parquet files and that confuses duckdb and some other tools.
         * If an empty file is found, delete it
         * When complete, if all files were empty, then remove the event_type/glob entry.
