@@ -26,8 +26,8 @@ def process_range(cur_dataset, start_date, end_date):
 def main():
     parser = argparse.ArgumentParser( prog='rawtorolling.py', description='Convert raw Wintap data into standard form, partitioned by day')
     parser.add_argument('-d','--dataset', help='Path to the dataset dir to process')
-    parser.add_argument('-s','--start', help='Start date (MM/DD/YYYY)')
-    parser.add_argument('-e','--end', help='End date (MM/DD/YYYY)')
+    parser.add_argument('-s','--start', help='Start date (YYYYMMDD)')
+    parser.add_argument('-e','--end', help='End date (YYYYMMDD)')
     parser.add_argument('-l', '--log-level', default='INFO', help='Logging Level: INFO, WARN, ERROR, DEBUG')
     args = parser.parse_args()
     
@@ -39,8 +39,8 @@ def main():
 
     cur_dataset=args.dataset
 
-    start_date=datetime.strptime(args.start, '%m/%d/%Y')
-    end_date=datetime.strptime(args.end, '%m/%d/%Y')
+    start_date=datetime.strptime(args.start, '%Y%m%d')
+    end_date=datetime.strptime(args.end, '%Y%m%d')
 
     process_range(cur_dataset,start_date,end_date)
 
