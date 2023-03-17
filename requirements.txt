@@ -20,3 +20,6 @@ altair
 python-dotenv
 ipywidgets
 humanfriendly
+tqdm
+# AWS
+boto3
