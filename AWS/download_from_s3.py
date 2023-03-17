@@ -26,6 +26,14 @@ import boto3
 import botocore
 import tqdm
 
+# Maximum number of open HTTP(s) connections
+MAX_POOL_CONNECTIONS=50
+# Maximum S3 download threads
+MAX_WORKERS=32
+# Maximum number of retries for failed downloads
+MAX_RETRIES=3
+
+
 S3File = NamedTuple(
     "S3File",
     [
@@ -109,7 +117,6 @@ def download_files_threaded(bucket: str, client: boto3.client, s3_files, retry_a
     Files are written to folders based on the timestamp they were collected, not uploaded.
     Multi-threaded, TQDM progress output.
     '''
-    MAX_RETRIES=3
 
     # The client is shared between threads
     func = partial(download_one_file, bucket, client)
@@ -118,7 +125,7 @@ def download_files_threaded(bucket: str, client: boto3.client, s3_files, retry_a
     failed_downloads = []
 
     with tqdm.tqdm(desc="Downloading files from S3", total=len(s3_files)) as pbar:
-        with ThreadPoolExecutor(max_workers=32) as executor:
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             # Using a dict for preserving the downloaded file for each future, to store it as a failure if we need that
             futures = {
                 executor.submit(func, s3_file): s3_file for s3_file in s3_files
@@ -213,8 +220,8 @@ def main():
     parser.add_argument("--profile", help="AWS profile to use", required=True)
     parser.add_argument("-b", "--bucket", help="The S3 bucket", required=True)
     parser.add_argument("-p", "--prefix", help="S3 prefix within the bucket", required=True)
-    parser.add_argument("-s", "--start", help="Start date (MM/DD/YYYY HH)", required=True)
-    parser.add_argument("-e", "--end", help="End date (MM/DD/YYYY HH)", required=True)
+    parser.add_argument("-s", "--start", help="Start date (YYYYMMDD HH)", required=True)
+    parser.add_argument("-e", "--end", help="End date (YYYYMMDD HH)", required=True)
     parser.add_argument("-l", "--localpath", help="Local path to write files", required=True)
     parser.add_argument('--log-level', default='INFO', help='Logging Level: INFO, WARN, ERROR, DEBUG')
     args = parser.parse_args()
@@ -233,8 +240,8 @@ def main():
     # Top level is event types
     event_types = folders
 
-    start_date = datetime.strptime(args.start, "%m/%d/%Y %H")
-    end_date = datetime.strptime(args.end, "%m/%d/%Y %H")
+    start_date = datetime.strptime(args.start, "%Y%m%d %H")
+    end_date = datetime.strptime(args.end, "%Y%m%d %H")
 
     for event_type in event_types:
         logging.info(event_type.get("Prefix"))
