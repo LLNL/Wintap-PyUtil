@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>bincfg.normalization.builtin_normalizers &mdash; BinCFG 0.1.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> BinCFG
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.cfg.html">bincfg.cfg package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.utils.html">bincfg.utils package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.normalization.html">bincfg.normalization package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.labeling.html">bincfg.labeling package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">BinCFG</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">bincfg.normalization.builtin_normalizers</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for bincfg.normalization.builtin_normalizers</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">A bunch of builtin normalization methods based on literature.</span>
+
+<span class="sd">NOTE: some of these are slightly modified from their original papers either for code purposes, or because we are using</span>
+<span class="sd">decompiled binaries instead of compiled assembly and thus lose out on some information (EG: symbol information</span>
+<span class="sd">for jump instructions)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">.base_normalizer</span> <span class="kn">import</span> <span class="n">BaseNormalizer</span><span class="p">,</span> <span class="n">_Pickled_Normalizer</span>
+<span class="kn">from</span> <span class="nn">.tokenization_constants</span> <span class="kn">import</span> <span class="n">TokenizationLevel</span>
+<span class="kn">from</span> <span class="nn">.norm_utils</span> <span class="kn">import</span> <span class="n">return_immstr</span><span class="p">,</span> <span class="n">ignore</span><span class="p">,</span> <span class="n">replace_function_call_immediate</span><span class="p">,</span> <span class="n">replace_general_register</span><span class="p">,</span> \
+    <span class="n">replace_memory_expression</span><span class="p">,</span> <span class="n">threshold_immediate</span><span class="p">,</span> <span class="n">special_function_call</span><span class="p">,</span> <span class="n">memsize_value</span><span class="p">,</span> <span class="n">replace_jmpdst</span><span class="p">,</span> \
+    <span class="n">eq_special_funcs</span><span class="p">,</span> <span class="n">FUNCTION_CALL_STR</span><span class="p">,</span> <span class="n">IMMEDIATE_VALUE_STR</span><span class="p">,</span> <span class="n">MEMORY_EXPRESSION_STR</span><span class="p">,</span> <span class="n">DEFAULT_IMMEDIATE_THRESHOLD</span>
+<span class="kn">from</span> <span class="nn">..utils</span> <span class="kn">import</span> <span class="n">get_special_function_names</span>
+
+
+<div class="viewcode-block" id="get_normalizer"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.get_normalizer">[docs]</a><span class="k">def</span> <span class="nf">get_normalizer</span><span class="p">(</span><span class="n">normalizer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns the normalizer being used.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        normalizer (Union[str, Normalizer]): either a ``Normalizer`` object (IE: has a callable &#39;normalize&#39; function), </span>
+<span class="sd">            or a string name of a built-in normalizer to use</span>
+<span class="sd">            Accepted strings include: &#39;innereye&#39;, &#39;deepbindiff&#39;, &#39;safe&#39;, &#39;deepsem&#39;/&#39;deepsemantic&#39;, &#39;none&#39;/&#39;unnormalized&#39;</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: for unknown string name of normalizer</span>
+<span class="sd">        TypeError: if `normalizer` was not a string or ``Normalizer`` object</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Normalizer: a ``Normalizer`` object</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">normalizer</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">norm_str</span> <span class="o">=</span> <span class="n">normalizer</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">norm_str</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;_normalizer&quot;</span><span class="p">):</span>
+            <span class="n">norm_str</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">norm_str</span><span class="o">.</span><span class="n">rpartition</span><span class="p">(</span><span class="s2">&quot;_normalizer&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">norm_str</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;_norm&quot;</span><span class="p">):</span>
+            <span class="n">norm_str</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">norm_str</span><span class="o">.</span><span class="n">rpartition</span><span class="p">(</span><span class="s2">&quot;_norm&quot;</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">norm_str</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;innereye&#39;</span><span class="p">,</span> <span class="s1">&#39;inner&#39;</span><span class="p">,</span> <span class="s1">&#39;innereyenormalizer&#39;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">InnerEyeNormalizer</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">norm_str</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;deepbindiff&#39;</span><span class="p">,</span> <span class="s1">&#39;bindiff&#39;</span><span class="p">,</span> <span class="s1">&#39;deepbin&#39;</span><span class="p">,</span> <span class="s1">&#39;deepbindiffnormalizer&#39;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">DeepBinDiffNormalizer</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">norm_str</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;safe&#39;</span><span class="p">,</span> <span class="s1">&#39;safenormalizer&#39;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">SafeNormalizer</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">norm_str</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;deepsem&#39;</span><span class="p">,</span> <span class="s1">&#39;deepsemantic&#39;</span><span class="p">,</span> <span class="s1">&#39;semantic&#39;</span><span class="p">,</span> <span class="s1">&#39;deepsemanticnormalizer&#39;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">DeepSemanticNormalizer</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">norm_str</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span> <span class="s1">&#39;unnorm&#39;</span><span class="p">,</span> <span class="s1">&#39;unnormalized&#39;</span><span class="p">,</span> <span class="s1">&#39;base&#39;</span><span class="p">,</span> <span class="s1">&#39;basenormalizer&#39;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">BaseNormalizer</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">norm_str</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;compressed&#39;</span><span class="p">,</span> <span class="s1">&#39;stats&#39;</span><span class="p">,</span> <span class="s1">&#39;comp_stats&#39;</span><span class="p">,</span> <span class="s1">&#39;compressed_stats&#39;</span><span class="p">,</span> <span class="s1">&#39;statistics&#39;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">CompressedStatsNormalizer</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown normalization string: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">normalizer</span><span class="p">)</span>
+    
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">normalizer</span><span class="p">,</span> <span class="n">_Pickled_Normalizer</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">get_normalizer</span><span class="p">(</span><span class="n">normalizer</span><span class="o">.</span><span class="n">unpickle</span><span class="p">())</span>
+    
+    <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">normalizer</span><span class="p">,</span> <span class="s1">&#39;normalize&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">callable</span><span class="p">(</span><span class="n">normalizer</span><span class="o">.</span><span class="n">normalize</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">normalizer</span>
+    
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unknown normalizer type: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">normalizer</span><span class="p">)</span></div>
+
+        
+<div class="viewcode-block" id="InnerEyeNormalizer"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.InnerEyeNormalizer">[docs]</a><span class="k">class</span> <span class="nc">InnerEyeNormalizer</span><span class="p">(</span><span class="n">BaseNormalizer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A normalizer based on the Innereye method</span>
+
+<span class="sd">    :inherited-members: BaseNormalizer</span>
+<span class="sd">    </span>
+<span class="sd">    From the InnerEye paper: https://arxiv.org/pdf/1808.04706.pdf</span>
+
+<span class="sd">    Rules:</span>
+
+<span class="sd">        * Constant values are ignored and replaced with &#39;immval&#39; or &#39;-immval&#39; for negative values</span>
+<span class="sd">        * Function names are ignored and replaced with &#39;func&#39;</span>
+<span class="sd">        * Jump destinations are &#39;immval&#39;</span>
+<span class="sd">        * Registers are left as-is </span>
+<span class="sd">        * Doesn&#39;t say anything about memory sizes, so they are ignored</span>
+<span class="sd">        * Tokens are at the instruction-level</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">DEFAULT_TOKENIZATION_LEVEL</span> <span class="o">=</span> <span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">INSTRUCTION</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_immediate</span> <span class="o">=</span> <span class="n">return_immstr</span><span class="p">(</span><span class="n">include_negative</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_memory_size</span> <span class="o">=</span> <span class="n">ignore</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_function_call</span> <span class="o">=</span> <span class="n">replace_function_call_immediate</span><span class="p">(</span><span class="n">FUNCTION_CALL_STR</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span></div>
+        
+
+<div class="viewcode-block" id="DeepBinDiffNormalizer"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.DeepBinDiffNormalizer">[docs]</a><span class="k">class</span> <span class="nc">DeepBinDiffNormalizer</span><span class="p">(</span><span class="n">BaseNormalizer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A normalizer based on the Deep Bin Diff method</span>
+<span class="sd">    </span>
+<span class="sd">    From the DeepBinDiff paper: https://www.ndss-symposium.org/wp-content/uploads/2020/02/24311-paper.pdf</span>
+
+<span class="sd">    Rules:</span>
+
+<span class="sd">        * Constant values are ignored and replaced with &#39;immval&#39;</span>
+<span class="sd">        * General registers are renamed based on length, special ones are left as-is (with number information removed.</span>
+<span class="sd">            EG: st5 -&gt; st, rax -&gt; reg8, r14d -&gt; reg4, rip -&gt; rip, zmm13 -&gt; zmm)</span>
+<span class="sd">        * Memory expressions are replaced with &#39;memexpr&#39;</span>
+<span class="sd">        * Can&#39;t really tell what&#39;s supposed to be done with function calls, will just assume they should be &#39;call immval&#39;</span>
+<span class="sd">        * Jump destinations are &#39;immval&#39;</span>
+<span class="sd">        * Doesn&#39;t say anything about memory sizes, so they are ignored</span>
+<span class="sd">        * Tokens are at the op-level</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">DEFAULT_TOKENIZATION_LEVEL</span> <span class="o">=</span> <span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">OPCODE</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    
+    <span class="n">handle_immediate</span> <span class="o">=</span> <span class="n">return_immstr</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_memory_size</span> <span class="o">=</span> <span class="n">ignore</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_function_call</span> <span class="o">=</span> <span class="n">replace_function_call_immediate</span><span class="p">(</span><span class="n">IMMEDIATE_VALUE_STR</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_register</span> <span class="o">=</span> <span class="n">replace_general_register</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_memory_expression</span> <span class="o">=</span> <span class="n">replace_memory_expression</span><span class="p">(</span><span class="n">MEMORY_EXPRESSION_STR</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span></div>
+
+
+<div class="viewcode-block" id="SafeNormalizer"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.SafeNormalizer">[docs]</a><span class="k">class</span> <span class="nc">SafeNormalizer</span><span class="p">(</span><span class="n">BaseNormalizer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A normalizer based on the SAFE method</span>
+<span class="sd">    </span>
+<span class="sd">    From the SAFE paper: https://github.com/gadiluna/SAFE</span>
+
+<span class="sd">    Rules:</span>
+
+<span class="sd">        * All base memory addresses (IE: memory addresses that are constant values) are replaced with &#39;immval&#39;</span>
+<span class="sd">        * All immediate values greater than some threshold (safe_threshold parameter, they use 5000 in the</span>
+<span class="sd">          paper) are replaced with &#39;immval&#39;</span>
+<span class="sd">        * Function calls are replaced with &#39;self&#39; if a recursive call, &#39;innerfunc&#39; if the function is within</span>
+<span class="sd">          the binary, and &#39;externfunc&#39; if the function is external.</span>
+
+<span class="sd">          NOTE: this is different to how it is done in the SAFE paper (I believe they just keep the function names), </span>
+<span class="sd">          but I made the executive decision to change it for OOV problems, and changed it instead to how it is done </span>
+<span class="sd">          in the deepsemantic paper to try and give it the most information possible)</span>
+<span class="sd">        * Jump destinations are &#39;immval&#39;</span>
+<span class="sd">        * Doesn&#39;t say anything about memory sizes, so they are ignored</span>
+<span class="sd">        * Doesn&#39;t say anything about registers, so they are left as-is</span>
+<span class="sd">        * Tokens are at the instruction-level</span>
+
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    imm_threshold: `int`</span>
+<span class="sd">        immediate values whose absolute value is &lt;= imm_threshold will be left alone, those above it will be replaced </span>
+<span class="sd">        with the string &#39;immval&#39;</span>
+<span class="sd">    special_functions: `Optional[Set[str]]`</span>
+<span class="sd">        a set of special function names. All external functions whose name (ignoring the &#39;@plt&#39; at the end) is in this </span>
+<span class="sd">        set will have their name kept, otherwise they will be replaced with &#39;externfunc&#39;. If None, will attempt to load </span>
+<span class="sd">        the default special function names from :func:`bincfg.utils.cfg_utils.get_special_function_names`. If you do not</span>
+<span class="sd">        wish to use any special function names, then pass an empty set.</span>
+<span class="sd">    tokenizer: `Optional[Tokenizer]`</span>
+<span class="sd">        the tokenizer to use, or None to use the default BaseTokenizer</span>
+<span class="sd">    token_sep: `Optional[str]`</span>
+<span class="sd">        the string to use to separate each token in returned instruction lines. Only used if tokenization_level is </span>
+<span class="sd">        &#39;instruction&#39;. If None, then a default value will be used (&#39; &#39; for unnormalized using BaseNormalizer(), &#39;_&#39; </span>
+<span class="sd">        for everything else)</span>
+<span class="sd">    tokenization_level: `Optional[Union[TokenizationLevel, str]]`</span>
+<span class="sd">        the tokenization level to use for return values. Can be a string, or a ``TokenizationLevel`` type. Strings can be:</span>
+
+<span class="sd">            - &#39;op&#39;: tokenized at the opcode/operand level. Will insert a &#39;INSTRUCTION_START&#39; token at the beginning of</span>
+<span class="sd">              each instruction line</span>
+<span class="sd">            - &#39;inst&#39;/&#39;instruction&#39;: tokenized at the instruction level. All tokens in each instruction line are joined</span>
+<span class="sd">              together using token_sep to construct the final token</span>
+<span class="sd">            - &#39;auto&#39;: pick the default value for this normalization technique</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">DEFAULT_TOKENIZATION_LEVEL</span> <span class="o">=</span> <span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">INSTRUCTION</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">imm_threshold</span><span class="o">=</span><span class="n">DEFAULT_IMMEDIATE_THRESHOLD</span><span class="p">,</span> <span class="n">special_functions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tokenizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">token_sep</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+        <span class="n">tokenization_level</span><span class="o">=</span><span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">AUTO</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">imm_threshold</span> <span class="o">=</span> <span class="n">imm_threshold</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">special_functions</span> <span class="o">=</span> <span class="n">get_special_function_names</span><span class="p">()</span> <span class="k">if</span> <span class="n">special_functions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">special_functions</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span> <span class="n">token_sep</span><span class="o">=</span><span class="n">token_sep</span><span class="p">,</span> <span class="n">tokenization_level</span><span class="o">=</span><span class="n">tokenization_level</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">handle_immediate</span> <span class="o">=</span> <span class="n">threshold_immediate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">imm_threshold</span><span class="p">)</span>
+
+    <span class="n">handle_memory_size</span> <span class="o">=</span> <span class="n">ignore</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_function_call</span> <span class="o">=</span> <span class="n">special_function_call</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+        
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">and</span> <span class="n">other</span><span class="o">.</span><span class="n">imm_threshold</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">imm_threshold</span> <span class="ow">and</span> <span class="n">eq_special_funcs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">special_functions</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">special_functions</span><span class="p">)</span></div>
+    
+
+<div class="viewcode-block" id="DeepSemanticNormalizer"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.DeepSemanticNormalizer">[docs]</a><span class="k">class</span> <span class="nc">DeepSemanticNormalizer</span><span class="p">(</span><span class="n">BaseNormalizer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A normalizer based on the Deepsemantic method</span>
+<span class="sd">    </span>
+<span class="sd">    from the DeepSemantic paper:</span>
+<span class="sd">    https://arxiv.org/abs/2106.05478</span>
+
+<span class="sd">    Rules:</span>
+
+<span class="sd">        * Immediates can fall into multiple categories:</span>
+<span class="sd">            a. Function calls:</span>
+<span class="sd">                - libc function name(): &quot;libc[name]&quot; (not used)</span>
+<span class="sd">                - recursive call: &#39;self&#39;</span>
+<span class="sd">                - function within the binary: &#39;innerfunc&#39;</span>
+<span class="sd">                - function outside the binary: &#39;externfunc&#39;</span>
+<span class="sd">            b. Jump (branching) family: &quot;jmpdst&quot;</span>
+<span class="sd">            c. Reference: (NOTE: This is not done as I don&#39;t know how to do it with ROSE...)</span>
+<span class="sd">                - String literal: &#39;str&#39;</span>
+<span class="sd">                - Statically allocated variable: &quot;dispbss&quot;</span>
+<span class="sd">                - Data (data other than a string): &quot;dispdata&quot;</span>
+<span class="sd">            d. Default (all other immediate values): &quot;immval&quot;</span>
+
+<span class="sd">        * Registers can fall into multiple categories:</span>
+<span class="sd">            a. Stack/Base/Instruction pointer: Keep track of type and size</span>
+<span class="sd">                [e|r]*[b|s|i]p[l]*  -&gt;  [s|b|i]p[1|2|4|8]</span>
+<span class="sd">            b. Special purpose (IE: flags): Keep track of type</span>
+<span class="sd">                cr[0-15], dr[0-15], st([0-7]), [c|d|e|f|g|s]s  -&gt;  reg[cr|dr|st], reg[c|d|e|f|s]s</span>
+<span class="sd">            c. AVX registers: Keep track of type</span>
+<span class="sd">                [x|y|z]*mm[0-7|0-31]  -&gt;  reg[x|y|z]*mm</span>
+<span class="sd">            d. General purpose registers: Keep track of size</span>
+<span class="sd">                [e|r]*[a|b|c|d|si|di][x|l|h]*, r[8-15][b|w|d]*  -&gt;  reg[1|2|4|8]</span>
+<span class="sd">        </span>
+<span class="sd">        * Pointers can fall into multiple categories:</span>
+<span class="sd">            a. Direct, small: keep track of size</span>
+<span class="sd">                byte,word,dword,qword,ptr  -&gt;  memptr[1|2|4|8]</span>
+<span class="sd">            b. Direct, large: keep track of size</span>
+<span class="sd">                tbyte,xword,[x|y|z]mmword  -&gt;  memptr[10|16|32|64]</span>
+<span class="sd">            c. Indirect, string: </span>
+<span class="sd">                [base+index*scale+displacement]  -&gt;  [base+index*scale+dispstr]</span>
+<span class="sd">            d. Indirect, not string:</span>
+<span class="sd">                [base+index*scale+displacement]  -&gt;  [base+index*scale+disp]</span>
+<span class="sd">        </span>
+<span class="sd">        * Tokenized at instruction-level</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    special_functions: `Optional[Set[str]]`</span>
+<span class="sd">        a set of special function names. All external functions whose name (ignoring the &#39;@plt&#39; at the end) is in this </span>
+<span class="sd">        set will have their name kept, otherwise they will be replaced with &#39;externfunc&#39;. If None, will attempt to load </span>
+<span class="sd">        the default special function names from :func:`bincfg.utils.cfg_utils.get_special_function_names`. If you do not</span>
+<span class="sd">        wish to use any special function names, then pass an empty set.</span>
+<span class="sd">    tokenizer: `Optional[Tokenizer]`</span>
+<span class="sd">        the tokenizer to use, or None to use the default BaseTokenizer</span>
+<span class="sd">    token_sep: `Optional[str]`</span>
+<span class="sd">        the string to use to separate each token in returned instruction lines. Only used if tokenization_level is </span>
+<span class="sd">        &#39;instruction&#39;. If None, then a default value will be used (&#39; &#39; for unnormalized using BaseNormalizer(), &#39;_&#39; </span>
+<span class="sd">        for everything else)</span>
+<span class="sd">    tokenization_level: `Optional[Union[TokenizationLevel, str]]`</span>
+<span class="sd">        the tokenization level to use for return values. Can be a string, or a ``TokenizationLevel`` type. Strings can be:</span>
+
+<span class="sd">            - &#39;op&#39;: tokenized at the opcode/operand level. Will insert a &#39;INSTRUCTION_START&#39; token at the beginning of</span>
+<span class="sd">              each instruction line</span>
+<span class="sd">            - &#39;inst&#39;/&#39;instruction&#39;: tokenized at the instruction level. All tokens in each instruction line are joined</span>
+<span class="sd">              together using token_sep to construct the final token</span>
+<span class="sd">            - &#39;auto&#39;: pick the default value for this normalization technique</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">DEFAULT_TOKENIZATION_LEVEL</span> <span class="o">=</span> <span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">INSTRUCTION</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">special_functions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tokenizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">token_sep</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tokenization_level</span><span class="o">=</span><span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">AUTO</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">special_functions</span> <span class="o">=</span> <span class="n">get_special_function_names</span><span class="p">()</span> <span class="k">if</span> <span class="n">special_functions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">special_functions</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span> <span class="n">token_sep</span><span class="o">=</span><span class="n">token_sep</span><span class="p">,</span> <span class="n">tokenization_level</span><span class="o">=</span><span class="n">tokenization_level</span><span class="p">)</span>
+    
+    <span class="n">handle_register</span> <span class="o">=</span> <span class="n">replace_general_register</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_immediate</span> <span class="o">=</span> <span class="n">return_immstr</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_memory_size</span> <span class="o">=</span> <span class="n">memsize_value</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_function_call</span> <span class="o">=</span> <span class="n">special_function_call</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_jump</span> <span class="o">=</span> <span class="n">replace_jmpdst</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+        
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">and</span> <span class="n">eq_special_funcs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">special_functions</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">special_functions</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MyNormalizer"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.MyNormalizer">[docs]</a><span class="k">class</span> <span class="nc">MyNormalizer</span><span class="p">(</span><span class="n">BaseNormalizer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A normalizer I created. Combines safe, deepsem, and deepbindiff methods, also uses opcode tokenization</span>
+
+<span class="sd">    Rules:</span>
+
+<span class="sd">        * Immediates are handled the same as in safe</span>
+<span class="sd">        * function calls are handled the same as deepsemantic</span>
+<span class="sd">        * jump destinations are &#39;jmpdst&#39;</span>
+<span class="sd">        * registers are handled the same as deepsem/deepbindiff</span>
+<span class="sd">        * memory pointers/memory expressions are handled the same as in deepsemantic</span>
+<span class="sd">        * Tokenized at the opcode-level</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    imm_threshold: `int`</span>
+<span class="sd">        immediate values whose absolute value is &lt;= imm_threshold will be left alone, those above it will be replaced </span>
+<span class="sd">        with the string &#39;immval&#39;</span>
+<span class="sd">    special_functions: `Optional[Set[str]]`</span>
+<span class="sd">        a set of special function names. All external functions whose name (ignoring the &#39;@plt&#39; at the end) is in this </span>
+<span class="sd">        set will have their name kept, otherwise they will be replaced with &#39;externfunc&#39;. If None, will attempt to load </span>
+<span class="sd">        the default special function names from :func:`bincfg.utils.cfg_utils.get_special_function_names`. If you do not</span>
+<span class="sd">        wish to use any special function names, then pass an empty set.</span>
+<span class="sd">    tokenizer: `Optional[Tokenizer]`</span>
+<span class="sd">        the tokenizer to use, or None to use the default BaseTokenizer</span>
+<span class="sd">    token_sep: `Optional[str]`</span>
+<span class="sd">        the string to use to separate each token in returned instruction lines. Only used if tokenization_level is </span>
+<span class="sd">        &#39;instruction&#39;. If None, then a default value will be used (&#39; &#39; for unnormalized using BaseNormalizer(), &#39;_&#39; </span>
+<span class="sd">        for everything else)</span>
+<span class="sd">    tokenization_level: `Optional[Union[TokenizationLevel, str]]`</span>
+<span class="sd">        the tokenization level to use for return values. Can be a string, or a ``TokenizationLevel`` type. Strings can be:</span>
+
+<span class="sd">            - &#39;op&#39;: tokenized at the opcode/operand level. Will insert a &#39;INSTRUCTION_START&#39; token at the beginning of</span>
+<span class="sd">              each instruction line</span>
+<span class="sd">            - &#39;inst&#39;/&#39;instruction&#39;: tokenized at the instruction level. All tokens in each instruction line are joined</span>
+<span class="sd">              together using token_sep to construct the final token</span>
+<span class="sd">            - &#39;auto&#39;: pick the default value for this normalization technique</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">DEFAULT_TOKENIZATION_LEVEL</span> <span class="o">=</span> <span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">OPCODE</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">imm_threshold</span><span class="o">=</span><span class="n">DEFAULT_IMMEDIATE_THRESHOLD</span><span class="p">,</span> <span class="n">special_functions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tokenizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">token_sep</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+        <span class="n">tokenization_level</span><span class="o">=</span><span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">AUTO</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">imm_threshold</span> <span class="o">=</span> <span class="n">imm_threshold</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">special_functions</span> <span class="o">=</span> <span class="n">get_special_function_names</span><span class="p">()</span> <span class="k">if</span> <span class="n">special_functions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">special_functions</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span> <span class="n">token_sep</span><span class="o">=</span><span class="n">token_sep</span><span class="p">,</span> <span class="n">tokenization_level</span><span class="o">=</span><span class="n">tokenization_level</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">handle_immediate</span> <span class="o">=</span> <span class="n">threshold_immediate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">imm_threshold</span><span class="p">)</span>
+            
+    <span class="n">handle_register</span> <span class="o">=</span> <span class="n">replace_general_register</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_jump</span> <span class="o">=</span> <span class="n">replace_jmpdst</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_memory_size</span> <span class="o">=</span> <span class="n">memsize_value</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_function_call</span> <span class="o">=</span> <span class="n">special_function_call</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+        
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">and</span> <span class="n">other</span><span class="o">.</span><span class="n">imm_threshold</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">imm_threshold</span> <span class="ow">and</span> <span class="n">eq_special_funcs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">special_functions</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">special_functions</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CompressedStatsNormalizer"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.CompressedStatsNormalizer">[docs]</a><span class="k">class</span> <span class="nc">CompressedStatsNormalizer</span><span class="p">(</span><span class="n">BaseNormalizer</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A normalizer I created for use in CFG.get_compressed_stats()</span>
+
+<span class="sd">    Rules:</span>
+
+<span class="sd">        * Immediates are treated like in safe, but with a much lower default threshold</span>
+<span class="sd">        * function calls are either self vs. intern vs. extern func, no special functions</span>
+<span class="sd">        * jump destinations are &#39;jmpdst&#39;</span>
+<span class="sd">        * registers are handled the same as deepsem/deepbindiff</span>
+<span class="sd">        * memory pointers/memory expressions are handled the same as in deepsemantic</span>
+<span class="sd">        * Tokenized at the instruction-level</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    imm_threshold: `int`</span>
+<span class="sd">        immediate values whose absolute value is &lt;= imm_threshold will be left alone, those above it will be replaced </span>
+<span class="sd">        with the string &#39;immval&#39;. Defaults to a small value</span>
+<span class="sd">    special_functions: `Optional[Set[str]]`</span>
+<span class="sd">        a set of special function names. All external functions whose name (ignoring the &#39;@plt&#39; at the end) is in this </span>
+<span class="sd">        set will have their name kept, otherwise they will be replaced with &#39;externfunc&#39;. If None, this will default to</span>
+<span class="sd">        not using any special functions</span>
+<span class="sd">    tokenizer: `Optional[Tokenizer]`</span>
+<span class="sd">        the tokenizer to use, or None to use the default BaseTokenizer</span>
+<span class="sd">    token_sep: `Optional[str]`</span>
+<span class="sd">        the string to use to separate each token in returned instruction lines. Only used if tokenization_level is </span>
+<span class="sd">        &#39;instruction&#39;. If None, then a default value will be used (&#39; &#39; for unnormalized using BaseNormalizer(), &#39;_&#39; </span>
+<span class="sd">        for everything else)</span>
+<span class="sd">    tokenization_level: `Optional[Union[TokenizationLevel, str]]`</span>
+<span class="sd">        the tokenization level to use for return values. Can be a string, or a ``TokenizationLevel`` type. Strings can be:</span>
+
+<span class="sd">            - &#39;op&#39;: tokenized at the opcode/operand level. Will insert a &#39;INSTRUCTION_START&#39; token at the beginning of</span>
+<span class="sd">              each instruction line</span>
+<span class="sd">            - &#39;inst&#39;/&#39;instruction&#39;: tokenized at the instruction level. All tokens in each instruction line are joined</span>
+<span class="sd">              together using token_sep to construct the final token</span>
+<span class="sd">            - &#39;auto&#39;: pick the default value for this normalization technique</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">DEFAULT_TOKENIZATION_LEVEL</span> <span class="o">=</span> <span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">INSTRUCTION</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">special_functions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tokenizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">token_sep</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+        <span class="n">tokenization_level</span><span class="o">=</span><span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">AUTO</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">special_functions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span> <span class="k">if</span> <span class="n">special_functions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">special_functions</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span> <span class="n">token_sep</span><span class="o">=</span><span class="n">token_sep</span><span class="p">,</span> <span class="n">tokenization_level</span><span class="o">=</span><span class="n">tokenization_level</span><span class="p">)</span>
+            
+    <span class="n">handle_register</span> <span class="o">=</span> <span class="n">replace_general_register</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_jump</span> <span class="o">=</span> <span class="n">replace_jmpdst</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_memory_size</span> <span class="o">=</span> <span class="n">memsize_value</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_function_call</span> <span class="o">=</span> <span class="n">special_function_call</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
+    <span class="n">handle_immediate</span> <span class="o">=</span> <span class="n">return_immstr</span><span class="p">(</span><span class="n">include_negative</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Justin Allen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

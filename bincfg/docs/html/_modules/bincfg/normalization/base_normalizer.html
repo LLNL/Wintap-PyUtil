@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>bincfg.normalization.base_normalizer &mdash; BinCFG 0.1.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> BinCFG
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.cfg.html">bincfg.cfg package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.utils.html">bincfg.utils package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.normalization.html">bincfg.normalization package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.labeling.html">bincfg.labeling package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">BinCFG</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">bincfg.normalization.base_normalizer</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for bincfg.normalization.base_normalizer</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Classes for normalizing assembly instructions.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">hashlib</span>
+<span class="kn">from</span> <span class="nn">types</span> <span class="kn">import</span> <span class="n">MethodType</span>
+<span class="kn">from</span> <span class="nn">.norm_utils</span> <span class="kn">import</span> <span class="n">imm_to_int</span><span class="p">,</span> <span class="n">clean_nop</span><span class="p">,</span> <span class="n">FAR_JUMP_SEGMENT_STR</span><span class="p">,</span> <span class="n">MEM_EXPR_TOKEN_MAPPING</span><span class="p">,</span> <span class="n">RE_MEM_EXPR_MATCH</span><span class="p">,</span> \
+    <span class="n">IMMEDIATE_VALUE_STR</span><span class="p">,</span> <span class="n">RE_ALL_DIGITS</span>
+<span class="kn">from</span> <span class="nn">..utils</span> <span class="kn">import</span> <span class="n">get_module</span><span class="p">,</span> <span class="n">eq_obj</span>
+<span class="kn">from</span> <span class="nn">.tokenization_constants</span> <span class="kn">import</span> <span class="n">TokenMismatchError</span><span class="p">,</span> <span class="n">Tokens</span><span class="p">,</span> <span class="n">INSTRUCTION_START_TOKEN</span><span class="p">,</span> <span class="n">TokenizationLevel</span>
+<span class="kn">from</span> <span class="nn">.base_tokenizer</span> <span class="kn">import</span> <span class="n">DEFAULT_TOKENIZER</span>
+
+
+<div class="viewcode-block" id="MetaNorm"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.MetaNorm">[docs]</a><span class="k">class</span> <span class="nc">MetaNorm</span><span class="p">(</span><span class="nb">type</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A metaclass for BaseNormalizer. </span>
+
+<span class="sd">    The Problem:</span>
+<span class="sd">        If you change instance functions within the __init__ method (EG: see the SAFE _handle_immediate() function</span>
+<span class="sd">        being changed in __init__), then &#39;self&#39; will not automatically be passed to those functions.</span>
+
+<span class="sd">        NOTE: this is specifically useful when the effect of a normalization method depends on parameters sent to</span>
+<span class="sd">        the instance, not inherent to the class</span>
+
+<span class="sd">        NOTE: this is not the case for any functions that are set during class initialization (EG: outside of the</span>
+<span class="sd">        __init__() block)</span>
+
+<span class="sd">        So, any functions changed within __init__ methods must be altered to also pass &#39;self&#39;. I ~could~ force the</span>
+<span class="sd">        users to have to call a &#39;__post_init__()&#39; function or something, but can we count on them (IE: myself) to</span>
+<span class="sd">        always do that?...</span>
+
+<span class="sd">    The Solution:</span>
+<span class="sd">        This metaclass inserts extra code before and after any normalizer&#39;s __init__ method is called. That code keeps</span>
+<span class="sd">        track of all instance functions before intitialization, and checks to see if any of them change after</span>
+<span class="sd">        initialization. This means someone re-set a function within __init__ (IE: self._handle_immediate = ...).</span>
+<span class="sd">        When this happens, &#39;self&#39; will not automatically be passed when that function is called. These functions</span>
+<span class="sd">        are then wrapped to also automatically pass &#39;self&#39;.</span>
+
+<span class="sd">        NOTE: to determine if a function changes, we just check equality between previous and new functions using</span>
+<span class="sd">        getattr(self, func_name). I don&#39;t know why basic &#39;==&#39; works but &#39;is&#39; and checking id&#39;s do not, but I&#39;m not </span>
+<span class="sd">        going to question it...</span>
+
+<span class="sd">        NOTE: We also have to keep track of the instance functions as an instance variable in case a parent class needs</span>
+<span class="sd">        their function updated, or if a child class also changes a parent class&#39;s function in init</span>
+
+<span class="sd">    NOTE: this will mean you cannot call all of that class&#39;s methods and expect them to always be the same as calling</span>
+<span class="sd">    instance methods if you change functions in __init__</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">bases</span><span class="p">,</span> <span class="n">dct</span><span class="p">):</span>
+        <span class="n">ret_cls</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">bases</span><span class="p">,</span> <span class="n">dct</span><span class="p">)</span>  <span class="c1"># Create a new class object (not instance)</span>
+
+        <span class="n">old_init</span> <span class="o">=</span> <span class="n">ret_cls</span><span class="o">.</span><span class="fm">__init__</span>  <span class="c1"># Save this class&#39;s __init__ function to call later</span>
+        <span class="k">def</span> <span class="nf">insert_post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="sd">&quot;&quot;&quot;Create the new __init__ function, inserting code before and after the old __init__&quot;&quot;&quot;</span>
+            <span class="c1"># Keep track of all of this instance&#39;s functions. Need to do this as an instance variable in case a parent</span>
+            <span class="c1">#   class changed things in init so it&#39;s not wrapped twice in the child class. Also keep track of which</span>
+            <span class="c1">#   stack frame needs to remove the __instance_funcs__ attribute</span>
+            <span class="n">remove_instance_funcs</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;__instance_funcs__&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">__instance_funcs__</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__instance_funcs__</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;__&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">callable</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">))}</span>
+                <span class="n">remove_instance_funcs</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="c1"># Call the old __init__ function</span>
+            <span class="n">old_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+            <span class="c1"># Check if any of the functions before are no longer equal. If so, assume we need to change these functions</span>
+            <span class="c1">#   to pass self. I don&#39;t know why basic &#39;==&#39; works but &#39;is&#39; and checking id&#39;s do not, but I&#39;m not going to</span>
+            <span class="c1">#   question it...</span>
+            <span class="n">new_instance_funcs</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__instance_funcs__</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">__instance_funcs__</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">!=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">)}</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">new_instance_funcs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="c1"># Check to make sure v is not already a bound method of self. This can happen if the user sets a method</span>
+                <span class="c1">#   of self to another previously bound method of self while in __init__</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">MethodType</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span> <span class="o">==</span> <span class="n">v</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">MethodType</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="bp">self</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__instance_funcs__</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>  <span class="c1"># Update the instance funcs with the new function</span>
+            
+            <span class="k">if</span> <span class="n">remove_instance_funcs</span><span class="p">:</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">__instance_funcs__</span>
+        
+        <span class="n">ret_cls</span><span class="o">.</span><span class="fm">__init__</span> <span class="o">=</span> <span class="n">insert_post</span>  <span class="c1"># Set this class&#39;s __init__ function to be the new one</span>
+        <span class="k">return</span> <span class="n">ret_cls</span></div>
+
+
+<div class="viewcode-block" id="BaseNormalizer"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer">[docs]</a><span class="k">class</span> <span class="nc">BaseNormalizer</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">MetaNorm</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A base class for a normalization method. </span>
+<span class="sd">    </span>
+<span class="sd">    Performs an &#39;unnormalized&#39; normalization, removing what is likely extraneous information, and providing a base class</span>
+<span class="sd">    for other normalization methods to inherit from.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    tokenizer: `Optional[Tokenizer]`</span>
+<span class="sd">        the tokenizer to use, or None to use the default BaseTokenizer</span>
+<span class="sd">    token_sep: `Optional[str]`</span>
+<span class="sd">        the string to use to separate each token in returned instruction lines. Only used if tokenization_level is </span>
+<span class="sd">        &#39;instruction&#39;. If None, then a default value will be used (&#39; &#39; for unnormalized using BaseNormalizer(), &#39;_&#39; </span>
+<span class="sd">        for everything else)</span>
+<span class="sd">    tokenization_level: `Optional[Union[TokenizationLevel, str]]`</span>
+<span class="sd">        the tokenization level to use for return values. Can be a string, or a ``TokenizationLevel`` type. Strings can be:</span>
+
+<span class="sd">            - &#39;op&#39;: tokenized at the opcode/operand level. Will insert a &#39;INSTRUCTION_START&#39; token at the beginning of</span>
+<span class="sd">              each instruction line</span>
+<span class="sd">            - &#39;inst&#39;/&#39;instruction&#39;: tokenized at the instruction level. All tokens in each instruction line are joined</span>
+<span class="sd">              together using token_sep to construct the final token</span>
+<span class="sd">            - &#39;auto&#39;: pick the default value for this normalization technique</span>
+<span class="sd">    anonymize_tokens: `bool`</span>
+<span class="sd">        if True, then tokens will be annonymized by taking their 4-byte shake_128 hash. Why does this exist? Bureaucracy.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">DEFAULT_TOKENIZATION_LEVEL</span> <span class="o">=</span> <span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">INSTRUCTION</span>
+    <span class="sd">&quot;&quot;&quot;The default tokenization level used for this normalizer&quot;&quot;&quot;</span>
+
+    <span class="n">__requires_dill__</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># These normalizers require dill to be pickled</span>
+
+    <span class="n">tokenizer</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;The tokenizer used for this normalizer&quot;&quot;&quot;</span>
+
+    <span class="n">token_sep</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;The separator string used for this normalizer</span>
+<span class="sd">    </span>
+<span class="sd">    Will default to &#39; &#39; for ``BaseNormalizer``, and &#39;_&#39; for all other normalizers.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">tokenization_level</span><span class="p">:</span> <span class="n">TokenizationLevel</span>
+    <span class="sd">&quot;&quot;&quot;The tokenization level to use for this normalizer&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokenizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">token_sep</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tokenization_level</span><span class="o">=</span><span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">AUTO</span><span class="p">,</span> <span class="n">anonymize_tokens</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">DEFAULT_TOKENIZER</span> <span class="k">if</span> <span class="n">tokenizer</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">tokenizer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">token_sep</span> <span class="o">=</span> <span class="n">token_sep</span> <span class="k">if</span> <span class="n">token_sep</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s1">&#39; &#39;</span> <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">==</span> <span class="n">BaseNormalizer</span> <span class="k">else</span> <span class="s1">&#39;_&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tokenization_level</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_tokenization_level</span><span class="p">(</span><span class="n">tokenization_level</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">anonymize_tokens</span> <span class="o">=</span> <span class="n">anonymize_tokens</span>
+
+        <span class="c1"># Need to make sure function calls will not have future overides ignored, so we have to make a lambda function here</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">opcode_handlers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_opcode_handler</span><span class="p">(</span><span class="s1">&#39;nop&#39;</span><span class="p">,</span> <span class="n">clean_nop</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_opcode_handler</span><span class="p">(</span><span class="s1">&#39;call&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_function_call</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_opcode_handler</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;j.*&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_jump</span><span class="p">)</span>
+    
+<div class="viewcode-block" id="BaseNormalizer.register_opcode_handler"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.register_opcode_handler">[docs]</a>    <span class="k">def</span> <span class="nf">register_opcode_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op_regex</span><span class="p">,</span> <span class="n">func_or_str_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Registers an opcode handler for this normalizer</span>
+
+<span class="sd">        Adds the given `op_regex` as an opcode to handle during self._handle_instruction() along with the given function</span>
+<span class="sd">        to call with token/cfg arguments. `op_regex` can be either a compiled regex expression, or a string which</span>
+<span class="sd">        will be compiled into a regex expression. `func_or_str_name` can either be a callable, or a string. If it&#39;s</span>
+<span class="sd">        a string, then that attribute will be looked up on this normalizer dynamically to find the function to use.</span>
+
+<span class="sd">        Notes for registering opcode handlers:</span>
+
+<span class="sd">            1. passing instance method functions converts them to strings automatically</span>
+<span class="sd">            2. passing lambda&#39;s or inner functions (not at global scope) would not be able to be pickled</span>
+<span class="sd">            3. opcodes will be matched in order starting with &#39;nop&#39;, &#39;call&#39;, and &#39;j.*&#39;, then all in order of those </span>
+<span class="sd">               passed to `register_opcode_handler()`</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            op_regex (Union[str, Pattern]): a string or compiled regex</span>
+<span class="sd">            func_or_str_name (Union[Callable, str]): the function to call with token/cfg arguments when an opcode </span>
+<span class="sd">                matches op_regex, or a string name of a callable attribute of this normalizer to be looked up dynamically</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            TypeError: Bad `func_or_str_name` type</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">op_regex</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">op_regex</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op_regex</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">op_regex</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">func_or_str_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="c1"># Check it is callable</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">callable</span><span class="p">(</span><span class="n">func_or_str_name</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;fun_or_str_name must be str or callable, not &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="n">func_or_str_name</span><span class="p">))</span>
+
+            <span class="c1"># Check if the passed function is an instance method of this normalization method class specifically</span>
+            <span class="c1"># Have to check if func_or_str_name has a __name__ attribute first since they could sometimes be _LOF classes</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">func_or_str_name</span><span class="p">,</span> <span class="s1">&#39;__name__&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">,</span> <span class="n">func_or_str_name</span><span class="o">.</span><span class="vm">__name__</span><span class="p">):</span>
+                <span class="n">func_or_str_name</span> <span class="o">=</span> <span class="n">func_or_str_name</span><span class="o">.</span><span class="vm">__name__</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">opcode_handlers</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">op_regex</span><span class="p">,</span> <span class="n">func_or_str_name</span><span class="p">))</span></div>
+    
+    <span class="k">def</span> <span class="nf">_parse_tokenization_level</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokenization_level</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the TokenizationLevel enum based on the given tokenization_level.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            tokenization_level (Union[TokenizationLevel, str]): either a string tokenization level, or a class from the </span>
+<span class="sd">                TokenizationLevels enum</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: Bad string argument</span>
+<span class="sd">            TypeError: Bad `tokenization_level` type</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            TokenizationLevel: a class from the ``TokenizationLevels`` enum</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tokenization_level</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">tl</span> <span class="o">=</span> <span class="n">tokenization_level</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="s1">&#39;_&#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">TokenizationLevel</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">tl</span> <span class="ow">in</span> <span class="n">l</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+                    <span class="n">ret</span> <span class="o">=</span> <span class="n">l</span>
+                    <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown tokenization_level string: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">tokenization_level</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tokenization_level</span><span class="p">,</span> <span class="n">TokenizationLevel</span><span class="p">):</span>
+            <span class="n">ret</span> <span class="o">=</span> <span class="n">tokenization_level</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unknown tokenization_level type: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="n">tokenization_level</span><span class="p">))</span>
+        
+        <span class="c1"># Check for auto</span>
+        <span class="k">if</span> <span class="n">ret</span> <span class="ow">is</span> <span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">AUTO</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">DEFAULT_TOKENIZATION_LEVEL</span>
+        
+        <span class="k">return</span> <span class="n">ret</span>
+    
+<div class="viewcode-block" id="BaseNormalizer.tokenize"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.tokenize">[docs]</a>    <span class="k">def</span> <span class="nf">tokenize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">strings</span><span class="p">,</span> <span class="n">enforce_asm_rules</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">newline_tup</span><span class="o">=</span><span class="n">DEFAULT_TOKENIZER</span><span class="o">.</span><span class="n">DEFAULT_NEWLINE_TUPLE</span><span class="p">,</span>
+                 <span class="n">match_instruction_address</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Tokenizes the given strings using this normalizer&#39;s tokenizer</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            strings (str): arbitrary length list of strings to tokenize</span>
+<span class="sd">            enforce_asm_rules (Optional[bool]): if True, then extra processing and checks will be done to make sure the </span>
+<span class="sd">                tokenized assembly language matches the rules of assembly. See self.check_assembly_rules() for more info. </span>
+<span class="sd">                If False, these checks aren&#39;t done and bad assembly could make its way through without error, but should </span>
+<span class="sd">                be noticeably faster. If None, will use the default value. The default value starts as False at the</span>
+<span class="sd">                beginning of program execution but can be modified using </span>
+<span class="sd">                :func:`~bincfg.normalization.base_tokenizer._set_default_enforce_asm_rules`</span>
+<span class="sd">            newline_tup (Tuple[str, str], optional): the tuple to insert inbetween each passed string, or None to not </span>
+<span class="sd">                insert anything. Defaults to DEFAULT_TOKENIZER.DEFAULT_NEWLINE_TUPLE.</span>
+<span class="sd">            match_instruction_address (bool, optional): if True, will assume there will be an instruction address at the </span>
+<span class="sd">                start of the string. This only has an effect on ghidra-like instruction addresses where that address </span>
+<span class="sd">                could be interpreted as either an immediate, or an instruction address. If True, then any immediates </span>
+<span class="sd">                found at the start of a line will be assumed to be instruction addresses instead of immediates. If False,</span>
+<span class="sd">                then instruction addresses can still be matched, but they must end with a colon &#39;:&#39;, otherwise they will </span>
+<span class="sd">                be considered immediates. Defaults to True.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            TokenMismatchError: on a bad branch prediction string</span>
+
+<span class="sd">        Yields:</span>
+<span class="sd">            Tuple[str, str]: (token_name, token) tuples</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer</span><span class="p">(</span><span class="o">*</span><span class="n">strings</span><span class="p">,</span> <span class="n">enforce_asm_rules</span><span class="o">=</span><span class="n">enforce_asm_rules</span><span class="p">,</span> <span class="n">newline_tup</span><span class="o">=</span><span class="n">newline_tup</span><span class="p">,</span> 
+                              <span class="n">match_instruction_address</span><span class="o">=</span><span class="n">match_instruction_address</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BaseNormalizer.normalize"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">strings</span><span class="p">,</span> <span class="n">cfg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">enforce_asm_rules</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                  <span class="n">newline_tup</span><span class="o">=</span><span class="n">DEFAULT_TOKENIZER</span><span class="o">.</span><span class="n">DEFAULT_NEWLINE_TUPLE</span><span class="p">,</span> <span class="n">match_instruction_address</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Normalizes the given iterable of strings.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            strings (str): arbitrary number of strings to normalize</span>
+<span class="sd">            cfg (Union[CFG, MemCFG], optional): either a ``CFG`` or ``MemCFG`` object that these lines occur </span>
+<span class="sd">                in. Used for determining function calls to self, internal functions, and external functions. If not </span>
+<span class="sd">                passed, then these will not be used. Defaults to None.</span>
+<span class="sd">            block (Union[CFGBasicBlock, int], optional): either a ``CFGBasicBlock`` or integer block_idx in a ``MemCFG``</span>
+<span class="sd">                object. Used for determining function calls to self, internal functions, and external functions. If not </span>
+<span class="sd">                passed, then these will not be used. Defaults to None.</span>
+<span class="sd">            enforce_asm_rules (Optional[bool]): if True, then extra processing and checks will be done to make sure the </span>
+<span class="sd">                tokenized assembly language matches the rules of assembly. See self.check_assembly_rules() for more info. </span>
+<span class="sd">                If False, these checks aren&#39;t done and bad assembly could make its way through without error, but should </span>
+<span class="sd">                be noticeably faster. If None, will use the default value. The default value starts as False at the</span>
+<span class="sd">                beginning of program execution but can be modified using </span>
+<span class="sd">                :func:`~bincfg.normalization.base_tokenizer._set_default_enforce_asm_rules`</span>
+<span class="sd">            newline_tup (Tuple[str, str], optional): the tuple to insert inbetween each passed string, or None to not </span>
+<span class="sd">                insert anything. Defaults to DEFAULT_TOKENIZER.DEFAULT_NEWLINE_TUPLE.</span>
+<span class="sd">            match_instruction_address (bool, optional): if True, will assume there will be an instruction address at the </span>
+<span class="sd">                start of the string. This only has an effect on ghidra-like instruction addresses where that address </span>
+<span class="sd">                could be interpreted as either an immediate, or an instruction address. If True, then any immediates </span>
+<span class="sd">                found at the start of a line will be assumed to be instruction addresses instead of immediates. If False,</span>
+<span class="sd">                then instruction addresses can still be matched, but they must end with a colon &#39;:&#39;, otherwise they will </span>
+<span class="sd">                be considered immediates. Defaults to True.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            MalformedMemoryExpressionError: when memory expressions are malformed</span>
+<span class="sd">            MisplacedInstructionPrefixError: when instruction prefixes do not occur in the correct place</span>
+<span class="sd">            TokenMismatchError: on a bad branch prediction string</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List[str]: a list of normalized string instruction lines</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Check if the first string is an instruction start. If so, we are normalizing an already-normalized string that</span>
+        <span class="c1">#   was normalized with tokenization_level=&#39;op&#39;. Combine all the strings together, joining on spaces, but splitting</span>
+        <span class="c1">#   the string array on all INSTRUCTION_START_TOKEN&#39;s</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">strings</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">strings</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">INSTRUCTION_START_TOKEN</span><span class="p">:</span>
+            <span class="n">newline_tup</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">sentence</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># A list of either full instruction line tokens, or opcode/operand-level tokens</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># A list of tuples of names and tokens</span>
+        <span class="n">memory_start</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>  <span class="c1"># index at which a memory information starts</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">old_token</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenize</span><span class="p">(</span><span class="o">*</span><span class="n">strings</span><span class="p">,</span> <span class="n">enforce_asm_rules</span><span class="o">=</span><span class="n">enforce_asm_rules</span><span class="p">,</span> <span class="n">newline_tup</span><span class="o">=</span><span class="n">newline_tup</span><span class="p">,</span> 
+                                             <span class="n">match_instruction_address</span><span class="o">=</span><span class="n">match_instruction_address</span><span class="p">):</span>
+            <span class="n">new_token</span> <span class="o">=</span> <span class="n">old_token</span>  <span class="c1"># By default, assume we are just using the old token</span>
+
+            <span class="c1"># Check for a token that is ignored, as well as mismatched tokens</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="n">Tokens</span><span class="o">.</span><span class="n">INSTRUCTION_ADDRESS</span><span class="p">,</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">SPACING</span><span class="p">,</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">PTR</span><span class="p">,</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">SEGMENT</span><span class="p">,</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">BRANCH_PREDICTION</span><span class="p">]:</span>
+                <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_ignored</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="n">Tokens</span><span class="o">.</span><span class="n">MISMATCH</span><span class="p">]:</span>
+                <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_mismatch</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
+
+            <span class="c1"># Check for a newline, making sure memory expressions were closed previously</span>
+            <span class="c1"># Instruction_start&#39;s should count as newlines</span>
+            <span class="k">elif</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="n">Tokens</span><span class="o">.</span><span class="n">NEWLINE</span><span class="p">,</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">INSTRUCTION_START</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">memory_start</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">MalformedMemoryExpressionError</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
+                <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_newline</span><span class="p">(</span><span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">,</span> <span class="n">cfg</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="n">block</span><span class="p">)</span>
+                <span class="n">line</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+            
+            <span class="c1"># Check for rose information. Whether we are in memory expression or not doesn&#39;t matter</span>
+            <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">ROSE_INFO</span><span class="p">:</span>
+                <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_rose_info</span><span class="p">(</span><span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
+            
+            <span class="c1"># Check for a start of memory expression. Raise an error if one was previously started but not closed</span>
+            <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">OPEN_BRACKET</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">memory_start</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">MalformedMemoryExpressionError</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
+                <span class="n">memory_start</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+            
+            <span class="c1"># Check for a close of memory expression. Raise an error if one was not previously started</span>
+            <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">CLOSE_BRACKET</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">memory_start</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">MalformedMemoryExpressionError</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
+
+                <span class="c1"># Insert the token first and clear token so it isn&#39;t inserted again</span>
+                <span class="n">line</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">old_token</span><span class="p">,</span> <span class="n">old_token</span><span class="p">))</span>
+                <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_memory_expression</span><span class="p">(</span><span class="n">memory_start</span><span class="p">,</span> <span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
+                <span class="n">memory_start</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+            
+            <span class="c1"># Check for an instruction prefix, and make sure it comes before other things</span>
+            <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">INSTRUCTION_PREFIX</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">MisplacedInstructionPrefixError</span><span class="p">(</span><span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
+            
+            <span class="c1"># Check for a segment address. Convert the sub-tokens as needed</span>
+            <span class="c1"># Only update the segment register to FAR_JUMP_SEGMENT_STR if we are not doing an &#39;unnormalized&#39; normalization</span>
+            <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">SEGMENT_ADDRESS</span><span class="p">:</span>
+                <span class="n">left</span><span class="p">,</span> <span class="n">right</span> <span class="o">=</span> <span class="n">old_token</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">)</span>
+                <span class="n">left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_immediate</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="p">[],</span> <span class="p">[])</span> <span class="k">if</span> <span class="n">left</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="s2">&quot;0123456789&quot;</span> <span class="k">else</span> <span class="n">left</span> <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">==</span> <span class="n">BaseNormalizer</span> <span class="k">else</span> <span class="n">FAR_JUMP_SEGMENT_STR</span>
+                <span class="n">right</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_immediate</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="p">[],</span> <span class="p">[])</span> <span class="k">if</span> <span class="n">right</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="s2">&quot;0123456789&quot;</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_register</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="p">[],</span> <span class="p">[])</span>
+                <span class="n">line</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">left</span> <span class="o">+</span> <span class="s1">&#39;:&#39;</span> <span class="o">+</span> <span class="n">right</span><span class="p">,</span> <span class="n">old_token</span><span class="p">))</span>
+                <span class="n">new_token</span> <span class="o">=</span> <span class="kc">None</span>
+            
+            <span class="c1"># Check for an immediate value</span>
+            <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">IMMEDIATE</span><span class="p">:</span>
+                <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_immediate</span><span class="p">(</span><span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
+
+            <span class="c1"># Check for a register</span>
+            <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">REGISTER</span><span class="p">:</span>
+                <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_register</span><span class="p">(</span><span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
+            
+            <span class="c1"># Check for a memory size</span>
+            <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">MEMORY_SIZE</span><span class="p">:</span>
+                <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_memory_size</span><span class="p">(</span><span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
+            
+            <span class="c1"># Check for opcode</span>
+            <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">OPCODE</span><span class="p">:</span>
+                <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_opcode</span><span class="p">(</span><span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
+            
+            <span class="c1"># Check for tokens that we just blindly add, otherwise this is an unknown token</span>
+            <span class="k">elif</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="n">Tokens</span><span class="o">.</span><span class="n">PLUS_SIGN</span><span class="p">,</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">TIMES_SIGN</span><span class="p">]:</span>
+                <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_unknown_token</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
+            
+            <span class="c1"># Finally, add this (name, new_token, old_token) triplet to our list if new_token is not None</span>
+            <span class="k">if</span> <span class="n">new_token</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">line</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">new_token</span><span class="p">,</span> <span class="n">old_token</span><span class="p">))</span>
+        
+        <span class="c1"># If there is anything else left in line, call _handle_newline() again</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handle_newline</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">,</span> <span class="n">cfg</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="n">block</span><span class="p">)</span>
+
+        <span class="c1"># If we are anonymizing the tokens, do that now</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">anonymize_tokens</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sentence</span><span class="p">):</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                    <span class="n">sentence</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hash_token</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">st</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+                        <span class="n">t</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hash_token</span><span class="p">(</span><span class="n">st</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">sentence</span></div>
+    
+<div class="viewcode-block" id="BaseNormalizer.handle_opcode"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_opcode">[docs]</a>    <span class="k">def</span> <span class="nf">handle_opcode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handles an opcode. Defaults to returning the raw opcode</span>
+
+<span class="sd">        NOTE: This should only be used to determine how all opcode strings are handled. For how to handle specific opcodes</span>
+<span class="sd">        to give them different behaviors, see :func:`~bincfg.normalization.base_normalizer.BaseNormalizer.register_opcode_handler`</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            token (str): the current string token</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">            sentence (List[str]): the current sentence, a list of strings. These will be either full assembly instructions</span>
+<span class="sd">                if `tokenization_level=&#39;instuction&#39;`, or single tokens with a separator between each assembly line if</span>
+<span class="sd">                `tokenization_level=&#39;op&#39;`</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: the original token</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">token</span></div>
+    
+<div class="viewcode-block" id="BaseNormalizer.handle_memory_size"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_memory_size">[docs]</a>    <span class="k">def</span> <span class="nf">handle_memory_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handles a memory size. Defaults to returning the raw memory size</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            token (str): the current string token</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">            sentence (List[str]): the current sentence, a list of strings. These will be either full assembly instructions</span>
+<span class="sd">                if `tokenization_level=&#39;instuction&#39;`, or single tokens with a separator between each assembly line if</span>
+<span class="sd">                `tokenization_level=&#39;op&#39;`</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: the original token</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">token</span></div>
+    
+<div class="viewcode-block" id="BaseNormalizer.handle_register"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_register">[docs]</a>    <span class="k">def</span> <span class="nf">handle_register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handles a register. Defaults to returning the raw register name</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            token (str): the current string token</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">            sentence (List[str]): the current sentence, a list of strings. These will be either full assembly instructions</span>
+<span class="sd">                if `tokenization_level=&#39;instuction&#39;`, or single tokens with a separator between each assembly line if</span>
+<span class="sd">                `tokenization_level=&#39;op&#39;`</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: the original token</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">token</span></div>
+
+<div class="viewcode-block" id="BaseNormalizer.handle_immediate"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_immediate">[docs]</a>    <span class="k">def</span> <span class="nf">handle_immediate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handles an immediate value. Defaults to converting into decimal</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            token (str): the current string token</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">            sentence (List[str]): the current sentence, a list of strings. These will be either full assembly instructions</span>
+<span class="sd">                if `tokenization_level=&#39;instuction&#39;`, or single tokens with a separator between each assembly line if</span>
+<span class="sd">                `tokenization_level=&#39;op&#39;`</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: the token in decimal</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">imm_to_int</span><span class="p">(</span><span class="n">token</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="BaseNormalizer.handle_memory_expression"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_memory_expression">[docs]</a>    <span class="k">def</span> <span class="nf">handle_memory_expression</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_start</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handles memory expressions. Defaults to simply checking if the memory expression is valid</span>
+<span class="sd">        </span>
+<span class="sd">        Since this is an &#39;unnormalized&#39; normalization method, do nothing but make sure it is a valid memory expression </span>
+<span class="sd">            and clear out any extraneous information.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            memory_start (int): integer index in line where the full memory expression starts. The full memory expression</span>
+<span class="sd">            would then be the list of tokens ``line[memory_start:]``</span>
+<span class="sd">            token (str): the current string token</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">            sentence (List[str]): the current sentence, a list of strings. These will be either full assembly instructions</span>
+<span class="sd">                if `tokenization_level=&#39;instuction&#39;`, or single tokens with a separator between each assembly line if</span>
+<span class="sd">                `tokenization_level=&#39;op&#39;`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valid_memory_expression</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="n">memory_start</span><span class="p">:],</span> <span class="n">line</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="BaseNormalizer.valid_memory_expression"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.valid_memory_expression">[docs]</a>    <span class="k">def</span> <span class="nf">valid_memory_expression</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_expression</span><span class="p">,</span> <span class="n">line</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Raises an error if the input is an invalid memory expression</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            memory_expression (List[TokenTuple]): a list of (name, new_token, old_token) triplets</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            MalformedMemoryExpressionError: when the memory expression is malformed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">string</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">memory_expression</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">MEM_EXPR_TOKEN_MAPPING</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">MalformedMemoryExpressionError</span><span class="p">(</span><span class="s2">&quot;Memory expression contains unexpected token type &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">name</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
+            <span class="n">string</span> <span class="o">+=</span> <span class="n">MEM_EXPR_TOKEN_MAPPING</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        
+        <span class="k">if</span> <span class="n">RE_MEM_EXPR_MATCH</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">string</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">MalformedMemoryExpressionError</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">string</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="BaseNormalizer.handle_rose_info"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_rose_info">[docs]</a>    <span class="k">def</span> <span class="nf">handle_rose_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Checks to see if the rose info is telling us an immediate value is negative, otherwise ignores it</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            token (str): the current string token</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">            sentence (List[str]): the current sentence, a list of strings. These will be either full assembly instructions</span>
+<span class="sd">                if `tokenization_level=&#39;instuction&#39;`, or single tokens with a separator between each assembly line if</span>
+<span class="sd">                `tokenization_level=&#39;op&#39;`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Check the rose info suggests a minus sign for an immediate value. If so, set the previous immediate to be</span>
+        <span class="c1">#   self._handle_immediate(rose_value) where rose_value is the value in the brackets &lt;&gt;</span>
+        <span class="c1"># Also have to split the rose info on &#39;,&#39; since there is sometimes extra info with ints</span>
+        <span class="c1"># Also have to check that the penultimate element in line is not a &#39;call&#39; or &#39;jump&#39; instruction</span>
+        <span class="k">if</span> <span class="n">token</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;-&#39;</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="p">(</span><span class="n">RE_ALL_DIGITS</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">line</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="n">IMMEDIATE_VALUE_STR</span><span class="p">,</span> <span class="s1">&#39;-&#39;</span> <span class="o">+</span> <span class="n">IMMEDIATE_VALUE_STR</span><span class="p">])</span>\
+            <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">line</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">OPCODE</span> <span class="ow">and</span> <span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;call&#39;</span> <span class="ow">or</span> <span class="n">line</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;j&#39;</span><span class="p">)):</span>
+            <span class="n">line</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_immediate</span><span class="p">(</span><span class="n">imm_to_int</span><span class="p">(</span><span class="n">token</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">),</span> <span class="n">line</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span></div>
+    
+<div class="viewcode-block" id="BaseNormalizer.handle_newline"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_newline">[docs]</a>    <span class="k">def</span> <span class="nf">handle_newline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">,</span> <span class="n">cfg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handles a newline token depending on what this normalizer&#39;s tokenization_level is</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            token (str): the current string token</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">            sentence (str): the current sentence, a list of strings. These will be either full assembly instructions</span>
+<span class="sd">                if `tokenization_level=&#39;instuction&#39;`, or single tokens with a separator between each assembly line if</span>
+<span class="sd">                `tokenization_level=&#39;op&#39;`</span>
+<span class="sd">            cfg (Optional[Union[CFG, MemCFG]], optional): either a ``CFG`` or ``MemCFG`` object that these lines occur in. </span>
+<span class="sd">                Used for determining function calls to self, internal functions, and external functions. If not passed, </span>
+<span class="sd">                then these will not be used. Defaults to None.</span>
+<span class="sd">            block (Optional[Union[CFGBasicBlock, int]], optional): either a ``CFGBasicBlock`` or integer block_idx in a </span>
+<span class="sd">                ``MemCFG`` object. Used for determining function calls to self, internal functions, and external functions. </span>
+<span class="sd">                If not passed, then these will not be used. Defaults to None.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            NotImplementedError: If a TokenizationLevel was added but not implemented here</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">handled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_instruction</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">cfg</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="n">block</span><span class="p">)</span>
+        <span class="n">strings</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="p">(</span><span class="n">line</span> <span class="k">if</span> <span class="n">handled</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">handled</span><span class="p">)]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenization_level</span> <span class="ow">is</span> <span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">OPCODE</span><span class="p">:</span>
+            <span class="n">sentence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">INSTRUCTION_START_TOKEN</span><span class="p">)</span>
+            <span class="n">sentence</span> <span class="o">+=</span> <span class="n">strings</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenization_level</span> <span class="ow">is</span> <span class="n">TokenizationLevel</span><span class="o">.</span><span class="n">INSTRUCTION</span><span class="p">:</span>
+            <span class="n">sentence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">token_sep</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">strings</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Unknown tokenization: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenization_level</span><span class="p">)</span>
+        
+        <span class="n">line</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+    
+<div class="viewcode-block" id="BaseNormalizer.handle_ignored"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_ignored">[docs]</a>    <span class="k">def</span> <span class="nf">handle_ignored</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handles ignored tokens. Defaults to doing nothing</span>
+
+<span class="sd">        EG: spacing, commas, instruction memory address, etc.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): the name of this token</span>
+<span class="sd">            token (str): the current string token</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">            sentence (List[str]): the current sentence, a list of strings. These will be either full assembly instructions</span>
+<span class="sd">                if `tokenization_level=&#39;instuction&#39;`, or single tokens with a separator between each assembly line if</span>
+<span class="sd">                `tokenization_level=&#39;op&#39;`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="BaseNormalizer.handle_mismatch"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_mismatch">[docs]</a>    <span class="k">def</span> <span class="nf">handle_mismatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;What to do when the normalizaion method finds a token mismatch (in case they were ignored in the tokenizer)</span>
+
+<span class="sd">        Defaults to raising a TokenMismatchError()</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): the name of this token</span>
+<span class="sd">            token (str): the current string token</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">            sentence (List[str]): the current sentence, a list of strings. These will be either full assembly instructions</span>
+<span class="sd">                if `tokenization_level=&#39;instuction&#39;`, or single tokens with a separator between each assembly line if</span>
+<span class="sd">                `tokenization_level=&#39;op&#39;`</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            TokenMismatchError: by default</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="n">TokenMismatchError</span><span class="p">(</span><span class="s2">&quot;Mismatched token </span><span class="si">%s</span><span class="s2"> found during normalization!&quot;</span> <span class="o">%</span> <span class="nb">repr</span><span class="p">(</span><span class="n">token</span><span class="p">))</span></div>
+    
+<div class="viewcode-block" id="BaseNormalizer.handle_unknown_token"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_unknown_token">[docs]</a>    <span class="k">def</span> <span class="nf">handle_unknown_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handles an unknown token. Currently just raises a TypeError</span>
+<span class="sd">        </span>
+<span class="sd">        Can be overridden in subclasses to add new token types</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): the name of this token</span>
+<span class="sd">            token (str): the current string token</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">            sentence (List[str]): the current sentence, a list of strings. These will be either full assembly instructions</span>
+<span class="sd">                if `tokenization_level=&#39;instuction&#39;`, or single tokens with a separator between each assembly line if</span>
+<span class="sd">                `tokenization_level=&#39;op&#39;`</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            TypeError: by default</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unknown token name &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">name</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="BaseNormalizer.handle_instruction"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_instruction">[docs]</a>    <span class="k">def</span> <span class="nf">handle_instruction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">cfg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handles an entire instruction once reaching a new line. </span>
+<span class="sd">        </span>
+<span class="sd">        Allows for extra manipulations like checking call/jump destinations, etc. If nothing is returned, then it is </span>
+<span class="sd">        assumed line itself has been edited.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">            cfg (Optional[Union[CFG, MemCFG]], optional): either a ``CFG`` or ``MemCFG`` object that these lines occur in. </span>
+<span class="sd">                Used for determining function calls to self, internal functions, and external functions. If not passed, </span>
+<span class="sd">                then these will not be used. Defaults to None.</span>
+<span class="sd">            block (Optional[Union[CFGBasicBlock, int]], optional): either a ``CFGBasicBlock`` or integer block_idx in a </span>
+<span class="sd">                ``MemCFG`` object. Used for determining function calls to self, internal functions, and external functions. </span>
+<span class="sd">                If not passed, then these will not be used. Defaults to None.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">):</span>
+            
+            <span class="c1"># Check for any handled opcodes</span>
+            <span class="k">if</span> <span class="n">line</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">OPCODE</span><span class="p">:</span>
+                <span class="n">opcode</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="n">idx</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+
+                <span class="k">for</span> <span class="n">regex</span><span class="p">,</span> <span class="n">func</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">opcode_handlers</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">regex</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">opcode</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="c1"># Check for string name to lookup on self</span>
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                            <span class="n">func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">)</span>
+
+                        <span class="n">new_idx</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">cfg</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="n">block</span><span class="p">)</span>
+                        <span class="n">idx</span> <span class="o">=</span> <span class="p">(</span><span class="n">new_idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">new_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">idx</span>
+                        <span class="k">break</span>
+            
+            <span class="n">idx</span> <span class="o">+=</span> <span class="mi">1</span></div>
+    
+<div class="viewcode-block" id="BaseNormalizer.handle_function_call"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_function_call">[docs]</a>    <span class="k">def</span> <span class="nf">handle_function_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">cfg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handles function calls. Defaults to returning raw call values</span>
+
+<span class="sd">        This is an opcode handler. It should modify the list of token tuples ``line`` in-place, then return the integer</span>
+<span class="sd">        index in ``line`` of the last token that has been &#39;handled&#39; by this function call.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            idx (int): the index in ``line`` of the &#39;call&#39; opcode</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">            cfg (Optional[Union[CFG, MemCFG]], optional): either a ``CFG`` or ``MemCFG`` object that these lines occur in. </span>
+<span class="sd">                Used for determining function calls to self, internal functions, and external functions. If not passed, </span>
+<span class="sd">                then these will not be used. Defaults to None.</span>
+<span class="sd">            block (Optional[Union[CFGBasicBlock, int]], optional): either a ``CFGBasicBlock`` or integer block_idx in a </span>
+<span class="sd">                ``MemCFG`` object. Used for determining function calls to self, internal functions, and external functions. </span>
+<span class="sd">                If not passed, then these will not be used. Defaults to None.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: index in line of last handled token</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span></div>
+    
+<div class="viewcode-block" id="BaseNormalizer.handle_jump"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_jump">[docs]</a>    <span class="k">def</span> <span class="nf">handle_jump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">cfg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handles jumps. Defaults to returning raw jump values</span>
+
+<span class="sd">        This is an opcode handler. It should modify the list of token tuples ``line`` in-place, then return the integer</span>
+<span class="sd">        index in ``line`` of the last token that has been &#39;handled&#39; by this function call.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            idx (int): the index in ``line`` of the &#39;jump&#39; opcode</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">            cfg (Optional[Union[CFG, MemCFG]], optional): either a ``CFG`` or ``MemCFG`` object that these lines occur in. </span>
+<span class="sd">                Used for determining function calls to self, internal functions, and external functions. If not passed, </span>
+<span class="sd">                then these will not be used. Defaults to None.</span>
+<span class="sd">            block (Optional[Union[CFGBasicBlock, int]], optional): either a ``CFGBasicBlock`` or integer block_idx in a </span>
+<span class="sd">                ``MemCFG`` object. Used for determining function calls to self, internal functions, and external functions. </span>
+<span class="sd">                If not passed, then these will not be used. Defaults to None.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: index in line of last handled token</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span></div>
+    
+<div class="viewcode-block" id="BaseNormalizer.hash_token"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.hash_token">[docs]</a>    <span class="k">def</span> <span class="nf">hash_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Hashes tokens during annonymization</span>
+
+<span class="sd">        By default, converts each individual token into its 4-byte shake_128 hash</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            token (str): the string token to hash</span>
+<span class="sd">        </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            str: the 4-byte shake_128 hash of the given token</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">hasher</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">shake_128</span><span class="p">()</span>
+        <span class="n">hasher</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">hasher</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">strings</span><span class="p">,</span> <span class="n">cfg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">enforce_asm_rules</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+                 <span class="n">newline_tup</span><span class="o">=</span><span class="n">DEFAULT_TOKENIZER</span><span class="o">.</span><span class="n">DEFAULT_NEWLINE_TUPLE</span><span class="p">,</span> <span class="n">match_instruction_address</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Normalizes the given iterable of strings.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            strings (str): arbitrary number of strings to normalize</span>
+<span class="sd">            cfg (Union[CFG, MemCFG], optional): either a ``CFG`` or ``MemCFG`` object that these lines occur </span>
+<span class="sd">                in. Used for determining function calls to self, internal functions, and external functions. If not </span>
+<span class="sd">                passed, then these will not be used. Defaults to None.</span>
+<span class="sd">            block (Union[CFGBasicBlock, int], optional): either a ``CFGBasicBlock`` or integer block_idx in a ``MemCFG``</span>
+<span class="sd">                object. Used for determining function calls to self, internal functions, and external functions. If not </span>
+<span class="sd">                passed, then these will not be used. Defaults to None.</span>
+<span class="sd">            enforce_asm_rules (Optional[bool]): if True, then extra processing and checks will be done to make sure the </span>
+<span class="sd">                tokenized assembly language matches the rules of assembly. See self.check_assembly_rules() for more info. </span>
+<span class="sd">                If False, these checks aren&#39;t done and bad assembly could make its way through without error, but should </span>
+<span class="sd">                be noticeably faster. If None, will use the default value. The default value starts as False at the</span>
+<span class="sd">                beginning of program execution but can be modified using </span>
+<span class="sd">                :func:`~bincfg.normalization.base_tokenizer._set_default_enforce_asm_rules`</span>
+<span class="sd">            newline_tup (Tuple[str, str], optional): the tuple to insert inbetween each passed string, or None to not </span>
+<span class="sd">                insert anything. Defaults to DEFAULT_TOKENIZER.DEFAULT_NEWLINE_TUPLE.</span>
+<span class="sd">            match_instruction_address (bool, optional): if True, will assume there will be an instruction address at the </span>
+<span class="sd">                start of the string. This only has an effect on ghidra-like instruction addresses where that address </span>
+<span class="sd">                could be interpreted as either an immediate, or an instruction address. If True, then any immediates </span>
+<span class="sd">                found at the start of a line will be assumed to be instruction addresses instead of immediates. If False,</span>
+<span class="sd">                then instruction addresses can still be matched, but they must end with a colon &#39;:&#39;, otherwise they will </span>
+<span class="sd">                be considered immediates. Defaults to True.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            MalformedMemoryExpressionError: when memory expressions are malformed</span>
+<span class="sd">            MisplacedInstructionPrefixError: when instruction prefixes do not occur in the correct place</span>
+<span class="sd">            TokenMismatchError: on a bad branch prediction string</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List[str]: a list of normalized string instruction lines</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="o">*</span><span class="n">strings</span><span class="p">,</span> <span class="n">cfg</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="n">block</span><span class="p">,</span> <span class="n">newline_tup</span><span class="o">=</span><span class="n">newline_tup</span><span class="p">,</span> <span class="n">match_instruction_address</span><span class="o">=</span><span class="n">match_instruction_address</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Checks equality between this normalizer and another. </span>
+<span class="sd">        </span>
+<span class="sd">        Defaults to checking if class types, tokenizers, and tokenization_level are the same. Future children should </span>
+<span class="sd">            also check any kwargs.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">==</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">tokenizer</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenization_level</span> <span class="ow">is</span> <span class="n">other</span><span class="o">.</span><span class="n">tokenization_level</span> \
+            <span class="ow">and</span> <span class="n">eq_obj</span><span class="p">([</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">opcode_handlers</span><span class="p">],</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">other</span><span class="o">.</span><span class="n">opcode_handlers</span><span class="p">])</span> \
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">anonymize_tokens</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">anonymize_tokens</span>
+    
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">+</span> <span class="s2">&quot;()&quot;</span>
+    
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span></div>
+
+
+<span class="n">_DILL_IMPORT_ERROR_MESSAGE</span> <span class="o">=</span> <span class="s1">&#39;Package is required to pickle Normalizer() objects!&#39;</span>
+<span class="k">class</span> <span class="nc">_Pickled_Normalizer</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;A pickled version of a normalizer, often requiring the `dill` package&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">normalizer</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">normalizer</span><span class="p">,</span> <span class="s1">&#39;normalize&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">normalizer</span><span class="p">,</span> <span class="s1">&#39;__requires_dill__&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">normalizer</span><span class="o">.</span><span class="n">__requires_dill__</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_normalizer</span> <span class="o">=</span> <span class="n">get_module</span><span class="p">(</span><span class="s1">&#39;dill&#39;</span><span class="p">,</span> <span class="n">err_message</span><span class="o">=</span><span class="n">_DILL_IMPORT_ERROR_MESSAGE</span><span class="p">)</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">normalizer</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_using_dill</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_normalizer</span> <span class="o">=</span> <span class="n">normalizer</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_using_dill</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">unpickle</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">get_module</span><span class="p">(</span><span class="s1">&#39;dill&#39;</span><span class="p">,</span> <span class="n">err_message</span><span class="o">=</span><span class="n">_DILL_IMPORT_ERROR_MESSAGE</span><span class="p">)</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_normalizer</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_using_dill</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalizer</span>
+
+
+<div class="viewcode-block" id="MalformedMemoryExpressionError"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.MalformedMemoryExpressionError">[docs]</a><span class="k">class</span> <span class="nc">MalformedMemoryExpressionError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Error raised when there is a malformed memory expression&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">NEWLINE</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="s2">&quot;Reached newline before closing memory brackets&quot;</span>
+        <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">OPEN_BRACKET</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="s2">&quot;Reached another open_bracket before closing memory brackets&quot;</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="s2">&quot;Malformed memory expression&quot;</span>
+        <span class="n">token</span> <span class="o">=</span> <span class="n">token</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="s1">&#39;None&#39;</span> <span class="k">if</span> <span class="n">token</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">token</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> at token </span><span class="si">%s</span><span class="s2">. Current line: </span><span class="se">\&quot;</span><span class="si">%s</span><span class="se">\&quot;</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">token</span><span class="p">),</span> <span class="n">line</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="MisplacedInstructionPrefixError"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.MisplacedInstructionPrefixError">[docs]</a><span class="k">class</span> <span class="nc">MisplacedInstructionPrefixError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Error raised when there is an instruction prefix that is not at the start of a line&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;Found an instruction prefix not at the start of line. &quot;</span>
+            <span class="s2">&quot;At token &#39;</span><span class="si">%s</span><span class="s2">&#39;. Current line:: </span><span class="si">%s</span><span class="se">\n</span><span class="s2">Current sentence: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">))</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Justin Allen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>bincfg.normalization.normalize &mdash; BinCFG 0.1.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> BinCFG
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.cfg.html">bincfg.cfg package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.utils.html">bincfg.utils package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.normalization.html">bincfg.normalization package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.labeling.html">bincfg.labeling package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">BinCFG</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">bincfg.normalization.normalize</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for bincfg.normalization.normalize</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Provides function(s) to perform normalization techniques on CFG&#39;s</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">..utils</span> <span class="kn">import</span> <span class="n">progressbar</span><span class="p">,</span> <span class="n">update_memcfg_tokens</span><span class="p">,</span> <span class="n">AtomicTokenDict</span>
+<span class="kn">from</span> <span class="nn">.builtin_normalizers</span> <span class="kn">import</span> <span class="n">get_normalizer</span>
+<span class="kn">import</span> <span class="nn">bincfg</span>
+
+
+<div class="viewcode-block" id="normalize_cfg_data"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.normalize.normalize_cfg_data">[docs]</a><span class="k">def</span> <span class="nf">normalize_cfg_data</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="n">normalizer</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">using_tokens</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">force_renormalize</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">convert_to_mem</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> 
+    <span class="n">unpack_cfgs</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Normalizes some cfg data.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        cfg_data (Union[CFG, MemCFG, CFGDataset, MemCFGDataset, Iterable]): some cfg data. Can be either: CFG, MemCFG, </span>
+<span class="sd">            CFGDataset, MemCFGDataset, or iterable of previously mentioned types. Will return the same type as that passed.</span>
+<span class="sd">        normalizer (Union[str, Normalizer]): the normalizer to use. Can be either a ``Normalizer`` class with a </span>
+<span class="sd">            `.normalize()` method, or a string to use a built-in normalizer. See :func:`bincfg.normalization.get_normalizer`</span>
+<span class="sd">            for acceptable strings.</span>
+<span class="sd">        inplace (bool, optional): if True, will modify data in-place instead of creating new objects. Defaults to False.</span>
+<span class="sd">            NOTE: if `inplace=False`, and the incoming data has already been normalized with the passed `normalizer`, then</span>
+<span class="sd">            the original cfg will be returned, NOT a copy.</span>
+<span class="sd">        using_tokens (TokenDictType, optional): only used for ``MemCFG``&#39;s. If not None, then a dictionary mapping string</span>
+<span class="sd">            tokens to integer token values that will be used as any ``MemCFG``&#39;s tokens. Defaults to None.</span>
+<span class="sd">        force_renormalize (bool, optional): by default, this method will only normalize cfg&#39;s whose .normalizer != to the passed</span>
+<span class="sd">            normalizer. However if `force_renormalize=True`, then all cfg&#39;s will be renormalized even if they have been</span>
+<span class="sd">            previously normalized with the same normalizer. Defaults to False.</span>
+<span class="sd">        convert_to_mem (bool, optional): if True, will convert all ``CFG``&#39;s and ``CFGDatasets`` to their memory-efficient </span>
+<span class="sd">            versions after normalizing. Defaults to False.</span>
+<span class="sd">        unpack_cfgs (bool, optional): by default, this method will return the same types that were passed to be normalized. </span>
+<span class="sd">            However if `unpack_cfgs=True`, then instead, a list of all cfgs unpacked (EG: unpacked from lists, and pulled </span>
+<span class="sd">            out of datasets) will be returned. Defaults to False.</span>
+<span class="sd">            NOTE: if only a single ``CFG``/``MemCFG`` was passed, a list will still be returned of only that single element.</span>
+<span class="sd">        progress (bool, optional): if True, will show a progressbar for normalizations of multiple cfg&#39;s. Defaults to False.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        TypeError: Unknown input `cfg_data` type(s)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Union[CFG, MemCFG, CFGDataset, MemCFGDataset, List, Tuple]: the normalized data</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">normalizer</span> <span class="o">=</span> <span class="n">get_normalizer</span><span class="p">(</span><span class="n">normalizer</span><span class="p">)</span>
+
+    <span class="c1"># If input is not a CFG/MemCFG/dataset, then it should be an iterable, loop or use multiprocessing</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="p">(</span><span class="n">bincfg</span><span class="o">.</span><span class="n">CFG</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFG</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">CFGDataset</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFGDataset</span><span class="p">)):</span>
+        <span class="n">cfg_data</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">)</span>  <span class="c1"># Copy the element references so we don&#39;t modify the original iterable, and convert to list</span>
+        <span class="n">cfgs</span><span class="p">,</span> <span class="n">cfg_parts</span> <span class="o">=</span> <span class="n">_unpack_cfgs</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">)</span>
+
+        <span class="c1"># Normalize all the cfg&#39;s</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">cfg</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">progressbar</span><span class="p">(</span><span class="n">cfgs</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="n">progress</span><span class="p">)):</span>
+            <span class="n">cfgs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">normalize_cfg_data</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">normalizer</span><span class="o">=</span><span class="n">normalizer</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="n">inplace</span><span class="p">,</span> <span class="n">using_tokens</span><span class="o">=</span><span class="n">using_tokens</span><span class="p">,</span>
+                <span class="n">force_renormalize</span><span class="o">=</span><span class="n">force_renormalize</span><span class="p">,</span> <span class="n">convert_to_mem</span><span class="o">=</span><span class="n">convert_to_mem</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        
+        <span class="c1"># Now that all our cfg&#39;s have been normalized, sort them back to where they belong (if needed)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">unpack_cfgs</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cfg_parts</span><span class="p">):</span>
+
+                <span class="c1"># Append the data if it is just a cfg, otherwise make it into a dataset</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="p">(</span><span class="n">bincfg</span><span class="o">.</span><span class="n">CFG</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFG</span><span class="p">)):</span>
+                    <span class="n">cfg_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">cfgs</span><span class="p">[</span><span class="n">start</span><span class="p">]</span>
+                
+                <span class="c1"># Otherwise make it into a dataset</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">CFGDataset</span><span class="p">)</span> <span class="ow">and</span> <span class="n">convert_to_mem</span><span class="p">:</span>
+                        <span class="n">cfg_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFGDataset</span><span class="p">()</span>
+                    <span class="k">elif</span> <span class="ow">not</span> <span class="n">inplace</span><span class="p">:</span>  <span class="c1"># Create a new object if not inplace</span>
+                        <span class="n">cfg_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">cfg_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="vm">__class__</span><span class="p">()</span>
+
+                    <span class="n">cfg_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">cfgs</span> <span class="o">=</span> <span class="n">cfgs</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+                    <span class="n">cfg_data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">normalizer</span> <span class="o">=</span> <span class="n">normalizer</span>
+            <span class="k">return</span> <span class="n">cfg_data</span>
+
+        <span class="k">return</span> <span class="n">cfgs</span>
+
+    <span class="c1"># Check if we even need to normalize</span>
+    <span class="k">if</span> <span class="n">cfg_data</span><span class="o">.</span><span class="n">normalizer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">normalizer</span> <span class="o">==</span> <span class="n">cfg_data</span><span class="o">.</span><span class="n">normalizer</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">force_renormalize</span><span class="p">:</span>
+        <span class="c1"># Check if we need to unpack cfgs, and/or convert to memcfg&#39;s</span>
+        <span class="k">if</span> <span class="n">convert_to_mem</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">CFG</span><span class="p">):</span>
+                <span class="n">cfg_data</span> <span class="o">=</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFG</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="n">using_tokens</span><span class="o">=</span><span class="n">using_tokens</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">CFGDataset</span><span class="p">):</span>
+                <span class="n">cfg_data</span> <span class="o">=</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFGDataset</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="n">tokens</span><span class="o">=</span><span class="n">using_tokens</span><span class="p">)</span>
+            
+            <span class="c1"># Otherwise it is already a MemCFG/MemCFGDataset, and we need to check if we should update the tokens</span>
+            <span class="k">elif</span> <span class="n">using_tokens</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">update_memcfg_tokens</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="n">using_tokens</span><span class="p">)</span>
+        
+        <span class="c1"># Otherwise, check if this is already a memcfg/memcfgdataset and we need to update them tokens</span>
+        <span class="k">elif</span> <span class="n">using_tokens</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="p">(</span><span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFG</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFGDataset</span><span class="p">)):</span>
+                <span class="n">update_memcfg_tokens</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="n">using_tokens</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">unpack_cfgs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="p">(</span><span class="n">bincfg</span><span class="o">.</span><span class="n">CFGDataset</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFGDataset</span><span class="p">)):</span>
+                <span class="n">cfg_data</span> <span class="o">=</span> <span class="n">cfg_data</span><span class="o">.</span><span class="n">cfgs</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">cfg_data</span> <span class="o">=</span> <span class="p">[</span><span class="n">cfg_data</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">cfg_data</span>
+
+    <span class="c1"># Create return object depending on input type and inplace, set the return object&#39;s normalizer</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="n">cfg_data</span> <span class="k">if</span> <span class="n">inplace</span> <span class="k">else</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="p">(</span><span class="n">bincfg</span><span class="o">.</span><span class="n">CFG</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFG</span><span class="p">))</span> <span class="k">else</span> <span class="n">cfg_data</span><span class="o">.</span><span class="vm">__class__</span><span class="p">()</span>
+    <span class="n">ret</span><span class="o">.</span><span class="n">normalizer</span> <span class="o">=</span> <span class="n">normalizer</span>
+    
+    <span class="c1"># Single CFG&#39;s and MemCFG&#39;s will be normalized here</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">CFG</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">ret</span><span class="o">.</span><span class="n">blocks</span><span class="p">:</span>
+            <span class="c1"># Check for non-normalized assembly lines at each block, or if they have been normalized already and are lists</span>
+            <span class="n">pre_normed</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">asm_lines</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">asm_lines</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="nb">str</span><span class="p">)</span>
+            <span class="n">block</span><span class="o">.</span><span class="n">asm_lines</span> <span class="o">=</span> <span class="p">[(</span><span class="n">a</span><span class="p">,</span> <span class="n">normalizer</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">l</span> <span class="k">if</span> <span class="n">pre_normed</span> <span class="k">else</span> <span class="p">[</span><span class="n">l</span><span class="p">]),</span> <span class="n">cfg</span><span class="o">=</span><span class="n">ret</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="n">block</span><span class="p">))</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">block</span><span class="o">.</span><span class="n">asm_lines</span><span class="p">]</span>
+
+        <span class="c1"># Convert to MemCFG if needed</span>
+        <span class="k">if</span> <span class="n">convert_to_mem</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">CFG</span><span class="p">):</span>
+            <span class="n">ret</span> <span class="o">=</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFG</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">using_tokens</span><span class="o">=</span><span class="n">using_tokens</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFG</span><span class="p">):</span>
+        <span class="c1"># Need to recompute the asm_lines, block_asm_idx, and tokens</span>
+        <span class="c1"># Need to start new_block_asm_idx with a 0</span>
+        <span class="n">norm_lines</span><span class="p">,</span> <span class="n">new_block_asm_idx</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">inv_tokens</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">ret</span><span class="o">.</span><span class="n">tokens</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+        <span class="c1"># Go through each block re-normalizing its lines, and keeping track of the block_asm_idx</span>
+        <span class="k">for</span> <span class="n">block_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ret</span><span class="o">.</span><span class="n">num_blocks</span><span class="p">):</span>
+            <span class="n">norm_lines</span> <span class="o">+=</span> <span class="n">normalizer</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">inv_tokens</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ret</span><span class="o">.</span><span class="n">get_block_asm_lines</span><span class="p">(</span><span class="n">block_idx</span><span class="p">)],</span> <span class="n">cfg</span><span class="o">=</span><span class="n">ret</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="n">block_idx</span><span class="p">)</span>
+            <span class="n">new_block_asm_idx</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">norm_lines</span><span class="p">))</span>
+        
+        <span class="c1"># Update the new tokens if needed, allowing for use of atomic tokens</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">using_tokens</span><span class="p">,</span> <span class="n">AtomicTokenDict</span><span class="p">):</span>
+            <span class="n">using_tokens</span><span class="o">.</span><span class="n">addtokens</span><span class="p">({</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">norm_lines</span> <span class="k">if</span> <span class="n">t</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">using_tokens</span><span class="p">})</span>
+            <span class="n">new_tokens</span> <span class="o">=</span> <span class="n">using_tokens</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_tokens</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">using_tokens</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">using_tokens</span>
+            <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">norm_lines</span><span class="p">:</span>
+                <span class="n">new_tokens</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_tokens</span><span class="p">))</span>
+        
+        <span class="c1"># Convert to integer tokens</span>
+        <span class="n">new_asm_lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">new_tokens</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">norm_lines</span><span class="p">]</span>
+
+        <span class="c1"># Set the new data in ret</span>
+        <span class="n">ret</span><span class="o">.</span><span class="n">asm_lines</span><span class="p">,</span> <span class="n">ret</span><span class="o">.</span><span class="n">block_asm_idx</span><span class="p">,</span> <span class="n">ret</span><span class="o">.</span><span class="n">tokens</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">new_asm_lines</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">new_block_asm_idx</span><span class="p">),</span> <span class="n">new_tokens</span>
+    
+    <span class="c1"># Datasets will have their cfg&#39;s normalized as a list, then will need their tokens recounted</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="p">(</span><span class="n">bincfg</span><span class="o">.</span><span class="n">CFGDataset</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFGDataset</span><span class="p">)):</span>
+        <span class="n">ret</span><span class="o">.</span><span class="n">cfgs</span> <span class="o">=</span> <span class="n">normalize_cfg_data</span><span class="p">(</span><span class="n">cfg_data</span><span class="o">.</span><span class="n">cfgs</span><span class="p">,</span> <span class="n">normalizer</span><span class="o">=</span><span class="n">normalizer</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="n">inplace</span><span class="p">,</span> <span class="n">using_tokens</span><span class="o">=</span><span class="n">using_tokens</span><span class="p">,</span> 
+            <span class="n">progress</span><span class="o">=</span><span class="n">progress</span><span class="p">)</span>
+
+        <span class="c1"># Convert to MemCFGDataset if needed</span>
+        <span class="k">if</span> <span class="n">convert_to_mem</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">CFGDataset</span><span class="p">):</span>
+            <span class="n">ret</span> <span class="o">=</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFGDataset</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="n">normalizer</span><span class="o">=</span><span class="n">normalizer</span><span class="p">,</span> <span class="n">tokens</span><span class="o">=</span><span class="n">using_tokens</span><span class="p">)</span>
+    
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Got an unknown type: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+    
+    <span class="c1"># Unpack cfg&#39;s if needed</span>
+    <span class="k">if</span> <span class="n">unpack_cfgs</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">ret</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="p">(</span><span class="n">bincfg</span><span class="o">.</span><span class="n">CFG</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFG</span><span class="p">))</span> <span class="k">else</span> <span class="n">ret</span><span class="o">.</span><span class="n">cfgs</span>
+
+    <span class="k">return</span> <span class="n">ret</span></div>
+
+
+<span class="k">def</span> <span class="nf">_unpack_cfgs</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Helper to unpack lists/tuples of cfg&#39;s/datasets&#39;s, and return their type info</span>
+<span class="sd">    </span>
+<span class="sd">    :param cfg_data: </span>
+<span class="sd">    :return: </span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        cfg_data (Union[CFG, MemCFG, CFGDataset, MemCFGDataset, Iterable]): some cfg data. Can be either: CFG, MemCFG, </span>
+<span class="sd">            CFGDataset, MemCFGDataset, or iterable of previously mentioned types.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tuple[List[Union[bincfg.CFG, bincfg.MemCFG]], List[Tuple[int, int]]]: a 2-tuple of `(cfgs, type_info)`, where </span>
+<span class="sd">            `cfgs` is a list of CFG&#39;s/MemCFG&#39;s containing all of the cfgs that exist in cfg_data in order, and `type_info` </span>
+<span class="sd">            is a list of 2-tuples of (start_idx, end_idx) where: `start_idx` is the integer start index of this chunk of </span>
+<span class="sd">            data in the `cfgs` list, and `end_idx` is the end index of this chunk of data</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cfgs</span><span class="p">,</span> <span class="n">cfg_parts</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+
+    <span class="c1"># If the user didn&#39;t pass an iterable, make it one</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg_data</span><span class="p">,</span> <span class="p">(</span><span class="n">bincfg</span><span class="o">.</span><span class="n">CFG</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFG</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">CFGDataset</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFGDataset</span><span class="p">)):</span>
+        <span class="n">cfg_data</span> <span class="o">=</span> <span class="p">[</span><span class="n">cfg_data</span><span class="p">]</span>
+    
+    <span class="n">start_idx</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">cfgd</span> <span class="ow">in</span> <span class="n">cfg_data</span><span class="p">:</span>
+        
+        <span class="c1"># CFG&#39;s/MemCFG&#39;s can simply be added, but Dataset&#39;s must have their cfgs lists added</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfgd</span><span class="p">,</span> <span class="p">(</span><span class="n">bincfg</span><span class="o">.</span><span class="n">CFG</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFG</span><span class="p">)):</span>
+            <span class="n">cfgs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cfgd</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfgd</span><span class="p">,</span> <span class="p">(</span><span class="n">bincfg</span><span class="o">.</span><span class="n">CFGDataset</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFGDataset</span><span class="p">)):</span>
+            <span class="n">cfgs</span> <span class="o">+=</span> <span class="n">cfgd</span><span class="o">.</span><span class="n">cfgs</span>
+
+        <span class="c1"># Update the start_idx and end_idx</span>
+        <span class="n">cfg_parts</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">start_idx</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">cfgs</span><span class="p">)))</span>
+        <span class="n">start_idx</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cfgs</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">cfgs</span><span class="p">,</span> <span class="n">cfg_parts</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Justin Allen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

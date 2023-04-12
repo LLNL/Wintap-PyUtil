@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>bincfg.utils.mp_utils &mdash; BinCFG 0.1.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> BinCFG
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.cfg.html">bincfg.cfg package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.utils.html">bincfg.utils package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.normalization.html">bincfg.normalization package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.labeling.html">bincfg.labeling package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">BinCFG</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">bincfg.utils.mp_utils</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for bincfg.utils.mp_utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Utility functions involving multiprocessing</span>
+
+<span class="sd">Contains functions for creating, getting, and terminating a main thread pool, as well as helpers to more easily map</span>
+<span class="sd">data to multiprocessing function calls.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">import</span> <span class="nn">multiprocessing</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">signal</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">timeit</span> <span class="kn">import</span> <span class="n">default_timer</span>
+<span class="kn">from</span> <span class="nn">.misc_utils</span> <span class="kn">import</span> <span class="n">progressbar</span><span class="p">,</span> <span class="n">get_module</span><span class="p">,</span> <span class="n">log</span>
+<span class="kn">from</span> <span class="nn">.cfg_utils</span> <span class="kn">import</span> <span class="n">update_atomic_tokens</span>
+
+
+<span class="c1"># Possible thread pool for multiprocessing</span>
+<span class="n">THREAD_POOL</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="n">_THREAD_POOL_INITIALIZED</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">THREAD_POOL_NUM_WORKERS</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">MAX_DEFAULT_NUM_WORKERS</span> <span class="o">=</span> <span class="mi">32</span>
+<span class="n">DEFAULT_POOL_SIGKILL_TIMEOUT_SECONDS</span> <span class="o">=</span> <span class="mi">20</span>
+
+<span class="c1"># The number of seconds to wait before attempting to aquire a lock after failing</span>
+<span class="n">AQUIRE_LOCK_FAIL_WAIT_TIME_SECONDS</span> <span class="o">=</span> <span class="mf">0.1</span>
+
+
+<div class="viewcode-block" id="init_thread_pool"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.init_thread_pool">[docs]</a><span class="k">def</span> <span class="nf">init_thread_pool</span><span class="p">(</span><span class="n">num_workers</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Initializes the thread pool.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        num_workers (int, optional): number of processes. Will default to min(os.cpu_count(), MAX_DEFAULT_NUM_WORKERS) </span>
+<span class="sd">            if None. Defaults to None.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">THREAD_POOL</span><span class="p">,</span> <span class="n">_THREAD_POOL_INITIALIZED</span><span class="p">,</span> <span class="n">THREAD_POOL_NUM_WORKERS</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_THREAD_POOL_INITIALIZED</span><span class="p">:</span>
+        <span class="n">num_workers</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">(),</span> <span class="n">MAX_DEFAULT_NUM_WORKERS</span><span class="p">)</span> <span class="k">if</span> <span class="n">num_workers</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">num_workers</span>
+        <span class="n">ctx</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s1">&#39;fork&#39;</span><span class="p">)</span>
+
+        <span class="n">THREAD_POOL_NUM_WORKERS</span> <span class="o">=</span> <span class="n">num_workers</span>
+        <span class="n">THREAD_POOL</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pool</span><span class="p">(</span><span class="n">num_workers</span><span class="p">)</span>
+        <span class="n">_THREAD_POOL_INITIALIZED</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="terminate_thread_pool"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.terminate_thread_pool">[docs]</a><span class="k">def</span> <span class="nf">terminate_thread_pool</span><span class="p">(</span><span class="n">send_sigint</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Terminates the thread pool by first sending SIGINT, waiting for a few seconds, then SIGTERM if any are still running</span>
+<span class="sd">    </span>
+<span class="sd">    Code from: https://stackoverflow.com/questions/47553120/kill-a-multiprocessing-pool-with-sigkill-instead-of-sigterm-i-think</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">THREAD_POOL</span><span class="p">,</span> <span class="n">_THREAD_POOL_INITIALIZED</span>
+
+    <span class="k">if</span> <span class="n">_THREAD_POOL_INITIALIZED</span><span class="p">:</span>
+        <span class="n">THREAD_POOL</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="c1"># Do all this in a try/catch just in case something happens, we can force-terminate</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">send_sigint</span><span class="p">:</span>
+                <span class="c1"># stop repopulating new child</span>
+                <span class="n">THREAD_POOL</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">pool</span><span class="o">.</span><span class="n">TERMINATE</span>
+                <span class="n">THREAD_POOL</span><span class="o">.</span><span class="n">_worker_handler</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">pool</span><span class="o">.</span><span class="n">TERMINATE</span>
+
+                <span class="c1"># Redirect stdout only for this section because of those pesky KeyboardInterrupt logs</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">devnull</span><span class="p">,</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">devnull</span><span class="p">:</span>
+                    <span class="k">with</span> <span class="n">RedirectStdStreams</span><span class="p">(</span><span class="n">stdout</span><span class="o">=</span><span class="n">devnull</span><span class="p">):</span>
+                        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">THREAD_POOL</span><span class="o">.</span><span class="n">_pool</span><span class="p">:</span>
+                            <span class="n">os</span><span class="o">.</span><span class="n">kill</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">pid</span><span class="p">,</span> <span class="n">signal</span><span class="o">.</span><span class="n">SIGINT</span><span class="p">)</span>
+
+                        <span class="c1"># .is_alive() will reap dead process</span>
+                        <span class="n">init_time</span> <span class="o">=</span> <span class="n">default_timer</span><span class="p">()</span>
+                        <span class="k">while</span> <span class="nb">any</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">is_alive</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">THREAD_POOL</span><span class="o">.</span><span class="n">_pool</span><span class="p">):</span>
+                            <span class="k">if</span> <span class="n">default_timer</span><span class="p">()</span> <span class="o">-</span> <span class="n">init_time</span> <span class="o">&gt;</span> <span class="n">DEFAULT_POOL_SIGKILL_TIMEOUT_SECONDS</span><span class="p">:</span>
+                                <span class="k">break</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">THREAD_POOL</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+            <span class="k">raise</span>
+        
+        <span class="n">THREAD_POOL</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+        <span class="n">_THREAD_POOL_INITIALIZED</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">THREAD_POOL</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="RedirectStdStreams"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.RedirectStdStreams">[docs]</a><span class="k">class</span> <span class="nc">RedirectStdStreams</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Context manager to temporarily redirect stdout and stderr streams</span>
+<span class="sd">    </span>
+<span class="sd">    NOTE: the passed streams will NOT be closed on exit</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="n">stdout</span> <span class="k">if</span> <span class="n">stdout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="n">stderr</span> <span class="k">if</span> <span class="n">stderr</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span>
+    
+    <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stdout_old</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stderr_old</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stderr_old</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stderr_old</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stderr</span>
+    
+    <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stdout_old</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stderr_old</span></div>
+
+
+<div class="viewcode-block" id="get_thread_pool"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.get_thread_pool">[docs]</a><span class="k">def</span> <span class="nf">get_thread_pool</span><span class="p">(</span><span class="n">ret_n</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns (starts if needed) the current thread pool.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ret_n (bool, optional): if True, also returns the number of workers. Defaults to False.</span>
+<span class="sd">        num_workers (Union[int, None], optional): if not None, then the number of workers to use when initializing the </span>
+<span class="sd">            thread pool. Only used if the thread pool is not currently initialized. Defaults to None.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Union[Pool, Tuple[Pool, int]]: the current global multiprocessing.Pool() object, or tuple of (pool, num_workers)</span>
+<span class="sd">            if `ret_n=True`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_THREAD_POOL_INITIALIZED</span><span class="p">:</span>
+        <span class="n">init_thread_pool</span><span class="p">(</span><span class="n">num_workers</span><span class="o">=</span><span class="n">num_workers</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">THREAD_POOL</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">ret_n</span> <span class="k">else</span> <span class="p">(</span><span class="n">THREAD_POOL</span><span class="p">,</span> <span class="n">THREAD_POOL_NUM_WORKERS</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ThreadPoolManager"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.ThreadPoolManager">[docs]</a><span class="k">class</span> <span class="nc">ThreadPoolManager</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;A custom context manager to handle the global thread pool.</span>
+
+<span class="sd">    By default, this will only terminate the thread pool when an error was raised, however you can pass</span>
+<span class="sd">    `terminate=True` to always terminate the thread pool after exiting this context. You can get the thread pool </span>
+<span class="sd">    and number of workers with something like:</span>
+
+<span class="sd">    .. highlight:: python</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        with ThreadPoolManager(num_workers=10) as tpm:</span>
+<span class="sd">            pool = tpm.pool</span>
+<span class="sd">            num_workers = tpm.num_workers</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    terminate: `bool`</span>
+<span class="sd">        if True, will terminate the thread pool after exiting, even if no error was raised</span>
+<span class="sd">    num_workers: `Optional[int]`</span>
+<span class="sd">        the number of workers to pass to get_thread_pool()</span>
+
+<span class="sd">        NOTE: will only determine the number of workers if the thread pool as not yet been initialized. Otherwise</span>
+<span class="sd">        the number of workers will be whatever it was previously set to</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">pool</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;the multiprocessing process pool&quot;&quot;&quot;</span>
+
+    <span class="n">num_workers</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;the number of processes in the pool&quot;&quot;&quot;</span>
+    
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">terminate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">terminate</span> <span class="o">=</span> <span class="n">terminate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pool</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_workers</span> <span class="o">=</span> <span class="n">get_thread_pool</span><span class="p">(</span><span class="n">ret_n</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="n">num_workers</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_value</span><span class="p">,</span> <span class="n">exc_tb</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">terminate</span> <span class="ow">or</span> <span class="n">exc_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">terminate_thread_pool</span><span class="p">()</span></div>
+
+
+<span class="n">_ATOMIC_READ_RAISE_ERR</span> <span class="o">=</span> <span class="nb">object</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="AtomicData"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicData">[docs]</a><span class="k">class</span> <span class="nc">AtomicData</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;A class that allows for atomic reading/updating of the given data to a pickle file</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">        init_data: `Any`</span>
+<span class="sd">            Data to initialize the atomic file with. If the atomic file already exists, then that data will be loaded</span>
+<span class="sd">        filepath: `Optional[str]`</span>
+<span class="sd">            An optional filepath to store the dictionary, otherwise will be stored at &#39;./atomic_dict.pkl&#39;</span>
+<span class="sd">        lockpath: `Optional[str]`</span>
+<span class="sd">            An optional filepath for the lock file to use to atomically update the dictionary, otherwise will be</span>
+<span class="sd">                stored at &#39;./.[filepath].lock&#39; where [filepath] is the given `filepath` parameter</span>
+<span class="sd">        max_read_attempts: `Optional[int]`</span>
+<span class="sd">            An optional integer specifying the maximum number of attempts to atomically read this dictionary before</span>
+<span class="sd">                giving up and raising an error. Set to None to attempt indefinitely. Defaults to None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init_data</span><span class="p">,</span> <span class="n">filepath</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lock_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_read_attempts</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_filepath</span> <span class="o">=</span> <span class="s1">&#39;./atomic_data.pkl&#39;</span> <span class="k">if</span> <span class="n">filepath</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">filepath</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_filepath</span><span class="p">),</span> <span class="s1">&#39;.</span><span class="si">%s</span><span class="s1">.lock&#39;</span> <span class="o">%</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_filepath</span><span class="p">))</span> <span class="k">if</span> <span class="n">lock_path</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">lock_path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">max_read_attempts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">max_read_attempts</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;max_read_attempts must be &gt; 0: </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">max_read_attempts</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_max_read_attempts</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="mi">100</span> <span class="k">if</span> <span class="n">max_read_attempts</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">max_read_attempts</span>
+
+        <span class="c1"># Get the initial data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">atomic_read</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="n">init_data</span><span class="p">)</span>
+    
+<div class="viewcode-block" id="AtomicData.atomic_read"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicData.atomic_read">[docs]</a>    <span class="k">def</span> <span class="nf">atomic_read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">_ATOMIC_READ_RAISE_ERR</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Atomically reads the data from file, updating self.data</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            default (Optional[Any]): If this is passed and the file does not already exist, then this data will be saved</span>
+<span class="sd">                to file and set to self.data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">_AquireLock</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_read_attempts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock_path</span><span class="p">):</span>
+
+            <span class="c1"># If the path doesn&#39;t exist, check if we need to raise an error, or update the file</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_filepath</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">_ATOMIC_READ_RAISE_ERR</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">default</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_locked_write</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="s1">&#39;Could not find inital atomic file to read from, and `default` data was not passed: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filepath</span><span class="p">)</span>
+            
+            <span class="c1"># Otherwise it does exist, update self</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_locked_read</span><span class="p">()</span></div>
+    
+    <span class="k">def</span> <span class="nf">_locked_read</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Reads the data from file, assuming a lock has already been aquired&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_filepath</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    
+<div class="viewcode-block" id="AtomicData.atomic_write"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicData.atomic_write">[docs]</a>    <span class="k">def</span> <span class="nf">atomic_write</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Atomically writes the data at self.data to the pickle file&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">_AquireLock</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_read_attempts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock_path</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_filepath</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+    
+    <span class="k">def</span> <span class="nf">_locked_write</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Writes the data at self.data to file, assuming a lock has already been aquired&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_filepath</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+    
+<div class="viewcode-block" id="AtomicData.atomic_update"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicData.atomic_update">[docs]</a>    <span class="k">def</span> <span class="nf">atomic_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">update_func</span><span class="p">,</span> <span class="o">*</span><span class="n">update_args</span><span class="p">,</span> <span class="o">**</span><span class="n">update_kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Atomically updates the data</span>
+<span class="sd">        </span>
+<span class="sd">        Will first aquire a lock on the data, read it in, then call `update_func(file_data, update_data)` where `file_data`</span>
+<span class="sd">        is the data from the current atomic file, then write the data back to file and finally release the lock.</span>
+
+<span class="sd">        NOTE: this will prevent any and all updates to the atomic file until update_func has completed</span>
+
+<span class="sd">        NOTE: any errors within the update_func will be handled properly and will likely not mess up the atomic file</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            update_func (Callable): function that takes in: the data currently saved in file, the current data, then the </span>
+<span class="sd">                passed args and kwargs, and returns the updated data to write back to file</span>
+<span class="sd">            update_args (Any): args to pass to update_func, after the current data saved in file</span>
+<span class="sd">            update_kwargs (Any): kwargs to pass to update_func</span>
+<span class="sd">        </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Any: the updated data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">_AquireLock</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_read_attempts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock_path</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">update_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_locked_read</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="o">*</span><span class="n">update_args</span><span class="p">,</span> <span class="o">**</span><span class="n">update_kwargs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_locked_write</span><span class="p">()</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span></div>
+    
+<div class="viewcode-block" id="AtomicData.aquire_lock"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicData.aquire_lock">[docs]</a>    <span class="k">def</span> <span class="nf">aquire_lock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Aquires the lock needed to update data</span>
+<span class="sd">        </span>
+<span class="sd">        NOTE: this will prevent any and all updates to the atomic file until self.release_lock() is called. Make sure</span>
+<span class="sd">        you call it quickly or other processes may hang!</span>
+
+<span class="sd">        NOTE: if the lock has already been aquired, nothing will happen</span>
+
+<span class="sd">        NOTE: it can be dangerous to attempt to aquire locks yourself, as any errors raised must be handled nicely and</span>
+<span class="sd">        self.release_lock() must be called otherwise other processes may hang</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">_AquireLock</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_read_attempts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock_path</span><span class="p">)</span><span class="o">.</span><span class="fm">__enter__</span><span class="p">()</span></div>
+    
+<div class="viewcode-block" id="AtomicData.release_lock"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicData.release_lock">[docs]</a>    <span class="k">def</span> <span class="nf">release_lock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Releases the lock. Assumes it has already been aquired, otherwise an error will be raised&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;release_lock() was called, but the lock has not been aquired!&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="o">.</span><span class="fm">__exit__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="kc">None</span></div>
+    
+<div class="viewcode-block" id="AtomicData.delete_file"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicData.delete_file">[docs]</a>    <span class="k">def</span> <span class="nf">delete_file</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Atomically deletes the file being used&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">_AquireLock</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_read_attempts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock_path</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_filepath</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_filepath</span><span class="p">)</span></div>
+    
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Gives length of current self.data&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Doesn&#39;t send the actual data itself, that will be loaded&quot;&quot;&quot;</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">del</span> <span class="n">ret</span><span class="p">[</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">ret</span>
+
+    <span class="k">def</span> <span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the state as normal, but read in the data when done&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">state</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">atomic_read</span><span class="p">()</span></div>
+
+
+<span class="k">class</span> <span class="nc">_AquireLock</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Context manager to aquire a file lock, and remove it when done&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_attempts</span><span class="p">,</span> <span class="n">lock_path</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_max_attempts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock_path</span> <span class="o">=</span> <span class="n">max_attempts</span><span class="p">,</span> <span class="n">lock_path</span>
+        <span class="n">get_module</span><span class="p">(</span><span class="s1">&#39;atomicwrites&#39;</span><span class="p">,</span> <span class="n">err_message</span><span class="o">=</span><span class="s1">&#39;Package is required for atomic dictionary file!&#39;</span><span class="p">)</span>
+        <span class="kn">from</span> <span class="nn">atomicwrites</span> <span class="kn">import</span> <span class="n">atomic_write</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">atomic_write</span> <span class="o">=</span> <span class="n">atomic_write</span>
+    
+    <span class="k">def</span> <span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">log</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="s2">&quot;Attempting to aquire lock...&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_attempts</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">atomic_write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lock_path</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">())</span>
+                <span class="n">log</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="s2">&quot;Lock aquired after </span><span class="si">%d</span><span class="s2"> attempts!&quot;</span> <span class="o">%</span> <span class="n">i</span><span class="p">)</span>
+
+                <span class="k">return</span> <span class="bp">self</span>
+            <span class="k">except</span> <span class="ne">FileExistsError</span><span class="p">:</span>
+                <span class="k">pass</span>
+            
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">AQUIRE_LOCK_FAIL_WAIT_TIME_SECONDS</span><span class="p">)</span>
+
+        <span class="k">raise</span> <span class="n">AquireLockError</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_attempts</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock_path</span><span class="p">)</span>
+            
+    <span class="k">def</span> <span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">,</span> <span class="n">exc_value</span><span class="p">,</span> <span class="n">exc_tb</span><span class="p">):</span>
+        <span class="n">log</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="s2">&quot;Releasing lock!&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lock_path</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lock_path</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="AquireLockError"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AquireLockError">[docs]</a><span class="k">class</span> <span class="nc">AquireLockError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attempts</span><span class="p">,</span> <span class="n">lock_path</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;Could not aquire file lock from file after </span><span class="si">%d</span><span class="s2"> attempts using lock path: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">attempts</span><span class="p">,</span> <span class="n">lock_path</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="AtomicTokenDict"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicTokenDict">[docs]</a><span class="k">class</span> <span class="nc">AtomicTokenDict</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Acts like a normal token dictionary, but allows for atomic operations&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init_data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">atomic_data_kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">AtomicData</span><span class="p">(</span><span class="n">init_data</span><span class="o">=</span><span class="n">init_data</span> <span class="k">if</span> <span class="n">init_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{},</span> <span class="o">**</span><span class="n">atomic_data_kwargs</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+    
+    <span class="k">def</span> <span class="fm">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">!=</span> <span class="n">value</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot set token key to a new value! key: </span><span class="si">%s</span><span class="s2">, value: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">key</span><span class="p">),</span> <span class="n">value</span><span class="p">))</span>
+            <span class="k">return</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">_atomic_update</span><span class="p">({</span><span class="n">key</span><span class="p">:</span> <span class="n">value</span><span class="p">})</span>
+    
+    <span class="k">def</span> <span class="fm">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+    
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+    
+<div class="viewcode-block" id="AtomicTokenDict.update"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicTokenDict.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Updates this dictionary with the given tokens</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            tokens (Dict[str, int]): dictionary mapping token strings to their integer values. Any tokens in the dictionary</span>
+<span class="sd">                that are not in this dictionary will be added, and any tokens that already exist and have the same value</span>
+<span class="sd">                will be ignored. If there are any tokens that already exist, but have a different value, then an error</span>
+<span class="sd">                will be raised</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">update_tokens</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">tokens</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">!=</span> <span class="n">v</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot set token key to a new value! key: </span><span class="si">%s</span><span class="s2">, value: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">k</span><span class="p">),</span> <span class="n">v</span><span class="p">))</span>
+                <span class="k">continue</span>
+            <span class="n">update_tokens</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">update_tokens</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_atomic_update</span><span class="p">(</span><span class="n">update_tokens</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="AtomicTokenDict.items"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicTokenDict.items">[docs]</a>    <span class="k">def</span> <span class="nf">items</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">()</span></div>
+    
+<div class="viewcode-block" id="AtomicTokenDict.values"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicTokenDict.values">[docs]</a>    <span class="k">def</span> <span class="nf">values</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">values</span><span class="p">()</span></div>
+    
+<div class="viewcode-block" id="AtomicTokenDict.keys"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicTokenDict.keys">[docs]</a>    <span class="k">def</span> <span class="nf">keys</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span></div>
+    
+<div class="viewcode-block" id="AtomicTokenDict.get"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicTokenDict.get">[docs]</a>    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">default</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AtomicTokenDict.setdefault"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicTokenDict.setdefault">[docs]</a>    <span class="k">def</span> <span class="nf">setdefault</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;If the key exists, return the value. Otherwise set the key to the given default (or len(self) if default=None)&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">_atomic_update</span><span class="p">({</span><span class="n">key</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="k">if</span> <span class="n">default</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">default</span><span class="p">})</span></div>
+    
+<div class="viewcode-block" id="AtomicTokenDict.addtokens"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicTokenDict.addtokens">[docs]</a>    <span class="k">def</span> <span class="nf">addtokens</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">tokens</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Adds the given tokens to this dictionary, ignoring any that already exist</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            tokens (str): arbitrary number of string tokens to add to this token dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">update_tokens</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tokens</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">t</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">:</span>
+                <span class="n">update_tokens</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">update_tokens</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">update_tokens</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_atomic_update</span><span class="p">(</span><span class="n">update_tokens</span><span class="p">)</span></div>
+    
+    <span class="k">def</span> <span class="nf">_atomic_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token_dict</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Atomically update the tokens from the given token_dict. Does no checks beforehand to see if there are any</span>
+<span class="sd">        conflicts, duplicates, etc.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            token_dict (Dict[str, int]): token dictionary to update with</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">atomic_update</span><span class="p">(</span><span class="n">update_atomic_tokens</span><span class="p">,</span> <span class="n">token_dict</span><span class="p">)</span>
+    
+<div class="viewcode-block" id="AtomicTokenDict.delete_file"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.AtomicTokenDict.delete_file">[docs]</a>    <span class="k">def</span> <span class="nf">delete_file</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="s2">&quot;Deletes the atomic token dictinoary file&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">delete_file</span><span class="p">()</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the token dictionary&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">data</span></div>
+
+
+<span class="k">def</span> <span class="nf">_get_on_error</span><span class="p">(</span><span class="n">on_error</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;map_mp() helper function to sanitize on_error input&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">on_error</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">on_error</span> <span class="o">=</span> <span class="n">on_error</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s1">&#39;_&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">on_error</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;raise&#39;</span><span class="p">,</span> <span class="s1">&#39;reraise&#39;</span><span class="p">,</span> <span class="s1">&#39;re_raise&#39;</span><span class="p">,</span> <span class="s1">&#39;raise_err&#39;</span><span class="p">,</span> <span class="s1">&#39;raiseerr&#39;</span><span class="p">,</span> <span class="s1">&#39;raise_error&#39;</span><span class="p">,</span> <span class="s1">&#39;raiseerror&#39;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="s1">&#39;raise&#39;</span>
+        <span class="k">elif</span> <span class="n">on_error</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;error_info&#39;</span><span class="p">,</span> <span class="s1">&#39;err_info&#39;</span><span class="p">,</span> <span class="s1">&#39;errinfo&#39;</span><span class="p">,</span> <span class="s1">&#39;errorinfo&#39;</span><span class="p">,</span> <span class="s1">&#39;info&#39;</span><span class="p">,</span> <span class="s1">&#39;retinfo&#39;</span><span class="p">,</span> <span class="s1">&#39;ret_info&#39;</span><span class="p">,</span> <span class="s1">&#39;return_info&#39;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="s1">&#39;error_info&#39;</span>
+        <span class="k">elif</span> <span class="n">on_error</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;ret_none&#39;</span><span class="p">,</span> <span class="s1">&#39;none&#39;</span><span class="p">,</span> <span class="s1">&#39;return_none&#39;</span><span class="p">,</span> <span class="s1">&#39;retnone&#39;</span><span class="p">,</span> <span class="s1">&#39;returnnone&#39;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="s1">&#39;return_none&#39;</span>
+        <span class="k">elif</span> <span class="n">on_error</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;ignore&#39;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="s1">&#39;ignore&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown on_error string: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">on_error</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">callable</span><span class="p">(</span><span class="n">on_error</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">on_error</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unknown on_error type: &#39;</span><span class="si">%s</span><span class="s2">&#39;, must be string or callable&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="n">on_error</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_call_func</span><span class="p">(</span><span class="n">elem</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">starmap</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;:func:`~bincfg.utils.mp_utils.map_mp` helper function to actually call a function&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">elem</span><span class="p">)</span> <span class="k">if</span> <span class="n">starmap</span> <span class="k">else</span> <span class="n">func</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()),</span> <span class="kc">None</span>
+
+
+<span class="k">def</span> <span class="nf">_unpack_chunk</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">starmap</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;:func:`~bincfg.utils.mp_utils.map_mp` helper function to unpack chunks&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">_call_func</span><span class="p">(</span><span class="n">elem</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">starmap</span><span class="p">)</span> <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="n">chunk</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_unpack_chunksize</span><span class="p">(</span><span class="n">elems</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">starmap</span><span class="p">,</span> <span class="n">using_chunks</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;map_mp() helper function to unpack a chunksize&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">[(</span><span class="n">_unpack_chunk</span><span class="p">(</span><span class="n">elem</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">starmap</span><span class="p">)</span> <span class="k">if</span> <span class="n">using_chunks</span> <span class="k">else</span> <span class="n">_call_func</span><span class="p">(</span><span class="n">elem</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">starmap</span><span class="p">))</span> <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="n">elems</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="map_mp"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.map_mp">[docs]</a><span class="k">def</span> <span class="nf">map_mp</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">items</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">starmap</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">chunksize</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">terminate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">on_error</span><span class="o">=</span><span class="s1">&#39;raise&#39;</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Splits the given inputs over multiple processes in the global process pool</span>
+
+<span class="sd">    Maps the given items or chunks of items to the given function using multiprocessing, allowing for the use of a</span>
+<span class="sd">    progressbar. Also handles terminating the pool.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        func (Callable): the function to call</span>
+<span class="sd">        items (Iterable[Any], optional): an iterable of items to map. Mutually exclusive with chunks. Defaults to None.</span>
+<span class="sd">        chunks (Iterable[Iterable], optional): an iterable of iterables to map. Will send the entire chunk to another </span>
+<span class="sd">            process and call the given function on each element, then return the results unpacked into a single total </span>
+<span class="sd">            list. Mutually exclusive with items. Defaults to None.</span>
+<span class="sd">        starmap (bool, optional): if True, will call `starmap()` instead of `map()` on the pool. This assumes each </span>
+<span class="sd">            element should be star-unpacked when sending to `func()`. Defaults to False.</span>
+<span class="sd">        chunksize (int, optional): if &gt; 1, then multiple elements will be passed in one &#39;chunk&#39; to each process. This </span>
+<span class="sd">            would have the same effect (if using items) as passing chunks with this chunksize, but if using chunks, then</span>
+<span class="sd">            this many chunks will be passed to each process instead. Defaults to 1.</span>
+<span class="sd">        num_workers (int, optional): the num_workers to pass to :func:`bincfg.utils.get_thread_pool`. Defaults to None.</span>
+<span class="sd">        </span>
+<span class="sd">            NOTE: this only has an effect if the thread pool has not yet been initialized. Otherwise this will use the</span>
+<span class="sd">            num_workers the thread pool has already been initialized with.</span>
+<span class="sd">        terminate (bool, optional): if True, then the global thread pool will be terminated after use. If False, then </span>
+<span class="sd">            the thread pool will only be terminated if an error is raised. Defaults to False.</span>
+<span class="sd">        on_error (_MpOnErrorType, optional): what to do when there is an error can be either a string describing what to</span>
+<span class="sd">            do, or a callable in which case the callable will be called and its return value will be used in place of the </span>
+<span class="sd">            error. Callables should take as input the error_object and traceback in that order as args, and return whatever</span>
+<span class="sd">            value should be used in place of the errored value. Acceptable strings:</span>
+<span class="sd">            </span>
+<span class="sd">                - &#39;raise&#39;: raise any errors immediately</span>
+<span class="sd">                - &#39;error_info&#39;: return the error information in place of the expected output whenever there is an error. Error</span>
+<span class="sd">                    information will be a 2-tuple of (error_object, traceback)</span>
+<span class="sd">                - &#39;return_none&#39;: will return None in place of values whenever an error occurs, and the error will be ignored</span>
+<span class="sd">                - &#39;ignore&#39;: ignore any errors and doesn&#39;t return any values for those which fail. </span>
+<span class="sd">            </span>
+<span class="sd">            Defaults to &#39;raise&#39;.</span>
+<span class="sd">        progress (bool, optional): if True, will show a progressbar. Defaults to False.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        TypeError: If none or both of `items` and `chunks` are passed</span>
+<span class="sd">        MultiprocessingError: If there was an error running the multiprocessing calls, and `on_error=&#39;raise&#39;`</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        List[Any]: a list of results</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">items</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">chunks</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">items</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">chunks</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Exactly one of items and chunks must be passed, not both&quot;</span><span class="p">)</span>
+
+    <span class="n">on_error</span> <span class="o">=</span> <span class="n">_get_on_error</span><span class="p">(</span><span class="n">on_error</span><span class="p">)</span>
+    
+    <span class="c1"># Determine if we are using chunks or not</span>
+    <span class="n">using_chunks</span><span class="p">,</span> <span class="n">using_chunksize</span> <span class="o">=</span> <span class="n">items</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="n">chunksize</span> <span class="o">&gt;</span> <span class="mi">1</span>
+    <span class="n">elems</span> <span class="o">=</span> <span class="n">items</span> <span class="k">if</span> <span class="n">chunks</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">chunks</span>
+    <span class="n">using_func</span><span class="p">,</span> <span class="n">extra_args</span> <span class="o">=</span> <span class="p">(</span><span class="n">_unpack_chunk</span> <span class="k">if</span> <span class="n">using_chunks</span> <span class="k">else</span> <span class="n">_call_func</span><span class="p">),</span> <span class="p">[</span><span class="n">func</span><span class="p">,</span> <span class="n">starmap</span><span class="p">]</span>
+
+    <span class="c1"># Figure out if we need to do chunksize or not</span>
+    <span class="k">if</span> <span class="n">using_chunksize</span><span class="p">:</span>
+        <span class="c1"># Getting splits instead of directly splitting object just to avoid an annoying error message...</span>
+        <span class="n">splits</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array_split</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">elems</span><span class="p">)),</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">elems</span><span class="p">)</span> <span class="o">//</span> <span class="n">chunksize</span><span class="p">))</span>
+        <span class="n">elems</span> <span class="o">=</span> <span class="p">[</span><span class="n">elems</span><span class="p">[</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span><span class="n">a</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">splits</span><span class="p">]</span>
+        <span class="n">using_func</span><span class="p">,</span> <span class="n">extra_args</span> <span class="o">=</span> <span class="n">_unpack_chunksize</span><span class="p">,</span> <span class="p">[</span><span class="n">func</span><span class="p">,</span> <span class="n">starmap</span><span class="p">,</span> <span class="n">using_chunks</span><span class="p">]</span>
+    
+    <span class="c1"># Turn elems to a list</span>
+    <span class="n">elems</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">elems</span><span class="p">)</span>
+    
+    <span class="c1"># Keep track of the order of elements too</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">elems</span><span class="p">)</span>
+    
+    <span class="c1"># Start sending chunks to the threadpool</span>
+    <span class="n">elem_idx</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">with</span> <span class="n">ThreadPoolManager</span><span class="p">(</span><span class="n">terminate</span><span class="o">=</span><span class="n">terminate</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="n">num_workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">tpm</span><span class="p">:</span>
+        <span class="n">futures</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">tpm</span><span class="o">.</span><span class="n">num_workers</span>
+        <span class="n">progress_bar</span> <span class="o">=</span> <span class="n">progressbar</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">elems</span><span class="p">)),</span> <span class="n">progress</span><span class="o">=</span><span class="n">progress</span><span class="p">)</span>
+
+        <span class="c1"># While we have more elements to map, or some futures are not done</span>
+        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">elems</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">f</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">futures</span><span class="p">):</span>
+            
+            <span class="c1"># Check if there are any empty futures we can add to</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">futures</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">futures</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">elems</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">next_elem</span> <span class="o">=</span> <span class="n">elems</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                    <span class="n">futures</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">elem_idx</span><span class="p">,</span> <span class="n">tpm</span><span class="o">.</span><span class="n">pool</span><span class="o">.</span><span class="n">apply_async</span><span class="p">(</span><span class="n">using_func</span><span class="p">,</span> <span class="p">[</span><span class="n">next_elem</span><span class="p">]</span> <span class="o">+</span> <span class="n">extra_args</span><span class="p">))</span>
+                    <span class="n">elem_idx</span> <span class="o">+=</span> <span class="mi">1</span>
+            
+            <span class="c1"># Check for any completed tasks</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">futures</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">futures</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">futures</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">ready</span><span class="p">():</span>
+                    <span class="c1"># Need to unpack it now, or turn into a list if we weren&#39;t using any chunks</span>
+                    <span class="n">res_elem_idx</span><span class="p">,</span> <span class="n">result</span> <span class="o">=</span> <span class="n">futures</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">futures</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+                    <span class="n">unpacked</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">result</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">l</span><span class="p">]</span> <span class="k">if</span> <span class="n">using_chunks</span> <span class="ow">and</span> <span class="n">using_chunksize</span> <span class="k">else</span> <span class="n">result</span> <span class="k">if</span> <span class="n">using_chunks</span> <span class="ow">or</span> <span class="n">using_chunksize</span> <span class="k">else</span> <span class="p">[</span><span class="n">result</span><span class="p">]</span>
+
+                    <span class="c1"># Check for errors</span>
+                    <span class="n">elem_results</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="k">for</span> <span class="n">error_info</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">unpacked</span><span class="p">:</span>
+
+                        <span class="c1"># If there is an error, take the appropriate action, checking for string vs. callable on_error</span>
+                        <span class="k">if</span> <span class="n">error_info</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">on_error</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                                <span class="k">if</span> <span class="n">on_error</span> <span class="o">==</span> <span class="s1">&#39;raise&#39;</span><span class="p">:</span>
+                                    <span class="k">raise</span> <span class="n">MultiprocessingError</span><span class="p">(</span><span class="o">*</span><span class="n">error_info</span><span class="p">)</span>
+                                <span class="k">elif</span> <span class="n">on_error</span> <span class="o">==</span> <span class="s1">&#39;error_info&#39;</span><span class="p">:</span>
+                                    <span class="n">elem_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">error_info</span><span class="p">)</span>
+                                <span class="k">elif</span> <span class="n">on_error</span> <span class="o">==</span> <span class="s1">&#39;return_none&#39;</span><span class="p">:</span>
+                                    <span class="n">elem_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+                                <span class="k">elif</span> <span class="n">on_error</span> <span class="o">==</span> <span class="s1">&#39;ignore&#39;</span><span class="p">:</span>
+                                    <span class="k">pass</span>
+                                <span class="k">else</span><span class="p">:</span>
+                                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown on_error string, this shouldn&#39;t happend! &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">on_error</span><span class="p">)</span>
+                            <span class="k">else</span><span class="p">:</span>
+                                <span class="n">elem_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">on_error</span><span class="p">(</span><span class="o">*</span><span class="n">error_info</span><span class="p">))</span>
+
+                        <span class="c1"># Otherwise all good, add the result to our list</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">elem_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+                    
+                    <span class="c1"># Finally, insert the elem_results in its correct spot, increment the progressbar only after </span>
+                    <span class="c1">#   completing a task, and set the future back to None</span>
+                    <span class="n">results</span><span class="p">[</span><span class="n">res_elem_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">elem_results</span>
+                    <span class="nb">next</span><span class="p">(</span><span class="n">progress_bar</span><span class="p">)</span>
+                    <span class="n">futures</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="c1"># Unpack all of the elem_results and return</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">l</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="MultiprocessingError"><a class="viewcode-back" href="../../../bincfg.utils.html#bincfg.utils.mp_utils.MultiprocessingError">[docs]</a><span class="k">class</span> <span class="nc">MultiprocessingError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Custom Error raised after an error in a multiprocessing call&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">err</span><span class="p">,</span> <span class="n">tb</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;Multiprocessing call returned error:</span><span class="se">\n\n</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">tb</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Justin Allen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

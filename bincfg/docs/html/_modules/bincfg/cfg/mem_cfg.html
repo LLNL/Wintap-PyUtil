@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>bincfg.cfg.mem_cfg &mdash; BinCFG 0.1.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> BinCFG
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.cfg.html">bincfg.cfg package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.utils.html">bincfg.utils package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.normalization.html">bincfg.normalization package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.labeling.html">bincfg.labeling package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">BinCFG</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">bincfg.cfg.mem_cfg</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for bincfg.cfg.mem_cfg</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">..normalization</span> <span class="kn">import</span> <span class="n">normalize_cfg_data</span>
+<span class="kn">from</span> <span class="nn">..normalization.base_normalizer</span> <span class="kn">import</span> <span class="n">_Pickled_Normalizer</span>
+<span class="kn">from</span> <span class="nn">.cfg</span> <span class="kn">import</span> <span class="n">CFG</span>
+<span class="kn">from</span> <span class="nn">..utils</span> <span class="kn">import</span> <span class="n">get_smallest_np_dtype</span><span class="p">,</span> <span class="n">scatter_nd_numpy</span><span class="p">,</span> <span class="n">hash_obj</span><span class="p">,</span> <span class="n">eq_obj</span><span class="p">,</span> <span class="n">get_module</span>
+<span class="kn">from</span> <span class="nn">..labeling</span> <span class="kn">import</span> <span class="n">NODE_LABELS</span>
+
+
+<span class="c1"># Global constants for edge connection value types</span>
+<span class="n">NORMAL_EDGE_CONN_VALUE</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">FUNCTION_CALL_EDGE_CONN_VALUE</span> <span class="o">=</span> <span class="mi">2</span>
+
+
+<div class="viewcode-block" id="MemCFG"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG">[docs]</a><span class="k">class</span> <span class="nc">MemCFG</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;A CFG that is more memory/speed efficient.</span>
+<span class="sd">    </span>
+<span class="sd">    Keeps only the bare minimum information needed from a CFG. Stores edge connections in a CSR-like format.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    cfg: `CFG`</span>
+<span class="sd">        a CFG object. Can be a normalized or un-normalized. If un-normalized, then it will be normalized using the </span>
+<span class="sd">        `normalizer` parameter.</span>
+<span class="sd">    normalizer: `Optional[Union[str, Normalizer]]`</span>
+<span class="sd">        the normalizer to use to normalize the incoming CFG (or None if it is already normalized). If the incoming CFG </span>
+<span class="sd">        object has already been normalized, and `normalizer` is not None, then this will attempt to normalize the CFG </span>
+<span class="sd">        again with this normalizer</span>
+<span class="sd">    inplace: `bool`</span>
+<span class="sd">        if True and cfg needs to be normalized, it will be normalized inplace</span>
+<span class="sd">    using_tokens: `Union[Dict[str, int], AtomicTokenDict]`</span>
+<span class="sd">        if not None, then a dictionary mapping token strings to integer values. Any tokens in cfg but not in using_tokens</span>
+<span class="sd">        will be added. Can also be an AtomicTokenDict for atomic updates to tokens</span>
+<span class="sd">    force_renormalize: `bool`</span>
+<span class="sd">        by default, this method will only normalize cfg&#39;s whose .normalizer != to the passed normalizer. However if </span>
+<span class="sd">        `force_renormalize=True`, then all cfg&#39;s will be renormalized even if they have been previously normalized with </span>
+<span class="sd">        the same normalizer.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">normalizer</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;The normalizer used to normalize input before converting to ``MemCFG``</span>
+<span class="sd">    </span>
+<span class="sd">    Can be shared with a ``MemCFGDataset`` object if this ``MemCFG`` is a part of one</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">tokens</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;Dictionary mapping token strings to integer values used in this ``MemCFG``</span>
+<span class="sd">    </span>
+<span class="sd">    Can be shared with a ``MemCFGDataset`` object if this ``MemCFG`` is a part of one.</span>
+
+<span class="sd">    Can also be an AtomicTokenDict object for atomic token updates</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">function_name_to_idx</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;Dictionary mapping string function names to their integer ids used in this ``MemCFG``&quot;&quot;&quot;</span>
+
+    <span class="n">asm_lines</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;Assembly line information</span>
+<span class="sd">    </span>
+<span class="sd">    A contiguous 1-d numpy array of shape (num_asm_lines,) of integer assembly line tokens. Dtype is the smallest </span>
+<span class="sd">    unsigned dtype needed to store the largest token value in this ``MemCFG``</span>
+
+<span class="sd">    To get the assembly lines for some block index `block_idx`, you must get the assembly line indices from ``block_asm_idx``,</span>
+<span class="sd">    and use those to slice the assembly lines:</span>
+
+<span class="sd">    &gt;&gt;&gt; block_idx = 7</span>
+<span class="sd">    &gt;&gt;&gt; memcfg.asm_lines[memcfg.block_asm_idx[block_idx]:memcfg.block_asm_idx[block_idx + 1]]</span>
+
+<span class="sd">    Also see :func:`~bincfg.MemCFG.get_block_asm_lines`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">block_asm_idx</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;Indices in ``asm_lines`` that correspond to the assembly lines for each basic block in this ``MemCFG``</span>
+<span class="sd">    </span>
+<span class="sd">    A 1-d numpy array of shape (num_blocks + 1,). Dtype is the smallest unsigned dtype needed to store the value </span>
+<span class="sd">    `num_asm_lines`. Assembly tokens for a block at index `i` would have a start index of `block_asm_idx[i]` and an end</span>
+<span class="sd">    index of `block_asm_idx[i + 1]` in ``asm_lines``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">block_func_idx</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;Integer ids for the function that each basic block belongs to</span>
+<span class="sd">    </span>
+<span class="sd">    A 1-d numpy array of shape (num_blocks,) where each element is a function id for the block at that index. The id</span>
+<span class="sd">    can be found in ``function_name_to_idx``. Dtype is the smallest unsigned dtype needed to store the value `num_functions`</span>
+
+<span class="sd">    Also see :func:`~bincfg.MemCFG.get_block_function_idx` and :func:`~bincfg.MemCFG.get_block_function_name`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">block_flags</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;Integer of bit flags for each basic block</span>
+<span class="sd">    </span>
+<span class="sd">    A 1-d numpy array of shape (num_blocks,) where each element is an integer of bit flags. See ``BlockInfoBitMask``</span>
+<span class="sd">    for more info. Dtype is the smallest unsigned dtype with enough bits to store all flags in ``BlockInfoBitMask``</span>
+
+<span class="sd">    Also see :func:`~bincfg.MemCFG.get_block_flags`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">block_labels</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;Dictionary mapping block indices to integer block label bit flags</span>
+<span class="sd">    </span>
+<span class="sd">    Only blocks that have known labels will be in this dictionary. The bit flags integer will have the bit set for each</span>
+<span class="sd">    index in the `bincfg.labelling.NODE_LABELS` list. EG: the 0-th element would correspond to the 1&#39;s bit, the 1-th</span>
+<span class="sd">    element would correspond to the 2&#39;s bit, etc.</span>
+
+<span class="sd">    Also see :func:`~bincfg.MemCFG.get_block_labels`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">metadata</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;Dictionary of metadata associated with this MemCFG&quot;&quot;&quot;</span>
+
+    <span class="n">graph_c</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;Array containing all of the outgoing edges for each block in order</span>
+<span class="sd">    </span>
+<span class="sd">    1-D numpy array of shape (num_edges,). Dtype will be the smallest unsigned dtype required to store the value</span>
+<span class="sd">    `num_blocks + 1`. Each element is a block index to which that edge connects. Edges will be in the order they appear in </span>
+<span class="sd">    each block&#39;s ``edges_out`` attribute, for each block in order of their block_idx. </span>
+
+<span class="sd">    Also see :func:`~bincfg.MemCFG.get_edges_out`</span>
+
+<span class="sd">    NOTE: this also contains information on which types of edges they are inherently. If the block is NOT a function call</span>
+<span class="sd">    (stored as bit flag in the block_info array), then all edges for that block are normal edges. If it IS a function</span>
+<span class="sd">    call, then there are 3 cases:</span>
+
+<span class="sd">        1. it has one outgoing edge: that edge is always a function call</span>
+<span class="sd">        2. it has two outgoing edges, one function call, one normal: the first edge is the function call edge, the second</span>
+<span class="sd">           is a normal edge</span>
+<span class="sd">        3. it has &gt;2 outgoing edges, or 2 function call edges: the edges will be listed first by function call edges, </span>
+<span class="sd">           then by normal edges, with a separator inbetween. The separator will have the max unsigned int value for </span>
+<span class="sd">           graph_c&#39;s dtype. This is why we use the dtype that can store `num_blocks + 1`, since we need this extra value</span>
+<span class="sd">           just in case. Whatever exactly it means for a basic block to have &gt;2 outgoing edges while being a function </span>
+<span class="sd">           call is left up to the user. Possibly due to call operators with non-explicit operands (eg: register memory </span>
+<span class="sd">           locations)?</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">graph_r</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;Array containing information on the number of outgoing edges for each block</span>
+<span class="sd">    </span>
+<span class="sd">    1-D numpy array of shape (num_edges + 1,). Dtype will be the smallest unsigned dtype required to store the value</span>
+<span class="sd">    `num_edges`. This array is a cumulative sum of the number of edges for each basic block. One could get all of the </span>
+<span class="sd">    outgoing edges for a block using:</span>
+
+<span class="sd">    &gt;&gt;&gt; start_idx = memcfg.graph_r[block_idx]</span>
+<span class="sd">    &gt;&gt;&gt; end_idx = memcfg.graph_r[block_idx + 1]</span>
+<span class="sd">    &gt;&gt;&gt; edges = memcfg.graph_c[start_idx:end_idx]</span>
+
+<span class="sd">    Also see :func:`~bincfg.MemCFG.get_edges_out`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="MemCFG.BlockInfoBitMask"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.BlockInfoBitMask">[docs]</a>    <span class="k">class</span> <span class="nc">BlockInfoBitMask</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;An Enum for block info bit masks</span>
+<span class="sd">                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        </span>
+<span class="sd">        Each value is a tuple of the bit mask for that boolean, and a function to call with the block that returns a</span>
+<span class="sd">        boolean True if that bit should be set, False otherwise. If True, then that bit will be &#39;1&#39; in that block&#39;s </span>
+<span class="sd">        block_flags int.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">IS_FUNCTION_CALL</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">block</span><span class="p">:</span> <span class="n">block</span><span class="o">.</span><span class="n">is_function_call</span>
+        <span class="sd">&quot;&quot;&quot;Bit set if this block is a function call. See :py:func:`~bincfg.cfg_basic_block.is_function_call`&quot;&quot;&quot;</span>
+        <span class="n">IS_FUNCTION_ENTRY</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">block</span><span class="p">:</span> <span class="n">block</span><span class="o">.</span><span class="n">is_function_entry</span>
+        <span class="sd">&quot;&quot;&quot;Bit set if this block is a function entry. See :py:func:`~bincfg.cfg_basic_block.is_function_entry`&quot;&quot;&quot;</span>
+        <span class="n">IS_FUNCTION_RETURN</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">2</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">block</span><span class="p">:</span> <span class="n">block</span><span class="o">.</span><span class="n">is_function_return</span>
+        <span class="sd">&quot;&quot;&quot;Bit set if this block is a function return. See :py:func:`~bincfg.cfg_basic_block.is_function_return`&quot;&quot;&quot;</span>
+        <span class="n">IS_IN_EXTERN_FUNCTION</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">3</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">block</span><span class="p">:</span> <span class="n">block</span><span class="o">.</span><span class="n">parent_function</span><span class="o">.</span><span class="n">is_extern_function</span>
+        <span class="sd">&quot;&quot;&quot;Bit set if this block is within an external function. See :py:func:`~bincfg.cfg_function.is_extern_function`&quot;&quot;&quot;</span>
+        <span class="n">IS_FUNCTION_JUMP</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">4</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">block</span><span class="p">:</span> <span class="n">block</span><span class="o">.</span><span class="n">is_function_jump</span>
+        <span class="sd">&quot;&quot;&quot;Bit set if this block is a function jump. IE: this block has a jump instruction that resolves to a basic block</span>
+<span class="sd">        in a separate function. See :py:func:`~bincfg.cfg_basic_block.is_function_jump`&quot;&quot;&quot;</span>
+        <span class="n">IS_MULTI_FUNCTION_CALL</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">5</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">block</span><span class="p">:</span> <span class="mi">0</span>
+        <span class="sd">&quot;&quot;&quot;Bit set if this block is a multi-function call. IE: this block has either two or more function call edges out,</span>
+<span class="sd">        or one function call and two or more normal edges out. See :py:func:`~bincfg.cfg_basic_block.is_multi_function_call`</span>
+<span class="sd">        </span>
+<span class="sd">        Currently not setting the block here in _block_flags_int(), but instead in MemCFG initialization in order to save</span>
+<span class="sd">        time (we don&#39;t have to compute get_sorted_edges() multiple times)</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_block_flags_int</span><span class="p">(</span><span class="n">block</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Gets all of the block information and stores it as a integer of bit-set flags</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            block (CFGBasicBlock): the CFGBasicBlock to get the info int from</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: the integer of bit-set flags</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">block_flags</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">bm</span> <span class="ow">in</span> <span class="n">MemCFG</span><span class="o">.</span><span class="n">BlockInfoBitMask</span><span class="p">:</span>
+            <span class="n">block_flags</span> <span class="o">|=</span> <span class="n">bm</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">bm</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">](</span><span class="n">block</span><span class="p">)</span>  <span class="c1"># Times will convert boolean to 1 or 0</span>
+        <span class="k">return</span> <span class="n">block_flags</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">,</span> <span class="n">normalizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">using_tokens</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">force_renormalize</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="c1"># We can initialize empty if cfg is None</span>
+        <span class="k">if</span> <span class="n">cfg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Make sure input is a cfg</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">CFG</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Can only build a MemCFG out of a CFG object, not &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+
+        <span class="c1"># Normalize the CFG if needed</span>
+        <span class="k">if</span> <span class="n">normalizer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">cfg</span><span class="o">.</span><span class="n">normalizer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Make sure there is some normalizer to use</span>
+            <span class="k">if</span> <span class="n">normalizer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must pass a normalizer if `cfg` is unnormalized!&quot;</span><span class="p">)</span>
+            <span class="n">cfg</span> <span class="o">=</span> <span class="n">normalize_cfg_data</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">normalizer</span><span class="o">=</span><span class="n">normalizer</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="n">inplace</span><span class="p">,</span> <span class="n">force_renormalize</span><span class="o">=</span><span class="n">force_renormalize</span><span class="p">)</span>
+        
+        <span class="c1"># Keep cfg&#39;s normalization if possible</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">normalizer</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">normalizer</span>
+
+        <span class="c1"># Figure out what the tokens should be, updating the token dict if we find new ones</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tokens</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">using_tokens</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">using_tokens</span>
+
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">blocks</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">block</span><span class="o">.</span><span class="n">asm_lines</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">l</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">tokens</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tokens</span><span class="p">))</span>
+                    
+        <span class="n">max_token</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tokens</span><span class="p">)</span>
+
+        <span class="c1"># Make mappings from function names to indices. Make sure there aren&#39;t duplicates (most likely only going to</span>
+        <span class="c1">#   occur in functions with no name)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">function_name_to_idx</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">function_addr_to_idx</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">functions</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">nice_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">function_name_to_idx</span><span class="p">:</span>
+                <span class="n">func_name</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">nice_name</span>
+                <span class="n">fn_idx</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">while</span> <span class="n">func_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">function_name_to_idx</span><span class="p">:</span>
+                    <span class="n">func_name</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">nice_name</span> <span class="o">+</span> <span class="s1">&#39;_</span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">fn_idx</span>
+                    <span class="n">fn_idx</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">func_name</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">nice_name</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">function_name_to_idx</span><span class="p">[</span><span class="n">func_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="n">function_addr_to_idx</span><span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">address</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+
+        <span class="c1"># Make the data arrays</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">asm_lines</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="n">cfg</span><span class="o">.</span><span class="n">num_asm_lines</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">get_smallest_np_dtype</span><span class="p">(</span><span class="n">max_token</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">block_asm_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="n">cfg</span><span class="o">.</span><span class="n">num_blocks</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">get_smallest_np_dtype</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">num_asm_lines</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">block_func_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="n">cfg</span><span class="o">.</span><span class="n">num_blocks</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">get_smallest_np_dtype</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">functions_dict</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">block_flags</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="n">cfg</span><span class="o">.</span><span class="n">num_blocks</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">get_smallest_np_dtype</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">MemCFG</span><span class="o">.</span><span class="n">BlockInfoBitMask</span><span class="p">)))</span>
+        <span class="n">graph_c</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">graph_r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="n">cfg</span><span class="o">.</span><span class="n">num_blocks</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">block_labels</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Mapping of block indices to block labels</span>
+
+        <span class="c1"># Set the initial graph_r start and final block_asm_idx</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">graph_r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">block_asm_idx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">asm_lines</span><span class="p">)</span>
+
+        <span class="c1"># Copy the metadata from the cfg</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># Create temporary mapping of CFGBasicBlock.address to integer index of block (sorted by address for determinism)</span>
+        <span class="n">block_addr_to_idx</span> <span class="o">=</span> <span class="p">{</span><span class="n">block</span><span class="o">.</span><span class="n">address</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">block</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">blocks</span><span class="p">)}</span>
+
+        <span class="c1"># Convert the data at each block to better memory one</span>
+        <span class="n">asm_line_idx</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">block_idx</span><span class="p">,</span> <span class="n">block</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">blocks</span><span class="p">):</span>
+
+            <span class="c1"># Get the assembly lines, and store the length of the assembly lines</span>
+            <span class="n">asm_line_end</span> <span class="o">=</span> <span class="n">asm_line_idx</span> <span class="o">+</span> <span class="n">block</span><span class="o">.</span><span class="n">num_asm_lines</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">asm_lines</span><span class="p">[</span><span class="n">asm_line_idx</span><span class="p">:</span> <span class="n">asm_line_end</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">tokens</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">block</span><span class="o">.</span><span class="n">asm_lines</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">l</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">block_asm_idx</span><span class="p">[</span><span class="n">block_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">asm_line_idx</span>
+            <span class="n">asm_line_idx</span> <span class="o">=</span> <span class="n">asm_line_end</span>
+
+            <span class="c1"># Get the block&#39;s function name</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">block_func_idx</span><span class="p">[</span><span class="n">block_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">function_addr_to_idx</span><span class="p">[</span><span class="n">block</span><span class="o">.</span><span class="n">parent_function</span><span class="o">.</span><span class="n">address</span><span class="p">]</span>
+
+            <span class="c1"># Get all of the edges associated with this block in order: normal edges, function call edges</span>
+            <span class="n">edge_lists</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">get_sorted_edges</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="s1">&#39;out&#39;</span><span class="p">,</span> <span class="n">as_sets</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+            <span class="c1"># Add in the function call edges</span>
+            <span class="n">graph_c</span> <span class="o">+=</span> <span class="p">[</span><span class="n">block_addr_to_idx</span><span class="p">[</span><span class="n">edge</span><span class="o">.</span><span class="n">to_block</span><span class="o">.</span><span class="n">address</span><span class="p">]</span> <span class="k">for</span> <span class="n">edge</span> <span class="ow">in</span> <span class="n">edge_lists</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+
+            <span class="c1"># Check for either &gt;1 function call edges, or &gt;2 edges while being a function call.</span>
+            <span class="c1"># We add a -1, which will be rolled over to the unsigned int max value for graph_c array</span>
+            <span class="n">added_minus_1</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">edge_lists</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">edge_lists</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">edge_lists</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">graph_c</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">added_minus_1</span> <span class="o">=</span> <span class="mi">1</span>
+            
+            <span class="c1"># Add in the normal edges</span>
+            <span class="n">graph_c</span> <span class="o">+=</span> <span class="p">[</span><span class="n">block_addr_to_idx</span><span class="p">[</span><span class="n">edge</span><span class="o">.</span><span class="n">to_block</span><span class="o">.</span><span class="n">address</span><span class="p">]</span> <span class="k">for</span> <span class="n">edge</span> <span class="ow">in</span> <span class="n">edge_lists</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+
+            <span class="c1"># Update the new graph_r, taking into account whether or not we inserted an extra -1 to split function call/normal edges</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">graph_r</span><span class="p">[</span><span class="n">block_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">l</span><span class="p">)</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">edge_lists</span><span class="p">)</span> <span class="o">+</span> <span class="n">added_minus_1</span>
+            
+            <span class="c1"># Get the block information flags for this block.</span>
+            <span class="c1"># Set the flag for is_multi_function_call here so we don&#39;t have to call get_sorted_edges more than once</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">block_flags</span><span class="p">[</span><span class="n">block_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">MemCFG</span><span class="o">.</span><span class="n">_block_flags_int</span><span class="p">(</span><span class="n">block</span><span class="p">)</span> <span class="o">|</span> \
+                <span class="p">(</span><span class="n">MemCFG</span><span class="o">.</span><span class="n">BlockInfoBitMask</span><span class="o">.</span><span class="n">IS_MULTI_FUNCTION_CALL</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">added_minus_1</span><span class="p">)</span>
+
+            <span class="c1"># Get the block label info</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">labels</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">block_val</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">for</span> <span class="n">label_num</span> <span class="ow">in</span> <span class="n">block</span><span class="o">.</span><span class="n">labels</span><span class="p">:</span>
+                    <span class="n">block_val</span> <span class="o">|=</span> <span class="mi">2</span> <span class="o">**</span> <span class="n">label_num</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">block_labels</span><span class="p">[</span><span class="n">block_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">block_val</span>
+        
+        <span class="c1"># Conver graph_c and graph_r to numpy arrays</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">graph_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">graph_c</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">get_smallest_np_dtype</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">blocks_dict</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">graph_r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_r</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">get_smallest_np_dtype</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_c</span><span class="p">)))</span>
+    
+<div class="viewcode-block" id="MemCFG.get_block"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.get_block">[docs]</a>    <span class="k">def</span> <span class="nf">get_block</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">,</span> <span class="n">as_dict</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns all the info associated with the given block index</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            block_idx (int): integer block index</span>
+<span class="sd">            as_dict (bool): if True, will return a dictionary of the values with the same names in the &quot;Returns&quot; section</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tuple[np.ndarray, np.ndarray, int, bool, bool, bool, bool, bool, List[int]]: the block info - </span>
+<span class="sd">                (asm_lines, edges_out, edge_types, function_idx, is_function_call, is_function_entry, is_function_return, </span>
+<span class="sd">                is_extern_function, is_function_jump, is_block_multi_function_call, labels_list)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_block_asm_lines</span><span class="p">(</span><span class="n">block_idx</span><span class="p">),)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_block_edges_out</span><span class="p">(</span><span class="n">block_idx</span><span class="p">,</span> <span class="n">ret_edge_types</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> \
+            <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_block_function_idx</span><span class="p">(</span><span class="n">block_idx</span><span class="p">),)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_block_flags</span><span class="p">(</span><span class="n">block_idx</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_block_labels</span><span class="p">(</span><span class="n">block_idx</span><span class="p">),)</span>
+        
+        <span class="k">if</span> <span class="n">as_dict</span><span class="p">:</span>
+            <span class="n">ret</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">([</span><span class="s1">&#39;asm_lines&#39;</span><span class="p">,</span> <span class="s1">&#39;edges_out&#39;</span><span class="p">,</span> <span class="s1">&#39;edge_types&#39;</span><span class="p">,</span> <span class="s1">&#39;function_idx&#39;</span><span class="p">,</span> <span class="s1">&#39;is_function_call&#39;</span><span class="p">,</span> 
+                    <span class="s1">&#39;is_function_entry&#39;</span><span class="p">,</span> <span class="s1">&#39;is_function_return&#39;</span><span class="p">,</span> <span class="s1">&#39;is_extern_function&#39;</span><span class="p">,</span> <span class="s1">&#39;is_function_jump&#39;</span><span class="p">,</span> 
+                    <span class="s1">&#39;is_block_multi_function_call&#39;</span><span class="p">,</span> <span class="s1">&#39;labels_list&#39;</span><span class="p">],</span> <span class="n">ret</span><span class="p">)}</span>
+        
+        <span class="k">return</span> <span class="n">ret</span></div>
+    
+<div class="viewcode-block" id="MemCFG.get_block_info"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.get_block_info">[docs]</a>    <span class="k">def</span> <span class="nf">get_block_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">,</span> <span class="n">as_dict</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Alias for :func:`~bincfg.MemCFG.get_block`. Returns all the info associated with the given block index</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            block_idx (int): integer block index</span>
+<span class="sd">            as_dict (bool): if True, will return a dictionary of the values with the same names in the &quot;Returns&quot; section</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tuple[np.ndarray, np.ndarray, int, bool, bool, bool, bool, bool, List[int]]: the block info - </span>
+<span class="sd">                (asm_lines, edges_out, edge_types, function_idx, is_function_call, is_function_entry, is_function_return, </span>
+<span class="sd">                is_extern_function, is_function_jump, is_block_multi_function_call, labels_list)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_block</span><span class="p">(</span><span class="n">block_idx</span><span class="p">,</span> <span class="n">as_dict</span><span class="o">=</span><span class="n">as_dict</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MemCFG.get_block_asm_lines"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.get_block_asm_lines">[docs]</a>    <span class="k">def</span> <span class="nf">get_block_asm_lines</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the asm lines associated with this block index</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            block_idx (int): </span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: a numpy array of assembly tokens</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">asm_lines</span><span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">block_asm_idx</span><span class="p">[</span><span class="n">block_idx</span><span class="p">:</span><span class="n">block_idx</span> <span class="o">+</span> <span class="mi">2</span><span class="p">])]</span></div>
+    
+<div class="viewcode-block" id="MemCFG.get_block_edges_out"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.get_block_edges_out">[docs]</a>    <span class="k">def</span> <span class="nf">get_block_edges_out</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">,</span> <span class="n">ret_edge_types</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get numpy array of block indices for all edges out associated with the given block index</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            block_idx (int): integer block index</span>
+<span class="sd">            ret_edge_types (bool): if True, will also return a numpy array (1-d, dtype np.uint8) containing the edge</span>
+<span class="sd">                type values for each edge with values:</span>
+
+<span class="sd">                    - 1: normal edge</span>
+<span class="sd">                    - 2: function call edge</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: a numpy array of block indices</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Get all of the edges</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_c</span><span class="p">[</span><span class="nb">slice</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_r</span><span class="p">[</span><span class="n">block_idx</span><span class="p">:</span><span class="n">block_idx</span><span class="o">+</span><span class="mi">2</span><span class="p">])]</span>
+
+        <span class="c1"># Check if we are returning the edge types as well</span>
+        <span class="k">if</span> <span class="n">ret_edge_types</span><span class="p">:</span>
+
+            <span class="c1"># Check if this block is a function call</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_block_function_call</span><span class="p">(</span><span class="n">block_idx</span><span class="p">):</span>
+
+                <span class="c1"># Check to see if this block is a multi-function call, in which case we have to split up the array</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_block_multi_function_call</span><span class="p">(</span><span class="n">block_idx</span><span class="p">):</span>
+                    
+                    <span class="c1"># Get the split index (index in ret that is equal to unsigned dtype max). It should have split_idx</span>
+                    <span class="c1">#   function call edges, and len(ret) - split_idx - 1 normal edges (to account for the fact that</span>
+                    <span class="c1">#   the split_idx itself is also stored in the array)</span>
+                    <span class="n">split_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">ret</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_c</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="k">return</span> <span class="n">ret</span><span class="p">[</span><span class="n">ret</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_c</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">],</span> \
+                        <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">FUNCTION_CALL_EDGE_CONN_VALUE</span><span class="p">]</span> <span class="o">*</span> <span class="n">split_idx</span> <span class="o">+</span> <span class="p">[</span><span class="n">NORMAL_EDGE_CONN_VALUE</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="o">-</span> <span class="n">split_idx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+                
+                <span class="c1"># Otherwise it is not a multi-function call. We can simply return ret, and edge types are either </span>
+                <span class="c1">#   [function_call] or [function_call, normal]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">ret</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(([</span><span class="n">FUNCTION_CALL_EDGE_CONN_VALUE</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> \
+                        <span class="p">[</span><span class="n">FUNCTION_CALL_EDGE_CONN_VALUE</span><span class="p">,</span> <span class="n">NORMAL_EDGE_CONN_VALUE</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+            
+            <span class="c1"># It&#39;s not a function call, so we can just return ret and all edge types must be normal edges</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">ret</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">ret</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">NORMAL_EDGE_CONN_VALUE</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+
+        <span class="c1"># Otherwise we are not returning the edge types, just return all values in ret that are not the splitting value</span>
+        <span class="k">return</span> <span class="n">ret</span><span class="p">[</span><span class="n">ret</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_c</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="MemCFG.get_block_function_idx"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.get_block_function_idx">[docs]</a>    <span class="k">def</span> <span class="nf">get_block_function_idx</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the function index for the given block index</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            block_idx (int): integer block index</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: the integer function index for the given block index</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_func_idx</span><span class="p">[</span><span class="n">block_idx</span><span class="p">]</span></div>
+    
+<div class="viewcode-block" id="MemCFG.get_block_function_name"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.get_block_function_name">[docs]</a>    <span class="k">def</span> <span class="nf">get_block_function_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get the function name for the given block index</span>
+<span class="sd">        </span>
+<span class="sd">        Functions without names will start with &#39;__unnamed_func__&#39;</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            block_idx (int): integer block index</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: the function name for the given block index</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">func_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_block_function_idx</span><span class="p">(</span><span class="n">block_idx</span><span class="p">)</span>
+
+        <span class="c1"># Make an inverse mapping now that we know we are calling this function</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;function_idx_to_name&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">function_idx_to_name</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">function_name_to_idx</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">function_idx_to_name</span><span class="p">[</span><span class="n">func_idx</span><span class="p">]</span></div>
+    
+<div class="viewcode-block" id="MemCFG.get_block_flags"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.get_block_flags">[docs]</a>    <span class="k">def</span> <span class="nf">get_block_flags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get all block flags for the given block index</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            block_idx (int): integer block index</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tuple[bool, bool, bool, bool, bool]: (is_block_function_call, is_block_function_start, is_block_function_return, </span>
+<span class="sd">                is_block_extern_function, is_block_function_jump, is_block_multi_function_call)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_block_function_call</span><span class="p">(</span><span class="n">block_idx</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_block_function_entry</span><span class="p">(</span><span class="n">block_idx</span><span class="p">),</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">is_block_function_return</span><span class="p">(</span><span class="n">block_idx</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_block_extern_function</span><span class="p">(</span><span class="n">block_idx</span><span class="p">),</span> \
+            <span class="bp">self</span><span class="o">.</span><span class="n">is_block_function_jump</span><span class="p">(</span><span class="n">block_idx</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_block_multi_function_call</span><span class="p">(</span><span class="n">block_idx</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="MemCFG.get_block_labels"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.get_block_labels">[docs]</a>    <span class="k">def</span> <span class="nf">get_block_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a list of integer block labels for the given block_idx. </span>
+<span class="sd">        </span>
+<span class="sd">        Labels will be integers of the indices in NODE_LABELS. IE: if this CFG has labels [&#39;ecryption&#39;, &#39;file_io&#39;, </span>
+<span class="sd">        &#39;network_io&#39;, &#39;error_handler&#39;, &#39;string_parser&#39;], and a block at block_idx has block_labels of [0, 3], then that </span>
+<span class="sd">        block would be both an &#39;ecryption&#39; block and a &#39;error_handler&#39; block. If a block has no labels ([]), then it </span>
+<span class="sd">        should be assumed that we don&#39;t know what labels it should have, as opposed to it having no labels.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            block_idx (int): integer block index</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            List[int]: list of integer labels for the given block index</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">block_idx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_labels</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">NODE_LABELS</span><span class="p">))</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_labels</span><span class="p">[</span><span class="n">block_idx</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mi">2</span> <span class="o">**</span> <span class="n">i</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+    
+<div class="viewcode-block" id="MemCFG.is_block_function_call"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.is_block_function_call">[docs]</a>    <span class="k">def</span> <span class="nf">is_block_function_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;True if this block is a function call, False otherwise&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">block_flags</span><span class="p">[</span><span class="n">block_idx</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">MemCFG</span><span class="o">.</span><span class="n">BlockInfoBitMask</span><span class="o">.</span><span class="n">IS_FUNCTION_CALL</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span></div>
+    
+<div class="viewcode-block" id="MemCFG.is_block_function_return"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.is_block_function_return">[docs]</a>    <span class="k">def</span> <span class="nf">is_block_function_return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;True if this block is a function return, False otherwise&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">block_flags</span><span class="p">[</span><span class="n">block_idx</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">MemCFG</span><span class="o">.</span><span class="n">BlockInfoBitMask</span><span class="o">.</span><span class="n">IS_FUNCTION_RETURN</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span></div>
+    
+<div class="viewcode-block" id="MemCFG.is_block_function_entry"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.is_block_function_entry">[docs]</a>    <span class="k">def</span> <span class="nf">is_block_function_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;True if this block is a function entry, False otherwise&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">block_flags</span><span class="p">[</span><span class="n">block_idx</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">MemCFG</span><span class="o">.</span><span class="n">BlockInfoBitMask</span><span class="o">.</span><span class="n">IS_FUNCTION_ENTRY</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span></div>
+    
+<div class="viewcode-block" id="MemCFG.is_block_extern_function"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.is_block_extern_function">[docs]</a>    <span class="k">def</span> <span class="nf">is_block_extern_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;True if this block is in an external function, False otherwise&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">block_flags</span><span class="p">[</span><span class="n">block_idx</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">MemCFG</span><span class="o">.</span><span class="n">BlockInfoBitMask</span><span class="o">.</span><span class="n">IS_IN_EXTERN_FUNCTION</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span></div>
+    
+<div class="viewcode-block" id="MemCFG.is_block_function_jump"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.is_block_function_jump">[docs]</a>    <span class="k">def</span> <span class="nf">is_block_function_jump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;True if this block is a function jump, False otherwise&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">block_flags</span><span class="p">[</span><span class="n">block_idx</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">MemCFG</span><span class="o">.</span><span class="n">BlockInfoBitMask</span><span class="o">.</span><span class="n">IS_FUNCTION_JUMP</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span></div>
+    
+<div class="viewcode-block" id="MemCFG.is_block_multi_function_call"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.is_block_multi_function_call">[docs]</a>    <span class="k">def</span> <span class="nf">is_block_multi_function_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;True if this block is a multi-function call, False otherwise&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">block_flags</span><span class="p">[</span><span class="n">block_idx</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">MemCFG</span><span class="o">.</span><span class="n">BlockInfoBitMask</span><span class="o">.</span><span class="n">IS_MULTI_FUNCTION_CALL</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span></div>
+    
+<div class="viewcode-block" id="MemCFG.is_block_labeled"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.is_block_labeled">[docs]</a>    <span class="k">def</span> <span class="nf">is_block_labeled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">block_idx</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Checks if the given block_idx is labeled</span>
+
+<span class="sd">        If label is None, returns True if the block at the given index has a label, False if it has no labels </span>
+<span class="sd">        (self.block_labels[block_idx] == 0)</span>
+<span class="sd">        Otherwise returns True if the block at the given index has the given label, False if not</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            block_idx (int): integer block index</span>
+<span class="sd">            label (Union[str, int, None], optional): if not None, then the label to check the block_idx for. Can be </span>
+<span class="sd">                either a string (whos lowercase name must be in NODE_LABELS), or an integer for the index in NODE_LABELS </span>
+<span class="sd">                to check for. Otherwise if label is None, then this will check to see if the given block_idx is labeled </span>
+<span class="sd">                at all. Defaults to None.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: for a bad/unknown `label` value</span>
+<span class="sd">            TypeError: for a bad `label` type</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: True if the block has the label, False otherwise</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">label</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">block_idx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_labels</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_labels</span><span class="p">[</span><span class="n">block_idx</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span>
+        
+        <span class="c1"># Check for bad label values</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">label</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">NODE_LABELS</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown label: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">label</span><span class="p">)</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="n">NODE_LABELS</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">label</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">label</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">label</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">NODE_LABELS</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot get label index </span><span class="si">%d</span><span class="s2"> of NODE_LABELS with length </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">NODE_LABELS</span><span class="p">)))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unknown label type: </span><span class="si">%s</span><span class="s2">. Should be None, string, or int&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">(</span><span class="n">label</span><span class="p">))</span>
+        
+        <span class="c1"># Check block for specific label</span>
+        <span class="k">return</span> <span class="n">block_idx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_labels</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_labels</span><span class="p">[</span><span class="n">block_idx</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mi">2</span> <span class="o">**</span> <span class="n">label</span> <span class="o">!=</span> <span class="mi">0</span></div>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_blocks</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The number of blocks in this ``MemCFG``&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">block_func_idx</span><span class="p">)</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_edges</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The number of edges in this ``MemCFG``&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_c</span><span class="p">)</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_asm_lines</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The number of assembly lines in this ``MemCFG``&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">asm_lines</span><span class="p">)</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_functions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The number of functions in this ``MemCFG``&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">function_name_to_idx</span><span class="p">)</span>
+    
+<div class="viewcode-block" id="MemCFG.normalize"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">normalizer</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Normalizes this memcfg in-place.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            normalizer (Union[str, Normalizer], optional): the normalizer to use. Can be a ``Normalizer`` object, or a </span>
+<span class="sd">                string, or None to use the default BaseNormalizer(). Defaults to None.</span>
+<span class="sd">            inplace (bool, optional): whether or not to normalize inplace. Defaults to True.</span>
+<span class="sd">            force_renormalize (bool, optional): by default, this method will only normalize this cfg if the passed </span>
+<span class="sd">                `normalizer` is != `self.normalizer`. However if `force_renormalize=True`, then this will be renormalized</span>
+<span class="sd">                even if it has been previously normalized with the same normalizer. Defaults to False.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            MemCFG: this ``MemCFG`` normalized</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">normalize_cfg_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">normalizer</span><span class="o">=</span><span class="n">normalizer</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="n">inplace</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="MemCFG.get_edge_values"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.get_edge_values">[docs]</a>    <span class="k">def</span> <span class="nf">get_edge_values</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the edge type values</span>
+<span class="sd">        </span>
+<span class="sd">        Returns a 1-d numpy array of length self.num_edges and dtype np.int32 containing an integer type for each</span>
+<span class="sd">        edge depending on if it is a normal/function call/call return edge:</span>
+
+<span class="sd">        Edges are directed and have values:</span>
+
+<span class="sd">            - 0: No edge</span>
+<span class="sd">            - 1: Normal edge</span>
+<span class="sd">            - 2: Function call edge</span>
+<span class="sd">        </span>
+<span class="sd">        NOTE: this returns as type np.int32 since pytorch can be finicky about what dtypes it wants</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: the edge type values</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">edge_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_c</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="n">evi</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">bi</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_blocks</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_block_function_call</span><span class="p">(</span><span class="n">bi</span><span class="p">):</span>
+                <span class="n">edge_values</span><span class="p">[</span><span class="n">evi</span><span class="p">:</span><span class="n">evi</span><span class="o">+</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">FUNCTION_CALL_EDGE_CONN_VALUE</span><span class="p">,</span> <span class="n">NORMAL_EDGE_CONN_VALUE</span><span class="p">)</span>
+                <span class="n">evi</span> <span class="o">+=</span> <span class="mi">2</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">l</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_r</span><span class="p">[</span><span class="n">bi</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_r</span><span class="p">[</span><span class="n">bi</span><span class="p">]</span>
+                <span class="n">edge_values</span><span class="p">[</span><span class="n">evi</span><span class="p">:</span><span class="n">evi</span> <span class="o">+</span> <span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="n">NORMAL_EDGE_CONN_VALUE</span>
+                <span class="n">evi</span> <span class="o">+=</span> <span class="n">l</span>
+
+        <span class="k">return</span> <span class="n">edge_values</span></div>
+    
+<div class="viewcode-block" id="MemCFG.get_coo_indices"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.get_coo_indices">[docs]</a>    <span class="k">def</span> <span class="nf">get_coo_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the COO indices for this MemCFG</span>
+
+<span class="sd">        Returns a 2-d numpy array of shape (num_edges, 2) of dtype np.int32. Each row is an edge, column 0 is the &#39;row&#39; </span>
+<span class="sd">        indexer, and column 1 is the &#39;column&#39; indexer. EG:</span>
+<span class="sd">        </span>
+<span class="sd">        .. highlight:: python</span>
+<span class="sd">        .. code-block:: python</span>
+<span class="sd">        </span>
+<span class="sd">            original = np.array([</span>
+<span class="sd">                [0, 1],</span>
+<span class="sd">                [1, 1]</span>
+<span class="sd">            ])</span>
+
+<span class="sd">            coo_indices = np.array([</span>
+<span class="sd">                [0, 1],</span>
+<span class="sd">                [1, 0],</span>
+<span class="sd">                [1, 1]</span>
+<span class="sd">            ])</span>
+<span class="sd">        </span>
+<span class="sd">        NOTE: this returns as type np.int32 since pytorch can be finicky about what dtypes it wants</span>
+<span class="sd">        NOTE: pytorch sparse_coo_tensor&#39;s indicies are the transpose of the array this method returns</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            np.ndarray: the coo indices</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">num_edges</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">bi</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_blocks</span><span class="p">):</span>
+            <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_r</span><span class="p">[</span><span class="n">bi</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_r</span><span class="p">[</span><span class="n">bi</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">inds</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">bi</span>
+            <span class="n">inds</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_c</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">inds</span></div>
+    
+<div class="viewcode-block" id="MemCFG.to_adjacency_matrix"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.to_adjacency_matrix">[docs]</a>    <span class="k">def</span> <span class="nf">to_adjacency_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s1">&#39;np&#39;</span><span class="p">,</span> <span class="n">sparse</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns an adjacency matrix representation of this memcfg&#39;s graph connections</span>
+
+<span class="sd">        Connections will be directed and have values:</span>
+
+<span class="sd">            - 0: No edge</span>
+<span class="sd">            - 1: Normal edge</span>
+<span class="sd">            - 2: Function call edge</span>
+
+<span class="sd">        See :func:`bincfg.memcfg.to_adjacency_matrix` for more details</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            type (str, optional): the type of matrix to return. Defaults to &#39;np&#39;. Can be:</span>
+
+<span class="sd">                - &#39;np&#39;/&#39;numpy&#39; for a numpy ndarray (dtype: np.int32)</span>
+<span class="sd">                - &#39;torch&#39;/&#39;pytorch&#39; for a pytorch tensor (type: LongTensor)</span>
+<span class="sd">            </span>
+<span class="sd">            sparse (bool, optional): whether or not the return value should be a sparse matrix. Defaults to False. Has </span>
+<span class="sd">                different behaviors based on type:</span>
+
+<span class="sd">                - numpy array: returns a 2-tuple of sparse COO representation (indices, values). </span>
+<span class="sd">                    NOTE: if you want sparse CSR format, you already have it with self.graph_c and self.graph_r</span>
+<span class="sd">                - pytorch tensor: returns a pytorch sparse COO tensor. </span>
+<span class="sd">                    NOTE: not using sparse CSR format for now since it seems to have less documentation/supportedness. </span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Union[np.ndarray, torch.Tensor]: an adjacency matrix representation of this ``MemCFG``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">type</span> <span class="o">=</span> <span class="nb">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+        <span class="c1"># Return adj mat as intended type</span>
+        <span class="k">if</span> <span class="nb">type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;np&#39;</span><span class="p">,</span> <span class="s1">&#39;numpy&#39;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">sparse</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_coo_indices</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_edge_values</span><span class="p">())</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">num_blocks</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_blocks</span><span class="p">))</span>
+                <span class="k">return</span> <span class="n">scatter_nd_numpy</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_coo_indices</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_edge_values</span><span class="p">())</span>
+
+        <span class="k">elif</span> <span class="nb">type</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;torch&#39;</span><span class="p">,</span> <span class="s1">&#39;pytorch&#39;</span><span class="p">]:</span>
+            <span class="n">torch</span> <span class="o">=</span> <span class="n">get_module</span><span class="p">(</span><span class="s1">&#39;torch&#39;</span><span class="p">,</span> <span class="n">err_message</span><span class="o">=</span><span class="s2">&quot;Cannot find module `torch` required to return pytorch tensors!&quot;</span><span class="p">)</span>
+            <span class="n">sparse_coo</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sparse_coo_tensor</span><span class="p">(</span><span class="n">indices</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_coo_indices</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_edge_values</span><span class="p">(),</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_blocks</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_blocks</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">sparse_coo</span> <span class="k">if</span> <span class="n">sparse</span> <span class="k">else</span> <span class="n">sparse_coo</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown adjacency matrix type: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="nb">type</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="MemCFG.save"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Saves this MemCFG to the given path&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="MemCFG.load"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.mem_cfg.MemCFG.load">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Loads a MemCFG from the given path&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span></div>
+        
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;MemCFG with normalizer: </span><span class="si">%s</span><span class="s2"> and </span><span class="si">%d</span><span class="s2"> functions, </span><span class="si">%d</span><span class="s2"> blocks, </span><span class="si">%d</span><span class="s2"> assembly lines, and </span><span class="si">%d</span><span class="s2"> edges&quot;</span> <span class="o">%</span> \
+            <span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">normalizer</span><span class="p">)),</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_functions</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_blocks</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_asm_lines</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_edges</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;State for pickling&quot;&quot;&quot;</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">ret</span><span class="p">[</span><span class="s1">&#39;normalizer&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_Pickled_Normalizer</span><span class="p">(</span><span class="n">ret</span><span class="p">[</span><span class="s1">&#39;normalizer&#39;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="s1">&#39;function_idx_to_name&#39;</span> <span class="ow">in</span> <span class="n">ret</span><span class="p">:</span>
+            <span class="k">del</span> <span class="n">ret</span><span class="p">[</span><span class="s1">&#39;function_idx_to_name&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">ret</span>
+    
+    <span class="k">def</span> <span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set state for pickling&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s1">&#39;normalizer&#39;</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
+            <span class="n">state</span><span class="p">[</span><span class="s1">&#39;normalizer&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="s1">&#39;normalizer&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">unpickle</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">state</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">MemCFG</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="n">eq_obj</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">selector</span><span class="o">=</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="s1">&#39;asm_lines&#39;</span><span class="p">,</span> <span class="s1">&#39;block_asm_idx&#39;</span><span class="p">,</span> <span class="s1">&#39;block_func_idx&#39;</span><span class="p">,</span> <span class="s1">&#39;block_flags&#39;</span><span class="p">,</span> <span class="s1">&#39;graph_c&#39;</span><span class="p">,</span> <span class="s1">&#39;graph_r&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;block_labels&#39;</span><span class="p">,</span> <span class="s1">&#39;metadata&#39;</span><span class="p">,</span> <span class="s1">&#39;function_name_to_idx&#39;</span><span class="p">,</span> <span class="s1">&#39;normalizer&#39;</span><span class="p">,</span> <span class="s1">&#39;tokens&#39;</span><span class="p">,</span>
+        <span class="p">])</span>
+    
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">hash_obj</span><span class="p">([</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">asm_lines</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_asm_idx</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_func_idx</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">block_flags</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_c</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_r</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">block_labels</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">function_name_to_idx</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokens</span>
+        <span class="p">],</span> <span class="n">return_int</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Justin Allen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
