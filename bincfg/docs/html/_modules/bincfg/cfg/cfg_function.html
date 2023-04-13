@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>bincfg.cfg.cfg_function &mdash; BinCFG 0.1.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> BinCFG
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.cfg.html">bincfg.cfg package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.utils.html">bincfg.utils package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.normalization.html">bincfg.normalization package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.labeling.html">bincfg.labeling package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">BinCFG</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">bincfg.cfg.cfg_function</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for bincfg.cfg.cfg_function</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="nn">.cfg_basic_block</span> <span class="kn">import</span> <span class="n">CFGBasicBlock</span>
+<span class="kn">from</span> <span class="nn">..utils</span> <span class="kn">import</span> <span class="n">eq_obj</span>
+
+
+<div class="viewcode-block" id="CFGFunction"><a class="viewcode-back" href="../../../bincfg.cfg.html#bincfg.cfg.cfg_function.CFGFunction">[docs]</a><span class="k">class</span> <span class="nc">CFGFunction</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;A single function in a ``CFG``</span>
+
+<span class="sd">    Can be initialized empty, or by passing kwarg values.</span>
+
+<span class="sd">    NOTE: these objects should not be pickled/copy.deepcopy()-ed by themselves, only as a part of a cfg</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    parent_cfg: `CFG`</span>
+<span class="sd">        the parent ``CFG`` object to which this ``CFGFunction`` belongs</span>
+<span class="sd">    address: `Union[str, int, Addressable]`</span>
+<span class="sd">        the memory address of this function</span>
+<span class="sd">    name: `Optional[str]`</span>
+<span class="sd">        the string name of this function, or None if it doesn&#39;t have one</span>
+<span class="sd">    blocks: `Optional[Iterable[CFGBasicBlock]]`</span>
+<span class="sd">        if None, will be initialized to an empty list, otherwise an iterable of ``CFGBasicBlock`` objects that are within </span>
+<span class="sd">        this function</span>
+<span class="sd">    is_extern_func: `bool`</span>
+<span class="sd">        if True, then this function is an external function (a dynamically loaded function)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">parent_cfg</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;the parent ``CFG`` object to which this ``CFGFunction`` belongs&quot;&quot;&quot;</span>
+
+    <span class="n">address</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;the integer memory address of this function&quot;&quot;&quot;</span>
+
+    <span class="n">name</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;the string name of this function, or ``None`` if it doesn&#39;t have a name&quot;&quot;&quot;</span>
+
+    <span class="n">blocks</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="sd">&quot;&quot;&quot;list of all basic blocks in this function&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent_cfg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">is_extern_func</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parent_cfg</span> <span class="o">=</span> <span class="n">parent_cfg</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">address</span> <span class="o">=</span> <span class="n">address</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">blocks</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">blocks</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_extern_function</span> <span class="o">=</span> <span class="n">is_extern_func</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_blocks</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The number of basic blocks in this function&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">)</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_asm_lines</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The total number of assembly lines across all blocks in this function&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">num_asm_lines</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">)</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">asm_counts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A ``collections.Counter`` of all unique assembly lines and their counts in this function&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">((</span><span class="n">b</span><span class="o">.</span><span class="n">asm_counts</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">),</span> <span class="n">Counter</span><span class="p">())</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_root_function</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;True if this function is not called by any other functions, False otherwise&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">called_by</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_recursive</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;True if this function calls itself at some point</span>
+<span class="sd">        </span>
+<span class="sd">        Specifically, if at least one ``CFGBasicBlock`` in this ``CFGFunction.blocks`` list has an `edges_out` function</span>
+<span class="sd">        call address that is equal to this ``CFGFunction``&#39;s address</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">address</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">calls</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">address</span><span class="p">)</span> <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">)</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_extern_function</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;True if this function is an external function, False otherwise&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_extern_function</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_intern_function</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;True if this function is an internal function, False otherwise&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_extern_function</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">function_entry_block</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The ``CFGBasicBlock`` that is the function entry block</span>
+<span class="sd">        </span>
+<span class="sd">        Specifically, returns the first ``CFGBasicBlock`` found that has the same address as this function (there ~should~</span>
+<span class="sd">        only be one as each basic block ~should~ have a unique memory address)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">block</span><span class="o">.</span><span class="n">address</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">address</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">block</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Function </span><span class="si">%s</span><span class="s2"> does not have an entry block!&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s1">&#39;with no name&#39;</span><span class="p">))</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">called_by</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;A list of ``CFGBasicBlock``&#39;s that call this function</span>
+<span class="sd">        </span>
+<span class="sd">        Specifically, the list of all ``CFGBasicBlock`` objects in this ``CFGFunction.parent_cfg`` cfg object that call </span>
+<span class="sd">        this function. If this ``CFGFunction`` has no parent, then the empty list will be returned.</span>
+<span class="sd">        </span>
+<span class="sd">        NOTE: this is computed dynamically each call (as ``CFG`` objects are mutable), so it may be useful to compute it</span>
+<span class="sd">        once per function and save it if needed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_cfg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">list</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="n">block</span> <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_cfg</span><span class="o">.</span><span class="n">blocks</span> <span class="k">if</span> <span class="n">block</span><span class="o">.</span><span class="n">calls</span><span class="p">(</span><span class="bp">self</span><span class="p">)]</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">nice_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the name of this function, returning (&quot;__UNNAMED_FUNC_%d&quot; % self.address) if the name is None&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="s1">&#39;&#39;</span> <span class="k">else</span> <span class="p">(</span><span class="s2">&quot;__UNNAMED_FUNC_</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">address</span><span class="p">)</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">symbol_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the symbol name of this function if it is an external function, or None if it isnt or the name is None&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_extern_function</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">rpartition</span><span class="p">(</span><span class="s1">&#39;@plt&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">num_fc_edges</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns the number of function call edges in/out of this function&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">get_sorted_edges</span><span class="p">(</span><span class="n">edge_types</span><span class="o">=</span><span class="s1">&#39;function&#39;</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="kc">None</span><span class="p">))</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">un_funcs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">parent_cfg</span><span class="o">.</span><span class="n">get_block</span><span class="p">(</span><span class="n">b</span><span class="p">)</span><span class="o">.</span><span class="n">parent_function</span><span class="o">.</span><span class="n">address</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">called_by</span><span class="p">])</span>
+        <span class="n">include_self</span> <span class="o">=</span> <span class="s2">&quot; (including self)&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_recursive</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">extra_str</span> <span class="o">=</span> <span class="s2">&quot;, called by </span><span class="si">%d</span><span class="s2"> basic blocks across </span><span class="si">%d</span><span class="s2"> functions</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">called_by</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">un_funcs</span><span class="p">),</span> <span class="n">include_self</span><span class="p">)</span>
+        <span class="n">addr_str</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;0x</span><span class="si">%08x</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">address</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">address</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;NO_ADDRESS&quot;</span>
+
+        <span class="n">func_name_str</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;with no name&quot;</span>
+        <span class="n">num_asm_lines</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">asm_lines</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">])</span>
+        <span class="k">return</span> <span class="s2">&quot;CFGFunction </span><span class="si">%s</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> at </span><span class="si">%s</span><span class="s2"> with </span><span class="si">%d</span><span class="s2"> blocks, </span><span class="si">%d</span><span class="s2"> assembly lines</span><span class="si">%s</span><span class="s2">&quot;</span> \
+            <span class="o">%</span> <span class="p">(</span><span class="s1">&#39;externfunc&#39;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_extern_function</span> <span class="k">else</span> <span class="s1">&#39;innerfunc&#39;</span><span class="p">,</span> <span class="n">func_name_str</span><span class="p">,</span> <span class="n">addr_str</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">),</span> 
+                <span class="n">num_asm_lines</span><span class="p">,</span> <span class="n">extra_str</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">CFGFunction</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">blocks</span><span class="p">)</span> <span class="ow">or</span> \
+            <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">eq_obj</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">selector</span><span class="o">=</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;address&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;is_extern_function&#39;</span><span class="p">]):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        
+        <span class="c1"># Check all the blocks are the same using a dictionary since sets don&#39;t work for some reason...</span>
+        <span class="n">d_self</span><span class="p">,</span> <span class="n">d_other</span> <span class="o">=</span> <span class="p">{},</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">blocks</span><span class="p">,</span> <span class="n">count_dict</span> <span class="ow">in</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">,</span> <span class="n">d_self</span><span class="p">),</span> <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">blocks</span><span class="p">,</span> <span class="n">d_other</span><span class="p">)]:</span>
+            <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">:</span>
+                <span class="n">_hash</span> <span class="o">=</span> <span class="nb">hash</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">_hash</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">count_dict</span><span class="p">:</span>
+                    <span class="n">count_dict</span><span class="p">[</span><span class="n">_hash</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">count_dict</span><span class="p">[</span><span class="n">_hash</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">count_dict</span><span class="p">[</span><span class="n">_hash</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">eq_obj</span><span class="p">(</span><span class="n">d_self</span><span class="p">,</span> <span class="n">d_other</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="o">*</span> <span class="mi">7</span> <span class="o">+</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">address</span><span class="p">)</span> <span class="o">*</span> <span class="mi">9</span> <span class="o">+</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_is_extern_function</span><span class="p">)</span> <span class="o">*</span> <span class="mi">11</span> <span class="o">+</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">hash</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">)</span> <span class="o">*</span> <span class="mi">31</span>
+
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Print a warning about pickling singleton function objects&quot;&quot;&quot;</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Attempting to pickle a singleton function object! This will mess up edges unless you know what you&#39;re doing!&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_pickle_state</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Print a warning about pickling singleton function objects&quot;&quot;&quot;</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Attempting to unpickle a singleton function object! This will mess up edges unless you know what you&#39;re doing!&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_pickle_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">_get_pickle_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns info of this CFGFunction as a tuple&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">address</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">_get_pickle_state</span><span class="p">()</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_extern_function</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_set_pickle_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sets state from _get_pickle_state&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">address</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">blocks</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_extern_function</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span> <span class="o">=</span> <span class="p">[</span><span class="n">CFGBasicBlock</span><span class="p">(</span><span class="n">parent_function</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_set_pickle_state</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">blocks</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Justin Allen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

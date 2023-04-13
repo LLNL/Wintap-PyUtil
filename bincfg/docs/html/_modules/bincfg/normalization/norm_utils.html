@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>bincfg.normalization.norm_utils &mdash; BinCFG 0.1.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> BinCFG
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.cfg.html">bincfg.cfg package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.utils.html">bincfg.utils package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.normalization.html">bincfg.normalization package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.labeling.html">bincfg.labeling package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">BinCFG</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">bincfg.normalization.norm_utils</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for bincfg.normalization.norm_utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">An assortment of helper/utility functions for tokenization/normalization.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">bincfg</span>
+<span class="kn">from</span> <span class="nn">.tokenization_constants</span> <span class="kn">import</span> <span class="n">Tokens</span><span class="p">,</span> <span class="n">ROSE_REPLACE_STR</span><span class="p">,</span> <span class="n">X86_REG_SIZES</span><span class="p">,</span> <span class="n">MEMORY_SIZES</span>
+<span class="kn">from</span> <span class="nn">..utils</span> <span class="kn">import</span> <span class="n">get_special_function_names</span>
+
+
+<span class="c1"># Used to check to make sure an immediate value is all digits before inserting a &#39;-&#39; at the front</span>
+<span class="n">RE_ALL_DIGITS</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;[0-9]+&#39;</span><span class="p">)</span>
+
+<span class="c1"># Constant string names for tokens</span>
+<span class="n">IMMEDIATE_VALUE_STR</span> <span class="o">=</span> <span class="s1">&#39;immval&#39;</span>
+<span class="n">FUNCTION_CALL_STR</span> <span class="o">=</span> <span class="s1">&#39;func&#39;</span>
+<span class="n">RECURSIVE_FUNCTION_CALL_STR</span> <span class="o">=</span> <span class="s1">&#39;self&#39;</span>
+<span class="n">INTERNAL_FUNCTION_CALL_STR</span> <span class="o">=</span> <span class="s1">&#39;innerfunc&#39;</span>
+<span class="n">EXTERNAL_FUNCTION_CALL_STR</span> <span class="o">=</span> <span class="s1">&#39;externfunc&#39;</span>
+<span class="n">MULTI_FUNCTION_CALL_STR</span> <span class="o">=</span> <span class="s1">&#39;multifunc&#39;</span>
+<span class="n">JUMP_DESTINATION_STR</span> <span class="o">=</span> <span class="s1">&#39;jmpdst&#39;</span>
+<span class="n">MEMORY_EXPRESSION_STR</span> <span class="o">=</span> <span class="s1">&#39;memexpr&#39;</span>
+<span class="n">GENERAL_REGISTER_STR</span> <span class="o">=</span> <span class="s1">&#39;reg&#39;</span>
+<span class="n">FAR_JUMP_SEGMENT_STR</span> <span class="o">=</span> <span class="s1">&#39;seg&#39;</span>
+<span class="n">MEM_SIZE_TOKEN_STR</span> <span class="o">=</span> <span class="s1">&#39;memptr&#39;</span>
+
+<span class="c1"># Regex&#39;s to check if registers are general or not, and to remove number information.</span>
+<span class="n">RE_GENERAL_REGISTER_MATCH</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;r[0-9]+[dwb]?|[re]?[abcd]x|[abcd][lh]|[re]?[sd]il?&#39;</span><span class="p">)</span>
+<span class="n">RE_REMOVE_REGISTER_NUMBER</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;\(?[0-9]+\)?&#39;</span><span class="p">)</span>
+
+<span class="c1"># Handling memory size information</span>
+<span class="n">MEM_SIZE_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;(?:v([0-9]+))?([a-z]+)&#39;</span><span class="p">)</span>
+<span class="n">REPLACED_MEMORY_EXPRESSION_TOKEN</span> <span class="o">=</span> <span class="s1">&#39;memory_expression&#39;</span>
+
+<span class="c1"># Default threshold for immediate values for normalization methods such as &#39;safe&#39;</span>
+<span class="n">DEFAULT_IMMEDIATE_THRESHOLD</span> <span class="o">=</span> <span class="mi">5000</span>
+
+
+<span class="n">_CLEAN_INSTRUCITON_REPL</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;&quot;([^&quot;</span><span class="se">\\</span><span class="s1">]*(?:</span><span class="se">\\</span><span class="s1">.[^&quot;</span><span class="se">\\</span><span class="s1">]*)*)&quot;&#39;</span><span class="p">)</span>
+<div class="viewcode-block" id="clean_incoming_instruction"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.clean_incoming_instruction">[docs]</a><span class="k">def</span> <span class="nf">clean_incoming_instruction</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Performs a first pass cleaning input strings. </span>
+<span class="sd">    </span>
+<span class="sd">    Currently:</span>
+<span class="sd">        1. converts to all lowercase</span>
+<span class="sd">        2. strip()&#39;s extra whitespace at the ends</span>
+<span class="sd">        3. Replaces all strings (like those in rose info) with __STR__</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        s (str): the string to clean</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: the clean string</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_CLEAN_INSTRUCITON_REPL</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="n">ROSE_REPLACE_STR</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="imm_to_int"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.imm_to_int">[docs]</a><span class="k">def</span> <span class="nf">imm_to_int</span><span class="p">(</span><span class="n">token</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Convert the given value to integer</span>
+<span class="sd">    </span>
+<span class="sd">    If token is an integer, returns token. Otherwise, converts a string token to an integer, then back to a string, </span>
+<span class="sd">        accounting for hexadecimal, decimal, octal, and binary values</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        token (Union[str, int]): the immediate token to convert to integer</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        int: integer value of given token</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">token</span></div>
+
+
+<div class="viewcode-block" id="ignore"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.ignore">[docs]</a><span class="k">def</span> <span class="nf">ignore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ignores information (if using for rose info, then it will also ignore negatives)&quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="clean_nop"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.clean_nop">[docs]</a><span class="k">def</span> <span class="nf">clean_nop</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Cleans any line with the opcode &#39;nop&#39; to only contain the opcode</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        idx (int): the index in ``line`` of the &#39;nop&#39; opcode</span>
+<span class="sd">        line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">        args: unused</span>
+<span class="sd">        kwargs: unused</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        int: integer index in line of last handled token</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">old_line</span> <span class="o">=</span> <span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">l</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">line</span><span class="p">])</span>
+    <span class="n">line</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+    <span class="n">line</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">Tokens</span><span class="o">.</span><span class="n">OPCODE</span><span class="p">,</span> <span class="s1">&#39;nop&#39;</span><span class="p">,</span> <span class="n">old_line</span><span class="p">))</span>
+    <span class="k">return</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="return_immstr"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.return_immstr">[docs]</a><span class="k">def</span> <span class="nf">return_immstr</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">include_negative</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Builds a function that replaces immediate values with the IMMEDIATE_VALUE_STR. </span>
+<span class="sd">    </span>
+<span class="sd">    This will return a function to be called as a part of a normalizer. This function takes no arguments and only 1 keyword </span>
+<span class="sd">    argument: whether or not to include a negative sign &#39;-&#39; in front of the immediate string when the input is negative.</span>
+
+<span class="sd">    NOTE: This is meant to be a higher-order function. But, just in case the user forgets that (or is too lazy to add in</span>
+<span class="sd">    two extra characters to call this function), if you pass multiple args then it will be assumed this is being called </span>
+<span class="sd">    as if it is the _repl_func() function below and will simply return the default result</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        args: args for this function. Ideally empty</span>
+<span class="sd">        include_negative (bool, optional): if True, will include a negative sign in front of the returned immediate </span>
+<span class="sd">            string when the input is negative. Defaults to False.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Union[Callable[..., str], str]: either a function that will handle immediate strings (if this function was </span>
+<span class="sd">            called correctly), or a handled immediate string</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">_ret_imm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s1">&#39;-&#39;</span> <span class="o">+</span> <span class="n">IMMEDIATE_VALUE_STR</span><span class="p">)</span> <span class="k">if</span> <span class="n">include_negative</span> <span class="ow">and</span> <span class="n">imm_to_int</span><span class="p">(</span><span class="n">token</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">IMMEDIATE_VALUE_STR</span>
+    <span class="k">return</span> <span class="n">_ret_imm</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">_ret_imm</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="threshold_immediate"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.threshold_immediate">[docs]</a><span class="k">def</span> <span class="nf">threshold_immediate</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Builds a function that replaces immediate values with `immval` iff abs(immediate) &gt; some threshold</span>
+<span class="sd">    </span>
+<span class="sd">    This will return a function to be called as a part of a normalizer. This only takes one argument: the immediate </span>
+<span class="sd">    value threshold. If no arguments are passed, then the threshold will default to `DEFAULT_IMMEDIATE_THRESHOLD`.</span>
+<span class="sd">    </span>
+<span class="sd">    NOTE: This is meant to be a higher-order function. But, just in case the user forgets that (or is too lazy to add in</span>
+<span class="sd">    two extra characters to call this function), if you pass multiple args then it will be assumed this is being called </span>
+<span class="sd">    as if it is the _repl_func() function below and will simply return the default result</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        args: args for this function. Ideally either empty to use the default thresholding value, or a single positive </span>
+<span class="sd">            integer for the immediate threshold</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Union[Callable[..., str], str]: either a function that will handle thresholded immediate strings (if this </span>
+<span class="sd">            function was called correctly), or a handled thresholded immediate string</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">threshold</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">DEFAULT_IMMEDIATE_THRESHOLD</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">threshold</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Threshold must be int, instead got `</span><span class="si">%s</span><span class="s1">`: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">threshold</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">threshold</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_threshold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="n">imm_to_int</span><span class="p">(</span><span class="n">token</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">threshold</span> <span class="k">else</span> <span class="n">IMMEDIATE_VALUE_STR</span>
+
+    <span class="k">return</span> <span class="n">_threshold</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">_threshold</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="replace_general_register"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.replace_general_register">[docs]</a><span class="k">def</span> <span class="nf">replace_general_register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Replaces general registers with a default string and their size, keeping special registers the same (while removing their numbers)</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        token (str): the current string token</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: normalized name of register</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">GENERAL_REGISTER_STR</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">X86_REG_SIZES</span><span class="p">[</span><span class="n">token</span><span class="p">]))</span> <span class="k">if</span> <span class="n">RE_GENERAL_REGISTER_MATCH</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">token</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">RE_REMOVE_REGISTER_NUMBER</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">token</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="replace_jmpdst"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.replace_jmpdst">[docs]</a><span class="k">def</span> <span class="nf">replace_jmpdst</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Replaces the jump destination immediate with &#39;jmpdst&#39; iff the jump destination is an immediate value, not a segment address</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        idx (int): the index in ``line`` of the &#39;jump&#39; opcode</span>
+<span class="sd">        line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        int: integer index in line of last handled token</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">JUMP_DESTINATION_STR</span> <span class="k">if</span> <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">IMMEDIATE</span> <span class="k">else</span> <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">2</span></div>
+
+
+<div class="viewcode-block" id="memsize_value"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.memsize_value">[docs]</a><span class="k">def</span> <span class="nf">memsize_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Replaces memory size pointers with &#39;memsize&#39; followed by the value of that memsize in bytes</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        token (str): the current string token</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: normalized memory size string</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">vsize</span><span class="p">,</span> <span class="n">mem_str</span> <span class="o">=</span> <span class="n">MEM_SIZE_RE</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">token</span><span class="p">)</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+    <span class="n">mem_size</span> <span class="o">=</span> <span class="n">MEMORY_SIZES</span><span class="p">[</span><span class="n">mem_str</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="n">vsize</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">vsize</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">MEM_SIZE_TOKEN_STR</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">mem_size</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="replace_memory_expression"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.replace_memory_expression">[docs]</a><span class="k">def</span> <span class="nf">replace_memory_expression</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Builds a function that replaces memory expressions with the given replacement string</span>
+<span class="sd">    </span>
+<span class="sd">    This will return a function to be called as a part of a normalizer. This only takes one argument: the replacement string.</span>
+<span class="sd">    If no arguments are passed, then the replacement string will default to &#39;memexpr&#39;</span>
+
+<span class="sd">    NOTE: This is meant to be a higher-order function. But, just in case the user forgets that (or is too lazy to add in</span>
+<span class="sd">    two extra characters to call this function), if you pass multiple args then it will be assumed this is being called </span>
+<span class="sd">    as if it is the _repl_func() function below and will simply return the default result</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        args: args for this function. Ideally either empty to use default memory expression string, or a string to replace</span>
+<span class="sd">            all memory expressions with.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Union[Callable[..., None], None]: either a function that will handle memory expressions (if this function was </span>
+<span class="sd">            called correctly), or a handled memory expression</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">replacement</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">MEMORY_EXPRESSION_STR</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">replacement</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Replacement must be str, instead got `</span><span class="si">%s</span><span class="s1">`: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">replacement</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">replacement</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">repl_mem</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_start</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Replace memory expressions with &#39;memexpr&#39;&quot;&quot;&quot;</span>
+        <span class="c1"># Using a brand new token so it&#39;s not confused with anything else. Keep track of the old value as well</span>
+        <span class="n">line</span><span class="p">[</span><span class="n">memory_start</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">REPLACED_MEMORY_EXPRESSION_TOKEN</span><span class="p">,</span> <span class="n">replacement</span><span class="p">,</span> <span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">l</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">line</span><span class="p">[</span><span class="n">memory_start</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:]]))</span>
+        <span class="k">del</span> <span class="n">line</span><span class="p">[</span><span class="n">memory_start</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:]</span>  <span class="c1"># Delete the rest of the line after memory_start index</span>
+
+    <span class="k">return</span> <span class="n">repl_mem</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">repl_mem</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="replace_function_call_immediate"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.replace_function_call_immediate">[docs]</a><span class="k">def</span> <span class="nf">replace_function_call_immediate</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Builds a function that replaces function call immediate values with the given replacement string</span>
+<span class="sd">    </span>
+<span class="sd">    This will return a function to be called as a part of a normalizer. This only takes one argument: the replacement string.</span>
+<span class="sd">    If no arguments are passed, then the replacement string will default to &#39;func&#39;</span>
+
+<span class="sd">    NOTE: This is meant to be a higher-order function. But, just in case the user forgets that (or is too lazy to add in</span>
+<span class="sd">    two extra characters to call this function), if you pass multiple args then it will be assumed this is being called </span>
+<span class="sd">    as if it is the _repl_func() function below and will simply return the default result</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        args: args for this function. Ideally either empty to use default function call string, or a string to replace</span>
+<span class="sd">            all function callsa with.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Union[Callable[..., None], None]: either a function that will handle function calls (if this function was </span>
+<span class="sd">            called correctly), or a handled function call</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">replacement</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">FUNCTION_CALL_STR</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">replacement</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Replacement must be str, instead got `</span><span class="si">%s</span><span class="s1">`: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">replacement</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">replacement</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_repl_func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">IMMEDIATE</span><span class="p">,</span> <span class="n">replacement</span><span class="p">,</span> <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">2</span>
+
+    <span class="k">return</span> <span class="n">_repl_func</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">_repl_func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="special_function_call"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.special_function_call">[docs]</a><span class="k">def</span> <span class="nf">special_function_call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">special_functions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cfg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Handles special function calls</span>
+<span class="sd">    </span>
+<span class="sd">    Special external functions have their name kept. Recursive calls are replaced with &#39;self&#39;, other internal function </span>
+<span class="sd">    calls are replaced with &#39;internfunc&#39;, other external function calls are replaced with &#39;externfunc&#39;. If a block has</span>
+<span class="sd">    multiple function calls out, then it will be replaced with &#39;multifunc&#39;.</span>
+
+<span class="sd">    NOTE: This can all only happen if cfg and block information is passed. If it is not passed, then all function</span>
+<span class="sd">    calls will be replaced with &#39;func&#39;</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        idx (int): the index in ``line`` of the &#39;call&#39; opcode</span>
+<span class="sd">        line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">        special_functions (Set[str], optional): If passed, should be a set of string special function names. Otherwise </span>
+<span class="sd">            the default special functions from :func:`bincfg.utils.cfg_utils.get_special_function_names` will be used. </span>
+<span class="sd">            Defaults to None.</span>
+<span class="sd">        cfg (Union[CFG, MemCFG], optional): either a ``CFG`` or ``MemCFG`` object that these lines occur in. Used for </span>
+<span class="sd">            determining function calls to self, internal functions, and external functions. If not passed, then these </span>
+<span class="sd">            will not be used. Defaults to None.</span>
+<span class="sd">        block (Union[CFGBasicBlock, int], optional): either a ``CFGBasicBlock`` or integer block_idx in a ``MemCFG`` </span>
+<span class="sd">            object. Used for determining function calls to self, internal functions, and external functions. If not </span>
+<span class="sd">            passed, then these will not be used. Defaults to None.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        int: integer index in line of last handled token</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># If cfg is None, then we cannot determine intern/extern/self function calls. Just return &#39;func&#39; for function call</span>
+    <span class="k">if</span> <span class="n">cfg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">IMMEDIATE</span><span class="p">,</span> <span class="n">FUNCTION_CALL_STR</span><span class="p">,</span> <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">2</span>
+
+    <span class="c1"># Get the special functions if they were not passed</span>
+    <span class="k">if</span> <span class="n">special_functions</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">special_functions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">special_functions</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;special_functions&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="n">get_special_function_names</span><span class="p">()</span>
+
+    <span class="c1"># Check that we even need to replace the value. We should only replace immediate values, so check to make sure</span>
+    <span class="c1">#   the old_token starts with a digit</span>
+    <span class="k">if</span> <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="s2">&quot;0123456789&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">2</span>
+
+    <span class="c1"># Find the function call info in cfg</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">MemCFG</span><span class="p">):</span>
+        <span class="c1"># Find the outgoing edges of this block. Normally the first edge is the function call edge, however we still need</span>
+        <span class="c1">#   to check because there can be times where it only contains the normal return edge as the function call</span>
+        <span class="c1">#   address couldn&#39;t be resolved to a known basic block</span>
+        <span class="n">func_call_block_inds</span><span class="p">,</span> <span class="n">edge_types</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get_block_edges_out</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">ret_edge_types</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Make sure the first value is in fact a function call</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">edge_types</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">edge_types</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">FUNCTION_CALL_EDGE_CONN_VALUE</span><span class="p">:</span>
+
+            <span class="c1"># Check for a self call by comparing the two block&#39;s function indices</span>
+            <span class="n">func_call_block_idx</span> <span class="o">=</span> <span class="n">func_call_block_inds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">self_call</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">block_func_idx</span><span class="p">[</span><span class="n">block</span><span class="p">]</span> <span class="o">==</span> <span class="n">cfg</span><span class="o">.</span><span class="n">block_func_idx</span><span class="p">[</span><span class="n">func_call_block_idx</span><span class="p">]</span>
+            <span class="n">extern_func_name</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get_block_function_name</span><span class="p">(</span><span class="n">func_call_block_idx</span><span class="p">)</span> <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">is_block_extern_function</span><span class="p">(</span><span class="n">func_call_block_idx</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+
+            <span class="c1"># Check for a multi-function call</span>
+            <span class="n">multi_call</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">edge_types</span><span class="p">[</span><span class="n">edge_types</span> <span class="o">==</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">FUNCTION_CALL_EDGE_CONN_VALUE</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">1</span>
+        
+        <span class="c1"># Otherwise, we have no clue where the function call goes to, treat it as just some innerfunc</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">self_call</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">extern_func_name</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">multi_call</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="c1"># Otherwise this is a plain CFG. Get the call address from the next immediate value, and look up its info in the CFG</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">bincfg</span><span class="o">.</span><span class="n">CFG</span><span class="p">):</span>
+        <span class="n">fc_out</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">get_sorted_edges</span><span class="p">(</span><span class="n">edge_types</span><span class="o">=</span><span class="s1">&#39;function&#39;</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="s1">&#39;out&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fc_out</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">multi_call</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">multi_call</span> <span class="o">=</span> <span class="kc">False</span>
+
+            <span class="c1"># Need to check that the disassembler was able to figure out the call location</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fc_out</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">self_call</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="n">extern_func_name</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">func</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">get_block</span><span class="p">(</span><span class="n">fc_out</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to_block</span><span class="p">)</span><span class="o">.</span><span class="n">parent_function</span>
+                <span class="n">self_call</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="n">address</span> <span class="o">==</span> <span class="n">block</span><span class="o">.</span><span class="n">parent_function</span><span class="o">.</span><span class="n">address</span>
+                <span class="n">extern_func_name</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="n">func</span><span class="o">.</span><span class="n">is_extern_function</span> <span class="k">else</span> <span class="kc">None</span>
+    
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unknown cfg type for special_function_call normalization: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="nb">repr</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">cfg</span><span class="p">)))</span>
+
+    <span class="c1"># Determine what function call strings to return</span>
+    <span class="c1"># A multi-function call</span>
+    <span class="k">if</span> <span class="n">multi_call</span><span class="p">:</span>
+        <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">MULTI_FUNCTION_CALL_STR</span><span class="p">,</span> <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+
+    <span class="c1"># A recursive function call</span>
+    <span class="k">elif</span> <span class="n">self_call</span><span class="p">:</span>
+        <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">RECURSIVE_FUNCTION_CALL_STR</span><span class="p">,</span> <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+
+    <span class="c1"># An external function call</span>
+    <span class="k">elif</span> <span class="n">extern_func_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">extern_func_name</span> <span class="o">=</span> <span class="n">extern_func_name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;@&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">extern_func_name</span> <span class="ow">in</span> <span class="n">special_functions</span><span class="p">:</span>
+            <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;{&#39;</span> <span class="o">+</span> <span class="n">extern_func_name</span> <span class="o">+</span> <span class="s1">&#39;}&#39;</span><span class="p">,</span> <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">EXTERNAL_FUNCTION_CALL_STR</span><span class="p">,</span> <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+
+    <span class="c1"># An internal function call</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">INTERNAL_FUNCTION_CALL_STR</span><span class="p">,</span> <span class="n">line</span><span class="p">[</span><span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">2</span></div>
+
+
+<div class="viewcode-block" id="eq_special_funcs"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.builtin_normalizers.eq_special_funcs">[docs]</a><span class="k">def</span> <span class="nf">eq_special_funcs</span><span class="p">(</span><span class="n">s1</span><span class="p">,</span> <span class="n">s2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns True if the given two sets of special function names are equal, false otherwise&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">s1</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">s2</span><span class="p">))</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">s1</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">s2</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Justin Allen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

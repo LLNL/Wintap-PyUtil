@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to BinCFG’s documentation! &mdash; BinCFG 0.1.0 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="bincfg.cfg package" href="bincfg.cfg.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="#" class="icon icon-home"> BinCFG
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="bincfg.cfg.html">bincfg.cfg package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bincfg.utils.html">bincfg.utils package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bincfg.normalization.html">bincfg.normalization package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="bincfg.labeling.html">bincfg.labeling package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">BinCFG</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home"></a></li>
+      <li class="breadcrumb-item active">Welcome to BinCFG’s documentation!</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="welcome-to-bincfg-s-documentation">
+<h1>Welcome to BinCFG’s documentation!<a class="headerlink" href="#welcome-to-bincfg-s-documentation" title="Permalink to this heading"></a></h1>
+<p>BinCFG is a library to read, manipulate, and normalize binary Control Flow Graph (CFG) objects in python.</p>
+<section id="installation-instructions">
+<h2>Installation Instructions<a class="headerlink" href="#installation-instructions" title="Permalink to this heading"></a></h2>
+<p>To install simply clone the repo:</p>
+<p><cite>git clone url/to/repo</cite></p>
+<p>Then make sure you are in your preferred python environment, and pip-install it:</p>
+<p><cite>pip install -e ./bincfg</cite></p>
+<p>NOTE: it is recommended to install with the <cite>-e</cite> flag as this installs the package in editable mode. A link to this
+<cite>bincfg</cite> directory is added to the environment’s installed packages so that any changes made to the files in the <cite>bincfg</cite>
+directory are immediately reflected in any scripts using it. This way:</p>
+<ol class="arabic simple">
+<li><p>If you wish to alter behavior, or if there is a bug that needs a quick fix, you can do so without having to reinstall
+it with pip</p></li>
+<li><p>If a new version of the code is pushed, you can simply <cite>git pull</cite> it and again not have to worry about reinstallation</p></li>
+</ol>
+</section>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
+<p>This package allows users to load in output from binary analysis tools, and convert them into python CFG objects. For
+example, loading an output from the Rose binary analysis tool may look like:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bincfg</span> <span class="kn">import</span> <span class="n">CFG</span>
+
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">CFG</span><span class="p">(</span><span class="s2">&quot;/path/to/rose/cfg/file&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now that you have a cfg object, you can print it to get some stats, or print its <cite>.functions</cite> attribute to print all
+the functions in this CFG:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">functions</span><span class="p">)</span>
+
+<span class="c1"># Output:</span>
+<span class="c1">#</span>
+<span class="c1"># CFG with no normalizer and 14 functions, 56 basic blocks, 65 edges, and 219 lines of assembly</span>
+<span class="c1">#</span>
+<span class="c1"># [CFGFunction innerfunc &#39;_init&#39; at 0x00001000 with 3 blocks, 8 asm lines , called by 1 basic blocks across 1 functions,</span>
+<span class="c1">#  CFGFunction innerfunc with no name at 0x00001040 with 1 blocks, 2 asm lines , called by 1 basic blocks across 1 functions,</span>
+<span class="c1">#  CFGFunction externfunc &#39;printf@plt&#39; at 0x00001050 with 1 blocks, 2 asm lines , called by 3 basic blocks across 1 functions,</span>
+<span class="c1"># ...</span>
+</pre></div>
+</div>
+<p>Often, you will wish to normalize the assembly lines in this cfg. This can be done using the
+<a class="reference internal" href="bincfg.normalization.html#bincfg.normalization.normalize.normalize_cfg_data" title="bincfg.normalization.normalize.normalize_cfg_data"><code class="xref py py-func docutils literal notranslate"><span class="pre">normalize_cfg_data()</span></code></a> function:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bincfg.normalization</span> <span class="kn">import</span> <span class="n">normalize_cfg_data</span>
+
+<span class="n">norm_cfg</span> <span class="o">=</span> <span class="n">normalize_cfg_data</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="s1">&#39;innereye&#39;</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">norm_cfg</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">functions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">blocks</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">norm_cfg</span><span class="o">.</span><span class="n">functions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">blocks</span><span class="p">)</span>
+
+<span class="c1"># NOTE: this is using the builtin normalization method based on the &#39;innereye&#39; method</span>
+<span class="c1">#</span>
+<span class="c1"># Output:</span>
+<span class="c1">#</span>
+<span class="c1"># CFG with normalizer: &#39;InnerEyeNormalizer&#39; and 14 functions, 56 basic blocks, 65 edges, and 219 lines of assembly</span>
+<span class="c1">#</span>
+<span class="c1"># [CFGBasicBlock in function &quot;_init&quot; at 0x00001000 unlabeled with 5 lines of assembly:</span>
+<span class="c1">#     0x00001000: nop</span>
+<span class="c1">#     0x00001004: sub    rsp, 0x08</span>
+<span class="c1">#     0x00001008: mov    rax, qword ds:[rip + 0x0000000000002fd9&lt;12249,absolute=0x0000000000003fe8&gt;]</span>
+<span class="c1">#     0x0000100f: test   rax, rax</span>
+<span class="c1">#     0x00001012: je     0x0000000000001016&lt;4118&gt;,</span>
+<span class="c1">#  CFGBasicBlock in function &quot;_init&quot; at 0x00001014 unlabeled with 1 lines of assembly:</span>
+<span class="c1">#     0x00001014: call   rax,</span>
+<span class="c1">#  CFGBasicBlock in function &quot;_init&quot; at 0x00001016 unlabeled with 2 lines of assembly:</span>
+<span class="c1">#     0x00001016: add    rsp, 0x08</span>
+<span class="c1">#     0x0000101a: ret]</span>
+<span class="c1">#</span>
+<span class="c1"># [CFGBasicBlock in function &quot;_init&quot; at 0x00001000 unlabeled with 5 lines of assembly:</span>
+<span class="c1">#     0x00001000: [&#39;nop&#39;]</span>
+<span class="c1">#     0x00001004: [&#39;sub_rsp_immval&#39;]</span>
+<span class="c1">#     0x00001008: [&#39;mov_rax_[_rip_+_immval_]&#39;]</span>
+<span class="c1">#     0x0000100f: [&#39;test_rax_rax&#39;]</span>
+<span class="c1">#     0x00001012: [&#39;je_immval&#39;],</span>
+<span class="c1">#  CFGBasicBlock in function &quot;_init&quot; at 0x00001014 unlabeled with 1 lines of assembly:</span>
+<span class="c1">#     0x00001014: [&#39;call_func&#39;],</span>
+<span class="c1">#  CFGBasicBlock in function &quot;_init&quot; at 0x00001016 unlabeled with 2 lines of assembly:</span>
+<span class="c1">#     0x00001016: [&#39;add_rsp_immval&#39;]</span>
+<span class="c1">#     0x0000101a: [&#39;ret&#39;]]</span>
+</pre></div>
+</div>
+<p>Basic blocks have now had their assembly lines normalized using the ‘innereye’ method.</p>
+<p>This python representation of a CFG is relatively high-memory, inefficient, and not suitable for machine learning
+purposes. Instead, it is intended to be used only for loading in and parsing output from binary analysis tools, as well
+as providing an easier-to-traverse object if you wish to walk through the CFG.</p>
+<p>For a more memory/space efficient, ML-ready representation of a CFG, you can convert it to a <code class="docutils literal notranslate"><span class="pre">MemCFG</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bincfg</span> <span class="kn">import</span> <span class="n">MemCFG</span>
+
+<span class="n">mem_cfg</span> <span class="o">=</span> <span class="n">MemCFG</span><span class="p">(</span><span class="n">norm_cfg</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">mem_cfg</span><span class="p">)</span>
+
+<span class="c1"># Output:</span>
+<span class="c1">#</span>
+<span class="c1"># MemCFG with normalizer: &#39;InnerEyeNormalizer&#39; and 14 functions, 56 blocks, 219 assembly lines, and 65 edges</span>
+</pre></div>
+</div>
+<p>NOTE: <code class="docutils literal notranslate"><span class="pre">MemCFG</span></code>’s require a normalization method. If you wish to use a <code class="docutils literal notranslate"><span class="pre">MemCFG</span></code> without doing any normalization, you
+can use the ‘unnormalized’ normalization provided by default by <code class="docutils literal notranslate"><span class="pre">BaseNormalizer</span></code></p>
+<p>Finally, you can get ML-ready data using <code class="docutils literal notranslate"><span class="pre">MemCFG</span></code> functions/attributes. For example, the
+<code class="xref py py-func docutils literal notranslate"><span class="pre">to_adjacency_matrix()</span></code> function will give you the adjacency matrix of that <code class="docutils literal notranslate"><span class="pre">MemCFG</span></code> in one
+of multiple common forms. See the <code class="docutils literal notranslate"><span class="pre">MemCFG</span></code> object for more info.</p>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="bincfg.cfg.html">bincfg.cfg package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.cfg.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.cfg.html#module-bincfg.cfg.cfg">bincfg.cfg.cfg module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.cfg.html#module-bincfg.cfg.cfg_basic_block">bincfg.cfg.cfg_basic_block module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.cfg.html#module-bincfg.cfg.cfg_dataset">bincfg.cfg.cfg_dataset module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.cfg.html#module-bincfg.cfg.cfg_edge">bincfg.cfg.cfg_edge module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.cfg.html#module-bincfg.cfg.cfg_function">bincfg.cfg.cfg_function module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.cfg.html#module-bincfg.cfg.cfg_parsers">bincfg.cfg.cfg_parsers module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.cfg.html#module-bincfg.cfg.mem_cfg">bincfg.cfg.mem_cfg module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.cfg.html#module-bincfg.cfg.mem_cfg_dataset">bincfg.cfg.mem_cfg_dataset module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.cfg.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="bincfg.utils.html">bincfg.utils package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.utils.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.utils.html#module-bincfg.utils.cfg_utils">bincfg.utils.cfg_utils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.utils.html#module-bincfg.utils.misc_utils">bincfg.utils.misc_utils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.utils.html#module-bincfg.utils.mp_utils">bincfg.utils.mp_utils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.utils.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="bincfg.normalization.html">bincfg.normalization package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.normalization.html#tokenization">Tokenization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.normalization.html#normalization">Normalization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.normalization.html#custom-normalizers">Custom Normalizers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.normalization.html#extra-info">Extra info</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.normalization.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.normalization.html#module-bincfg.normalization.base_normalizer">bincfg.normalization.base_normalizer module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.normalization.html#module-bincfg.normalization.base_tokenizer">bincfg.normalization.base_tokenizer module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.normalization.html#module-bincfg.normalization.builtin_normalizers">bincfg.normalization.builtin_normalizers module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.normalization.html#module-bincfg.normalization.norm_utils">bincfg.normalization.norm_utils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.normalization.html#module-bincfg.normalization.normalize">bincfg.normalization.normalize module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.normalization.html#module-bincfg.normalization.tokenization_constants">bincfg.normalization.tokenization_constants module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.normalization.html#module-contents">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="bincfg.labeling.html">bincfg.labeling package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.labeling.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.labeling.html#module-bincfg.labeling.node_labels">bincfg.labeling.node_labels module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.labeling.html#module-bincfg.labeling.parse_cfg_labels">bincfg.labeling.parse_cfg_labels module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="bincfg.labeling.html#module-bincfg.labeling">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this heading"></a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="bincfg.cfg.html" class="btn btn-neutral float-right" title="bincfg.cfg package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Justin Allen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

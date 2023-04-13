@@ -1,0 +1,7 @@
+bincfg
+======
+
+.. toctree::
+   :maxdepth: 4
+
+   bincfg

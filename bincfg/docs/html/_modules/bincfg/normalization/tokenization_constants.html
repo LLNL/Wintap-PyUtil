@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>bincfg.normalization.tokenization_constants &mdash; BinCFG 0.1.0 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> BinCFG
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.cfg.html">bincfg.cfg package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.utils.html">bincfg.utils package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.normalization.html">bincfg.normalization package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../bincfg.labeling.html">bincfg.labeling package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">BinCFG</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">bincfg.normalization.tokenization_constants</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for bincfg.normalization.tokenization_constants</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Constants and regular expressions involving tokenization of assembly lines&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+
+
+<span class="c1"># Extra information given by rose</span>
+<span class="n">RE_ROSE_INFO</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;&lt;[^&gt;]*&gt;&#39;</span>
+
+<span class="c1"># Spacing inbetween opcodes/operands. Empty spacing, either space &#39; &#39;, comma &#39;,&#39;, or tab &#39;\t&#39; some number of times</span>
+<span class="n">RE_SPACING</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;[, \t]+&#39;</span>
+
+<span class="c1"># Both pipes &#39;|&#39; like in ghidra output and literal &#39;\n&#39; newline characters</span>
+<span class="n">RE_NEWLINE</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;[|\n]&#39;</span>
+
+<span class="c1"># The delimiter lookahead. Allows for lookahead to make sure there is some delimiter, and we don&#39;t greedily grab </span>
+<span class="c1">#   registers/values/etc in case their names interfere with anything else.</span>
+<span class="c1"># Can be a spacing, newline, or end of string</span>
+<span class="n">RE_DELIMITER</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;</span><span class="si">{spacing}</span><span class="s1">|</span><span class="si">{newline}</span><span class="s1">|</span><span class="si">{rose_info}</span><span class="s1">|$&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">spacing</span><span class="o">=</span><span class="n">RE_SPACING</span><span class="p">,</span> <span class="n">newline</span><span class="o">=</span><span class="n">RE_NEWLINE</span><span class="p">,</span> <span class="n">rose_info</span><span class="o">=</span><span class="n">RE_ROSE_INFO</span><span class="p">)</span>
+
+<span class="c1"># Dictionary mapping all x86_64 registers to their sizes in bytes</span>
+<span class="n">X86_REG_SIZES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">k</span><span class="p">:</span><span class="n">v</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="p">([</span><span class="s1">&#39;xmm</span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">16</span><span class="p">)],</span> <span class="mi">16</span><span class="p">),</span>                             <span class="c1"># XMM 16-byte registers</span>
+        <span class="p">([</span><span class="s1">&#39;ymm</span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">16</span><span class="p">)],</span> <span class="mi">32</span><span class="p">),</span>                             <span class="c1"># YMM 32-byte registers</span>
+        <span class="p">([</span><span class="s1">&#39;zmm</span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">32</span><span class="p">)],</span> <span class="mi">64</span><span class="p">),</span>                             <span class="c1"># ZMM 64-byte registers</span>
+
+        <span class="p">([</span><span class="s1">&#39;st</span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">16</span><span class="p">)],</span> <span class="mi">10</span><span class="p">),</span>                              <span class="c1"># ST 10-byte registers (rose interpretation)</span>
+        <span class="p">([</span><span class="s1">&#39;st(</span><span class="si">%d</span><span class="s1">)&#39;</span> <span class="o">%</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">16</span><span class="p">)],</span> <span class="mi">10</span><span class="p">),</span>                          <span class="c1"># ST 10-byte registers (ghidra interpretation)</span>
+        <span class="p">([</span><span class="s1">&#39;mm</span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">)],</span> <span class="mi">8</span><span class="p">),</span>                                <span class="c1"># MM 8-byte registers [lower 64 bits of ST]</span>
+        
+        <span class="p">([</span><span class="s1">&#39;cw&#39;</span><span class="p">,</span> <span class="s1">&#39;fp_ip&#39;</span><span class="p">,</span> <span class="s1">&#39;fp_dp&#39;</span><span class="p">,</span> <span class="s1">&#39;fp_cs&#39;</span><span class="p">,</span> <span class="s1">&#39;sw&#39;</span><span class="p">,</span> <span class="s1">&#39;tw&#39;</span><span class="p">,</span> 
+            <span class="s1">&#39;fp_ds&#39;</span><span class="p">,</span> <span class="s1">&#39;fp_opc&#39;</span><span class="p">,</span> <span class="s1">&#39;cs&#39;</span><span class="p">,</span> <span class="s1">&#39;ss&#39;</span><span class="p">,</span> <span class="s1">&#39;ds&#39;</span><span class="p">,</span> <span class="s1">&#39;es&#39;</span><span class="p">,</span> <span class="s1">&#39;fs&#39;</span><span class="p">,</span> 
+            <span class="s1">&#39;gs&#39;</span><span class="p">,</span> <span class="s1">&#39;gdtr&#39;</span><span class="p">,</span> <span class="s1">&#39;idtr&#39;</span><span class="p">,</span> <span class="s1">&#39;ldtr&#39;</span><span class="p">,</span> <span class="s1">&#39;tr&#39;</span><span class="p">,</span> <span class="s1">&#39;msw&#39;</span><span class="p">],</span> <span class="mi">2</span><span class="p">),</span>                 <span class="c1"># Various special 2-byte registers</span>
+        <span class="p">([</span><span class="s1">&#39;fp_dp&#39;</span><span class="p">,</span> <span class="s1">&#39;fp_ip&#39;</span><span class="p">,</span> <span class="s1">&#39;mxcsr&#39;</span><span class="p">],</span> <span class="mi">4</span><span class="p">),</span>                                   <span class="c1"># Various special 4-byte registers</span>
+
+        <span class="p">([</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1">r</span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">16</span><span class="p">)],</span> <span class="mi">8</span><span class="p">),</span>     <span class="c1"># DR(0-15)/CR(0-15) 8-byte registers</span>
+
+        <span class="p">([</span><span class="s1">&#39;r</span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span> <span class="mi">8</span><span class="p">),</span>                             <span class="c1"># R(8-15)  8-byte registers</span>
+        <span class="p">([</span><span class="s1">&#39;r</span><span class="si">%d</span><span class="s1">d&#39;</span> <span class="o">%</span> <span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span> <span class="mi">4</span><span class="p">),</span>                            <span class="c1"># R(8-15)d 4-byte registers</span>
+        <span class="p">([</span><span class="s1">&#39;r</span><span class="si">%d</span><span class="s1">w&#39;</span> <span class="o">%</span> <span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span> <span class="mi">2</span><span class="p">),</span>                            <span class="c1"># R(8-15)w 2-byte registers</span>
+        <span class="p">([</span><span class="s1">&#39;r</span><span class="si">%d</span><span class="s1">b&#39;</span> <span class="o">%</span> <span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">)],</span> <span class="mi">1</span><span class="p">),</span>                            <span class="c1"># R(8-15)b 1-byte registers</span>
+
+        <span class="p">([</span><span class="s1">&#39;rax&#39;</span><span class="p">,</span> <span class="s1">&#39;rbx&#39;</span><span class="p">,</span> <span class="s1">&#39;rcx&#39;</span><span class="p">,</span> <span class="s1">&#39;rdx&#39;</span><span class="p">],</span> <span class="mi">8</span><span class="p">),</span>                                  <span class="c1"># Named general 8-byte r-registers</span>
+        <span class="p">([</span><span class="s1">&#39;eax&#39;</span><span class="p">,</span> <span class="s1">&#39;ebx&#39;</span><span class="p">,</span> <span class="s1">&#39;ecx&#39;</span><span class="p">,</span> <span class="s1">&#39;edx&#39;</span><span class="p">],</span> <span class="mi">4</span><span class="p">),</span>                                  <span class="c1"># Named general 4-byte r-registers</span>
+        <span class="p">([</span><span class="s1">&#39;ax&#39;</span><span class="p">,</span> <span class="s1">&#39;bx&#39;</span><span class="p">,</span> <span class="s1">&#39;cx&#39;</span><span class="p">,</span> <span class="s1">&#39;dx&#39;</span><span class="p">],</span> <span class="mi">2</span><span class="p">),</span>                                      <span class="c1"># Named general 2-byte r-registers</span>
+
+        <span class="p">([</span><span class="s1">&#39;rflags&#39;</span><span class="p">,</span> <span class="s1">&#39;rip&#39;</span><span class="p">,</span> <span class="s1">&#39;rbp&#39;</span><span class="p">,</span> <span class="s1">&#39;rsi&#39;</span><span class="p">,</span> <span class="s1">&#39;rdi&#39;</span><span class="p">,</span> <span class="s1">&#39;rsp&#39;</span><span class="p">],</span> <span class="mi">8</span><span class="p">),</span>                 <span class="c1"># Various special 8-byte r-registers</span>
+        <span class="p">([</span><span class="s1">&#39;eflags&#39;</span><span class="p">,</span> <span class="s1">&#39;eip&#39;</span><span class="p">,</span> <span class="s1">&#39;ebp&#39;</span><span class="p">,</span> <span class="s1">&#39;esi&#39;</span><span class="p">,</span> <span class="s1">&#39;edi&#39;</span><span class="p">,</span> <span class="s1">&#39;esp&#39;</span><span class="p">],</span> <span class="mi">4</span><span class="p">),</span>                 <span class="c1"># Various special 4-byte e-registers</span>
+        <span class="p">([</span><span class="s1">&#39;flags&#39;</span><span class="p">,</span> <span class="s1">&#39;ip&#39;</span><span class="p">,</span> <span class="s1">&#39;bp&#39;</span><span class="p">,</span> <span class="s1">&#39;si&#39;</span><span class="p">,</span> <span class="s1">&#39;di&#39;</span><span class="p">,</span> <span class="s1">&#39;sp&#39;</span><span class="p">],</span> <span class="mi">2</span><span class="p">),</span>                       <span class="c1"># Various special 2-byte registers</span>
+
+        <span class="p">([</span><span class="s1">&#39;bpl&#39;</span><span class="p">,</span> <span class="s1">&#39;sil&#39;</span><span class="p">,</span> <span class="s1">&#39;dil&#39;</span><span class="p">,</span> <span class="s1">&#39;spl&#39;</span><span class="p">],</span> <span class="mi">1</span><span class="p">),</span>                                  <span class="c1"># Various special 1-byte registers</span>
+        <span class="p">([</span><span class="s1">&#39;</span><span class="si">%s%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="s1">&#39;abcd&#39;</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="s1">&#39;lh&#39;</span><span class="p">],</span> <span class="mi">1</span><span class="p">),</span>               <span class="c1"># Various general 1-byte registers (low and high)</span>
+    <span class="p">]</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">a</span>
+<span class="p">}</span>
+
+<span class="c1"># Dictionary mapping all base memory sizes to their size in bytes</span>
+<span class="c1"># NOTE: Should find someone who can confirm sizes here, because I get different values when googling what &#39;ldouble&#39; is...</span>
+<span class="n">MEMORY_SIZES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;byte&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;word&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;dword&#39;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="s1">&#39;qword&#39;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="s1">&#39;tword&#39;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s1">&#39;float&#39;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="s1">&#39;tfloat&#39;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s1">&#39;double&#39;</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="s1">&#39;ldouble&#39;</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span>
+    <span class="s1">&#39;xmmword&#39;</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span> <span class="s1">&#39;ymmword&#39;</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span> <span class="s1">&#39;zmmword&#39;</span><span class="p">:</span> <span class="mi">64</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="c1"># All register sizes</span>
+<span class="n">REGISTER_SIZES</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span><span class="n">v</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="p">[</span><span class="n">X86_REG_SIZES</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">d</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+<span class="c1"># Regex matches to registers. This is ~15% faster than brute-force matching all keys in REGISTER_SIZES</span>
+<span class="c1"># Registers can be followed by a &#39;*&#39;, &#39;]&#39;, or delimiter</span>
+<span class="n">RE_X86_REG_RE_MATCH</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;[xyz]?mm[0-9]+|st\(?[0-9]+\)?|(?:[sb]p|[ds]i)l|[re]?(?:flags|ip|[bs]p|[sd]i|[abcd]x)|[cd]r[0-9]+|r[0-9]+[dwb]?|[abcd][lh]|[cst]w|fp_(?:[id]p|[cd]s|opc)|[cdefgs]s|(?:[gil]d)?tr|msw|mxcsr&#39;</span>
+<span class="n">RE_ALL_REGISTERS</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;(?:</span><span class="si">{all_reg}</span><span class="s1">)(?=[*]|\]|</span><span class="si">{delim}</span><span class="s1">)&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">all_reg</span><span class="o">=</span><span class="s1">&#39;|&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">RE_X86_REG_RE_MATCH</span><span class="p">]),</span> <span class="n">delim</span><span class="o">=</span><span class="n">RE_DELIMITER</span><span class="p">)</span>
+
+<span class="c1"># x86_64 instruction prefixes, stolen from: http://web.mit.edu/rhel-doc/3/rhel-as-en-3/i386-prefixes.html.</span>
+<span class="c1"># These must be followed by either an underscore (which will be captured), or a delimiter</span>
+<span class="c1"># We split these up into codes + needing delimiter for some postprocessing that is done in the tokenizers</span>
+<span class="n">RE_INSTRUCTION_PREFIX_CODES</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;(?:lock|rep(?:ne|nz|e|z)?)&#39;</span>
+<span class="n">RE_INSTRUCTION_PREFIX</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;</span><span class="si">{codes}</span><span class="s1">(?=</span><span class="si">{delim}</span><span class="s1">)&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">delim</span><span class="o">=</span><span class="n">RE_DELIMITER</span><span class="p">,</span> <span class="n">codes</span><span class="o">=</span><span class="n">RE_INSTRUCTION_PREFIX_CODES</span><span class="p">)</span>
+
+<span class="c1"># For branch prediction. Not used by re for tokenization, but used in postprocessing of token stream</span>
+<span class="n">RE_BRANCH_PREDICTION</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;p[tn]&#39;</span>
+
+<span class="c1"># Possible immediate values: hexadecimal, octal, decimal (NOTE: the need to be processed in that order so decimal immediate</span>
+<span class="c1">#    doesn&#39;t take up the initial &#39;0&#39; in front of hexadecimal/octal)</span>
+<span class="n">RE_IMM_HEX</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;-?0x[0-9a-f]+&#39;</span>
+<span class="n">RE_IMM_OCT</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;-?0o[0-7]+&#39;</span>
+<span class="n">RE_IMM_BIN</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;-?0b[01]+&#39;</span>
+<span class="n">RE_IMM_INT</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;-?[0-9]+&#39;</span>
+<span class="n">RE_IMMEDIATE</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;(?:</span><span class="si">{imm_hex}</span><span class="s1">|</span><span class="si">{imm_oct}</span><span class="s1">|</span><span class="si">{imm_bin}</span><span class="s1">|</span><span class="si">{imm_int}</span><span class="s1">)(?=\]|</span><span class="si">{delim}</span><span class="s1">)&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">imm_hex</span><span class="o">=</span><span class="n">RE_IMM_HEX</span><span class="p">,</span> <span class="n">imm_oct</span><span class="o">=</span><span class="n">RE_IMM_OCT</span><span class="p">,</span> <span class="n">imm_int</span><span class="o">=</span><span class="n">RE_IMM_INT</span><span class="p">,</span> <span class="n">imm_bin</span><span class="o">=</span><span class="n">RE_IMM_BIN</span><span class="p">,</span> <span class="n">delim</span><span class="o">=</span><span class="n">RE_DELIMITER</span><span class="p">)</span>
+
+<span class="c1"># Memory segment identifiers. Should have an open brackets right after (allowing for spacing inbetween)</span>
+<span class="n">RE_SEGMENT_REGISTERS</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;[cdefgs]s&#39;</span>
+<span class="n">RE_SEGMENT</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;(?:</span><span class="si">{seg_reg}</span><span class="s1">):(?=(?:</span><span class="si">{spacing}</span><span class="s1">)?\[)&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">spacing</span><span class="o">=</span><span class="n">RE_SPACING</span><span class="p">,</span> <span class="n">seg_reg</span><span class="o">=</span><span class="n">RE_SEGMENT_REGISTERS</span><span class="p">)</span>
+
+<span class="c1"># A memory segment. Must use either &quot;immediate:immediate&quot; or &quot;segment:reg&quot; format.</span>
+<span class="n">RE_SEGMENT_ADDRESS</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;(?:</span><span class="si">{imm}</span><span class="s1">):(?:</span><span class="si">{imm}</span><span class="s1">)|(?:</span><span class="si">{seg_reg}</span><span class="s1">):(?:</span><span class="si">{reg}</span><span class="s1">)&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">imm</span><span class="o">=</span><span class="n">RE_IMMEDIATE</span><span class="p">,</span> <span class="n">segment</span><span class="o">=</span><span class="n">RE_SEGMENT</span><span class="p">,</span> <span class="n">seg_reg</span><span class="o">=</span><span class="n">RE_SEGMENT_REGISTERS</span><span class="p">,</span> <span class="n">reg</span><span class="o">=</span><span class="n">RE_ALL_REGISTERS</span><span class="p">)</span>
+
+<span class="c1"># Known memory sizes. Includes a &#39;v%d&#39; in front of all of them to denote a vector of multiple of these.</span>
+<span class="n">RE_MEM_SIZES</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;(?:v[0-9]+)?(?:byte|[dqt]?word|t?float|l?double|[xyz]mmword)(?=</span><span class="si">{delim}</span><span class="s1">)&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">delim</span><span class="o">=</span><span class="n">RE_DELIMITER</span><span class="p">)</span>
+
+<span class="c1"># Check for any opcode mnemonic. For now, we just get any and all characters that could correspond to an opcode, </span>
+<span class="c1">#   instruction prefix, or branch prediction. These will be sorted out later when parsing. Must be followed by delimiter</span>
+<span class="n">RE_OPCODE</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;(?:[a-z][a-z0-9_.,]*)(?=</span><span class="si">{delim}</span><span class="s1">)&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">delim</span><span class="o">=</span><span class="n">RE_DELIMITER</span><span class="p">)</span>
+
+
+<span class="c1"># Token type names</span>
+<div class="viewcode-block" id="Tokens"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.Tokens">[docs]</a><span class="k">class</span> <span class="nc">Tokens</span><span class="p">:</span>
+    <span class="n">INSTRUCTION_ADDRESS</span> <span class="o">=</span> <span class="s1">&#39;inst_addr&#39;</span>
+    <span class="n">NEWLINE</span> <span class="o">=</span> <span class="s1">&#39;newline&#39;</span>
+    <span class="n">INSTRUCTION_START</span> <span class="o">=</span> <span class="s1">&#39;inst_start&#39;</span>
+    <span class="n">SPACING</span> <span class="o">=</span> <span class="s1">&#39;spacing&#39;</span>
+    <span class="n">PTR</span> <span class="o">=</span> <span class="s1">&#39;ptr&#39;</span>
+    <span class="n">ROSE_INFO</span> <span class="o">=</span> <span class="s1">&#39;rose&#39;</span>
+    <span class="n">OPEN_BRACKET</span> <span class="o">=</span> <span class="s1">&#39;open_bracket&#39;</span>
+    <span class="n">CLOSE_BRACKET</span> <span class="o">=</span> <span class="s1">&#39;close_bracket&#39;</span>
+    <span class="n">PLUS_SIGN</span> <span class="o">=</span> <span class="s1">&#39;plus_sign&#39;</span>
+    <span class="n">TIMES_SIGN</span> <span class="o">=</span> <span class="s1">&#39;times_sign&#39;</span>
+    <span class="n">INSTRUCTION_PREFIX</span> <span class="o">=</span> <span class="s1">&#39;prefix&#39;</span>
+    <span class="n">SEGMENT_ADDRESS</span> <span class="o">=</span> <span class="s1">&#39;segment_addr&#39;</span>
+    <span class="n">IMMEDIATE</span> <span class="o">=</span> <span class="s1">&#39;immediate&#39;</span>
+    <span class="n">SEGMENT</span> <span class="o">=</span> <span class="s1">&#39;segment&#39;</span>
+    <span class="n">REGISTER</span> <span class="o">=</span> <span class="s1">&#39;register&#39;</span>
+    <span class="n">MEMORY_SIZE</span> <span class="o">=</span> <span class="s1">&#39;memory_size&#39;</span>
+    <span class="n">BRANCH_PREDICTION</span> <span class="o">=</span> <span class="s1">&#39;branch_prediction&#39;</span>
+    <span class="n">OPCODE</span> <span class="o">=</span> <span class="s1">&#39;opcode&#39;</span>
+    <span class="n">MISMATCH</span> <span class="o">=</span> <span class="s1">&#39;mismatch&#39;</span></div>
+
+<span class="c1"># Enum for different levels of tokenization</span>
+<div class="viewcode-block" id="TokenizationLevel"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.TokenizationLevel">[docs]</a><span class="k">class</span> <span class="nc">TokenizationLevel</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">OPCODE</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;op&#39;</span><span class="p">,</span> <span class="s1">&#39;opcode&#39;</span><span class="p">,</span> <span class="s1">&#39;operand&#39;</span><span class="p">]</span>
+    <span class="n">INSTRUCTION</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;inst&#39;</span><span class="p">,</span> <span class="s1">&#39;instruction&#39;</span><span class="p">,</span> <span class="s1">&#39;line&#39;</span><span class="p">]</span>
+    <span class="n">AUTO</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;auto&#39;</span><span class="p">,</span> <span class="s1">&#39;automatic&#39;</span><span class="p">]</span></div>
+
+<span class="c1"># Token to insert at the start of each instruction for opcode-level tokenization</span>
+<span class="n">INSTRUCTION_START_TOKEN</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;#start_instr#&#39;</span>
+
+<span class="c1"># Match names to tokens, and define the order in which they should be matched</span>
+<span class="n">DEFAULT_TOKENS</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="c1"># The instruction address. Should be at start of a line (use positive lookbehind to confirm, or match to start of line), </span>
+    <span class="c1">#   may contain a colon &#39;:&#39;, and must be followed by a space &#39; &#39;. Must always be in hexadecimal</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">INSTRUCTION_ADDRESS</span><span class="p">,</span> <span class="sa">r</span><span class="s1">&#39;(?:(?&lt;=\n|[|])|^)0x[0-9a-f]*:?(?= )&#39;</span><span class="p">),</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">NEWLINE</span><span class="p">,</span> <span class="n">RE_NEWLINE</span><span class="p">),</span>  <span class="c1"># Both pipes &#39;|&#39; like in ghidra output and literal &#39;\n&#39; newline characters</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">ROSE_INFO</span><span class="p">,</span> <span class="n">RE_ROSE_INFO</span><span class="p">),</span>  <span class="c1"># Match to rose information in &lt;brackets&gt;. Doesn&#39;t actually need to be this high since all other regex matches couldn&#39;t match to this, but who cares</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">INSTRUCTION_START</span><span class="p">,</span> <span class="n">INSTRUCTION_START_TOKEN</span><span class="p">),</span>  <span class="c1"># Only appears if one is trying to tokenize base-normalized instructions</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">SPACING</span><span class="p">,</span> <span class="n">RE_SPACING</span><span class="p">),</span>  <span class="c1"># Empty spacing, either space &#39; &#39;, comma &#39;,&#39;, or tab &#39;\t&#39; some number of times</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">PTR</span><span class="p">,</span> <span class="sa">r</span><span class="s1">&#39;ptr&#39;</span><span class="p">),</span>  <span class="c1"># The literal string &#39;ptr&#39;. Needs to be before the opcode check</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">OPEN_BRACKET</span><span class="p">,</span> <span class="sa">r</span><span class="s1">&#39;\[&#39;</span><span class="p">),</span>  <span class="c1"># Open brackets for memory address info</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">CLOSE_BRACKET</span><span class="p">,</span> <span class="sa">r</span><span class="s1">&#39;\]&#39;</span><span class="p">),</span>  <span class="c1"># Close brackets for memory address info</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">PLUS_SIGN</span><span class="p">,</span> <span class="sa">r</span><span class="s1">&#39;\+&#39;</span><span class="p">),</span>  <span class="c1"># Plus&#39;s inside memory address info</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">TIMES_SIGN</span><span class="p">,</span> <span class="sa">r</span><span class="s1">&#39;\*&#39;</span><span class="p">),</span>  <span class="c1"># Times inside memory address info</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">INSTRUCTION_PREFIX</span><span class="p">,</span> <span class="n">RE_INSTRUCTION_PREFIX</span><span class="p">),</span>  <span class="c1"># Instructions prefixes (EG: lock, rep, etc.), possible underscore after them</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">SEGMENT_ADDRESS</span><span class="p">,</span> <span class="n">RE_SEGMENT_ADDRESS</span><span class="p">),</span>  <span class="c1"># A far jump-like segment addressing. Must be before IMMEDIATE</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">IMMEDIATE</span><span class="p">,</span> <span class="n">RE_IMMEDIATE</span><span class="p">),</span>  <span class="c1"># An immediate value: hexadecimal, decimal, octal, binary</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">SEGMENT</span><span class="p">,</span> <span class="n">RE_SEGMENT</span><span class="p">),</span>  <span class="c1"># Memory segment info. Must go before reg</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">MEMORY_SIZE</span><span class="p">,</span> <span class="n">RE_MEM_SIZES</span><span class="p">),</span>  <span class="c1"># Known memory sizes. Must go before reg/opcode</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">REGISTER</span><span class="p">,</span> <span class="n">RE_ALL_REGISTERS</span><span class="p">),</span>  <span class="c1"># All known registers accross all architectures</span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">OPCODE</span><span class="p">,</span> <span class="n">RE_OPCODE</span><span class="p">),</span>  <span class="c1"># Opcode. Should go last since it&#39;s the most general matching. </span>
+    <span class="p">(</span><span class="n">Tokens</span><span class="o">.</span><span class="n">MISMATCH</span><span class="p">,</span> <span class="sa">r</span><span class="s1">&#39;.&#39;</span><span class="p">),</span>  <span class="c1"># Finally, match to any character to notify that there has been a mismatch</span>
+<span class="p">]</span>
+<span class="sd">&quot;&quot;&quot;Default list of (token_name, regex) token tuples to match to&quot;&quot;&quot;</span>
+
+
+<span class="n">ROSE_REPLACE_STR</span> <span class="o">=</span> <span class="s1">&#39;__STR__&#39;</span>
+
+
+<div class="viewcode-block" id="ARCH"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.ARCH">[docs]</a><span class="k">class</span> <span class="nc">ARCH</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">X86_64</span> <span class="o">=</span> <span class="s1">&#39;x86_64&#39;</span>
+    <span class="n">X86</span> <span class="o">=</span> <span class="s1">&#39;x86&#39;</span></div>
+
+
+<div class="viewcode-block" id="TokenMismatchError"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.TokenMismatchError">[docs]</a><span class="k">class</span> <span class="nc">TokenMismatchError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Justin Allen.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
