@@ -24,12 +24,6 @@ GENERAL_REGISTER_STR = 'reg'
 FAR_JUMP_SEGMENT_STR = 'seg'
 MEM_SIZE_TOKEN_STR = 'memptr'
 
-# Token mapping and regex string to make sure memory expressions are correct
-MEM_EXPR_TOKEN_MAPPING = {Tokens.OPEN_BRACKET: '[', Tokens.CLOSE_BRACKET: ']', Tokens.SPACING: '', Tokens.ROSE_INFO: '', 
-    Tokens.REGISTER: 'r', Tokens.IMMEDIATE: 'i', Tokens.PLUS_SIGN: 'p', Tokens.TIMES_SIGN: 't'}
-RE_MEM_EXPR_OBJ = '(?:r(?:ti)?|i)'
-RE_MEM_EXPR_MATCH = re.compile(r'\[{memobj}(?:p{memobj})*\]'.format(memobj=RE_MEM_EXPR_OBJ))
-
 # Regex's to check if registers are general or not, and to remove number information.
 RE_GENERAL_REGISTER_MATCH = re.compile(r'r[0-9]+[dwb]?|[re]?[abcd]x|[abcd][lh]|[re]?[sd]il?')
 RE_REMOVE_REGISTER_NUMBER = re.compile(r'\(?[0-9]+\)?')
@@ -217,8 +211,6 @@ def replace_memory_expression(*args):
 
     def repl_mem(self, memory_start, token, line, *args):
         """Replace memory expressions with 'memexpr'"""
-        self.valid_memory_expression(line[memory_start:], line)  # To check if it's valid
-
         # Using a brand new token so it's not confused with anything else. Keep track of the old value as well
         line[memory_start] = (REPLACED_MEMORY_EXPRESSION_TOKEN, replacement, ' '.join([l[2] for l in line[memory_start + 1:]]))
         del line[memory_start + 1:]  # Delete the rest of the line after memory_start index

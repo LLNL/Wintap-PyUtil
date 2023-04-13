@@ -62,6 +62,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#bincfg.normalization.base_normalizer.BaseNormalizer.handle_mismatch"><code class="docutils literal notranslate"><span class="pre">BaseNormalizer.handle_mismatch()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#bincfg.normalization.base_normalizer.BaseNormalizer.handle_newline"><code class="docutils literal notranslate"><span class="pre">BaseNormalizer.handle_newline()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#bincfg.normalization.base_normalizer.BaseNormalizer.handle_opcode"><code class="docutils literal notranslate"><span class="pre">BaseNormalizer.handle_opcode()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#bincfg.normalization.base_normalizer.BaseNormalizer.handle_prefix"><code class="docutils literal notranslate"><span class="pre">BaseNormalizer.handle_prefix()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#bincfg.normalization.base_normalizer.BaseNormalizer.handle_register"><code class="docutils literal notranslate"><span class="pre">BaseNormalizer.handle_register()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#bincfg.normalization.base_normalizer.BaseNormalizer.handle_rose_info"><code class="docutils literal notranslate"><span class="pre">BaseNormalizer.handle_rose_info()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#bincfg.normalization.base_normalizer.BaseNormalizer.handle_unknown_token"><code class="docutils literal notranslate"><span class="pre">BaseNormalizer.handle_unknown_token()</span></code></a></li>
@@ -72,12 +73,9 @@
 <li class="toctree-l4"><a class="reference internal" href="#bincfg.normalization.base_normalizer.BaseNormalizer.tokenization_level"><code class="docutils literal notranslate"><span class="pre">BaseNormalizer.tokenization_level</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#bincfg.normalization.base_normalizer.BaseNormalizer.tokenize"><code class="docutils literal notranslate"><span class="pre">BaseNormalizer.tokenize()</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#bincfg.normalization.base_normalizer.BaseNormalizer.tokenizer"><code class="docutils literal notranslate"><span class="pre">BaseNormalizer.tokenizer</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#bincfg.normalization.base_normalizer.BaseNormalizer.valid_memory_expression"><code class="docutils literal notranslate"><span class="pre">BaseNormalizer.valid_memory_expression()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#bincfg.normalization.base_normalizer.MalformedMemoryExpressionError"><code class="docutils literal notranslate"><span class="pre">MalformedMemoryExpressionError</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#bincfg.normalization.base_normalizer.MetaNorm"><code class="docutils literal notranslate"><span class="pre">MetaNorm</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#bincfg.normalization.base_normalizer.MisplacedInstructionPrefixError"><code class="docutils literal notranslate"><span class="pre">MisplacedInstructionPrefixError</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#module-bincfg.normalization.base_tokenizer">bincfg.normalization.base_tokenizer module</a><ul>
@@ -548,11 +546,7 @@ If not passed, then these will not be used. Defaults to None.</p></li>
 <dl class="py method">
 <dt class="sig sig-object py" id="bincfg.normalization.base_normalizer.BaseNormalizer.handle_memory_expression">
 <span class="sig-name descname"><span class="pre">handle_memory_expression</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">memory_start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sentence</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bincfg/normalization/base_normalizer.html#BaseNormalizer.handle_memory_expression"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#bincfg.normalization.base_normalizer.BaseNormalizer.handle_memory_expression" title="Permalink to this definition"></a></dt>
-<dd><p>Handles memory expressions. Defaults to simply checking if the memory expression is valid</p>
-<dl class="simple">
-<dt>Since this is an ‘unnormalized’ normalization method, do nothing but make sure it is a valid memory expression</dt><dd><p>and clear out any extraneous information.</p>
-</dd>
-</dl>
+<dd><p>Handles memory expressions. Defaults to doing nothing special</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -657,6 +651,29 @@ if <cite>tokenization_level=’instuction’</cite>, or single tokens with a sep
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>the original token</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="bincfg.normalization.base_normalizer.BaseNormalizer.handle_prefix">
+<span class="sig-name descname"><span class="pre">handle_prefix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">token</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sentence</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bincfg/normalization/base_normalizer.html#BaseNormalizer.handle_prefix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#bincfg.normalization.base_normalizer.BaseNormalizer.handle_prefix" title="Permalink to this definition"></a></dt>
+<dd><p>Handles an instruction prefix. Defaults to returning the original prefix</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>token</strong> (<em>str</em>) – the current string token</p></li>
+<li><p><strong>line</strong> (<em>List</em><em>[</em><em>TokenTuple</em><em>]</em>) – a list of (token_name, token) tuples. the current assembly line</p></li>
+<li><p><strong>sentence</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – the current sentence, a list of strings. These will be either full assembly instructions
+if <cite>tokenization_level=’instuction’</cite>, or single tokens with a separator between each assembly line if
+<cite>tokenization_level=’op’</cite></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>the original prefix</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>str</p>
@@ -775,11 +792,7 @@ be considered immediates. Defaults to True.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises</dt>
-<dd class="field-even"><ul class="simple">
-<li><p><a class="reference internal" href="#bincfg.normalization.base_normalizer.MalformedMemoryExpressionError" title="bincfg.normalization.base_normalizer.MalformedMemoryExpressionError"><strong>MalformedMemoryExpressionError</strong></a> – when memory expressions are malformed</p></li>
-<li><p><a class="reference internal" href="#bincfg.normalization.base_normalizer.MisplacedInstructionPrefixError" title="bincfg.normalization.base_normalizer.MisplacedInstructionPrefixError"><strong>MisplacedInstructionPrefixError</strong></a> – when instruction prefixes do not occur in the correct place</p></li>
-<li><p><a class="reference internal" href="#bincfg.normalization.tokenization_constants.TokenMismatchError" title="bincfg.normalization.tokenization_constants.TokenMismatchError"><strong>TokenMismatchError</strong></a> – on a bad branch prediction string</p></li>
-</ul>
+<dd class="field-even"><p><a class="reference internal" href="#bincfg.normalization.tokenization_constants.TokenMismatchError" title="bincfg.normalization.tokenization_constants.TokenMismatchError"><strong>TokenMismatchError</strong></a> – on a bad branch prediction string</p>
 </dd>
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>a list of normalized string instruction lines</p>
@@ -873,30 +886,6 @@ be considered immediates. Defaults to True.</p></li>
 <dd><p>The tokenizer used for this normalizer</p>
 </dd></dl>
 
-<dl class="py method">
-<dt class="sig sig-object py" id="bincfg.normalization.base_normalizer.BaseNormalizer.valid_memory_expression">
-<span class="sig-name descname"><span class="pre">valid_memory_expression</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">memory_expression</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bincfg/normalization/base_normalizer.html#BaseNormalizer.valid_memory_expression"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#bincfg.normalization.base_normalizer.BaseNormalizer.valid_memory_expression" title="Permalink to this definition"></a></dt>
-<dd><p>Raises an error if the input is an invalid memory expression</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>memory_expression</strong> (<em>List</em><em>[</em><em>TokenTuple</em><em>]</em>) – a list of (name, new_token, old_token) triplets</p></li>
-<li><p><strong>line</strong> (<em>List</em><em>[</em><em>TokenTuple</em><em>]</em>) – a list of (token_name, token) tuples. the current assembly line</p></li>
-</ul>
-</dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><a class="reference internal" href="#bincfg.normalization.base_normalizer.MalformedMemoryExpressionError" title="bincfg.normalization.base_normalizer.MalformedMemoryExpressionError"><strong>MalformedMemoryExpressionError</strong></a> – when the memory expression is malformed</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py exception">
-<dt class="sig sig-object py" id="bincfg.normalization.base_normalizer.MalformedMemoryExpressionError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">bincfg.normalization.base_normalizer.</span></span><span class="sig-name descname"><span class="pre">MalformedMemoryExpressionError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">token</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bincfg/normalization/base_normalizer.html#MalformedMemoryExpressionError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#bincfg.normalization.base_normalizer.MalformedMemoryExpressionError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
-<p>Error raised when there is a malformed memory expression</p>
 </dd></dl>
 
 <dl class="py class">
@@ -929,13 +918,6 @@ their function updated, or if a child class also changes a parent class’s func
 </dl>
 <p>NOTE: this will mean you cannot call all of that class’s methods and expect them to always be the same as calling
 instance methods if you change functions in __init__</p>
-</dd></dl>
-
-<dl class="py exception">
-<dt class="sig sig-object py" id="bincfg.normalization.base_normalizer.MisplacedInstructionPrefixError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">bincfg.normalization.base_normalizer.</span></span><span class="sig-name descname"><span class="pre">MisplacedInstructionPrefixError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">token</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sentence</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bincfg/normalization/base_normalizer.html#MisplacedInstructionPrefixError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#bincfg.normalization.base_normalizer.MisplacedInstructionPrefixError" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
-<p>Error raised when there is an instruction prefix that is not at the start of a line</p>
 </dd></dl>
 
 </section>

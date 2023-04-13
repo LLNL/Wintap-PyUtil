@@ -76,8 +76,7 @@
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">hashlib</span>
 <span class="kn">from</span> <span class="nn">types</span> <span class="kn">import</span> <span class="n">MethodType</span>
-<span class="kn">from</span> <span class="nn">.norm_utils</span> <span class="kn">import</span> <span class="n">imm_to_int</span><span class="p">,</span> <span class="n">clean_nop</span><span class="p">,</span> <span class="n">FAR_JUMP_SEGMENT_STR</span><span class="p">,</span> <span class="n">MEM_EXPR_TOKEN_MAPPING</span><span class="p">,</span> <span class="n">RE_MEM_EXPR_MATCH</span><span class="p">,</span> \
-    <span class="n">IMMEDIATE_VALUE_STR</span><span class="p">,</span> <span class="n">RE_ALL_DIGITS</span>
+<span class="kn">from</span> <span class="nn">.norm_utils</span> <span class="kn">import</span> <span class="n">imm_to_int</span><span class="p">,</span> <span class="n">clean_nop</span><span class="p">,</span> <span class="n">FAR_JUMP_SEGMENT_STR</span><span class="p">,</span> <span class="n">IMMEDIATE_VALUE_STR</span><span class="p">,</span> <span class="n">RE_ALL_DIGITS</span>
 <span class="kn">from</span> <span class="nn">..utils</span> <span class="kn">import</span> <span class="n">get_module</span><span class="p">,</span> <span class="n">eq_obj</span>
 <span class="kn">from</span> <span class="nn">.tokenization_constants</span> <span class="kn">import</span> <span class="n">TokenMismatchError</span><span class="p">,</span> <span class="n">Tokens</span><span class="p">,</span> <span class="n">INSTRUCTION_START_TOKEN</span><span class="p">,</span> <span class="n">TokenizationLevel</span>
 <span class="kn">from</span> <span class="nn">.base_tokenizer</span> <span class="kn">import</span> <span class="n">DEFAULT_TOKENIZER</span>
@@ -337,8 +336,6 @@
 <span class="sd">                be considered immediates. Defaults to True.</span>
 
 <span class="sd">        Raises:</span>
-<span class="sd">            MalformedMemoryExpressionError: when memory expressions are malformed</span>
-<span class="sd">            MisplacedInstructionPrefixError: when instruction prefixes do not occur in the correct place</span>
 <span class="sd">            TokenMismatchError: on a bad branch prediction string</span>
 
 <span class="sd">        Returns:</span>
@@ -363,11 +360,8 @@
             <span class="k">elif</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="n">Tokens</span><span class="o">.</span><span class="n">MISMATCH</span><span class="p">]:</span>
                 <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_mismatch</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
 
-            <span class="c1"># Check for a newline, making sure memory expressions were closed previously</span>
-            <span class="c1"># Instruction_start&#39;s should count as newlines</span>
+            <span class="c1"># Check for a newline, Instruction_start&#39;s should count as newlines</span>
             <span class="k">elif</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="n">Tokens</span><span class="o">.</span><span class="n">NEWLINE</span><span class="p">,</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">INSTRUCTION_START</span><span class="p">]:</span>
-                <span class="k">if</span> <span class="n">memory_start</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">MalformedMemoryExpressionError</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
                 <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_newline</span><span class="p">(</span><span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">,</span> <span class="n">cfg</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span> <span class="n">block</span><span class="o">=</span><span class="n">block</span><span class="p">)</span>
                 <span class="n">line</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
             
@@ -375,26 +369,17 @@
             <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">ROSE_INFO</span><span class="p">:</span>
                 <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_rose_info</span><span class="p">(</span><span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
             
-            <span class="c1"># Check for a start of memory expression. Raise an error if one was previously started but not closed</span>
+            <span class="c1"># Check for a start of memory expression</span>
             <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">OPEN_BRACKET</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">memory_start</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">MalformedMemoryExpressionError</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
                 <span class="n">memory_start</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
             
-            <span class="c1"># Check for a close of memory expression. Raise an error if one was not previously started</span>
+            <span class="c1"># Check for a close of memory expression</span>
             <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">CLOSE_BRACKET</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">memory_start</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">MalformedMemoryExpressionError</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
 
                 <span class="c1"># Insert the token first and clear token so it isn&#39;t inserted again</span>
                 <span class="n">line</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">old_token</span><span class="p">,</span> <span class="n">old_token</span><span class="p">))</span>
                 <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_memory_expression</span><span class="p">(</span><span class="n">memory_start</span><span class="p">,</span> <span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
                 <span class="n">memory_start</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
-            
-            <span class="c1"># Check for an instruction prefix, and make sure it comes before other things</span>
-            <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">INSTRUCTION_PREFIX</span><span class="p">:</span>
-                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">MisplacedInstructionPrefixError</span><span class="p">(</span><span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
             
             <span class="c1"># Check for a segment address. Convert the sub-tokens as needed</span>
             <span class="c1"># Only update the segment register to FAR_JUMP_SEGMENT_STR if we are not doing an &#39;unnormalized&#39; normalization</span>
@@ -404,6 +389,10 @@
                 <span class="n">right</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_immediate</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="p">[],</span> <span class="p">[])</span> <span class="k">if</span> <span class="n">right</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="s2">&quot;0123456789&quot;</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_register</span><span class="p">(</span><span class="n">right</span><span class="p">,</span> <span class="p">[],</span> <span class="p">[])</span>
                 <span class="n">line</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">left</span> <span class="o">+</span> <span class="s1">&#39;:&#39;</span> <span class="o">+</span> <span class="n">right</span><span class="p">,</span> <span class="n">old_token</span><span class="p">))</span>
                 <span class="n">new_token</span> <span class="o">=</span> <span class="kc">None</span>
+            
+            <span class="c1"># Check for an instruction prefix</span>
+            <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">INSTRUCTION_PREFIX</span><span class="p">:</span>
+                <span class="n">new_token</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_prefix</span><span class="p">(</span><span class="n">old_token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">)</span>
             
             <span class="c1"># Check for an immediate value</span>
             <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">IMMEDIATE</span><span class="p">:</span>
@@ -490,6 +479,21 @@
 <span class="sd">            str: the original token</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">token</span></div>
+    
+<div class="viewcode-block" id="BaseNormalizer.handle_prefix"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_prefix">[docs]</a>    <span class="k">def</span> <span class="nf">handle_prefix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Handles an instruction prefix. Defaults to returning the original prefix</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            token (str): the current string token</span>
+<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
+<span class="sd">            sentence (List[str]): the current sentence, a list of strings. These will be either full assembly instructions</span>
+<span class="sd">                if `tokenization_level=&#39;instuction&#39;`, or single tokens with a separator between each assembly line if</span>
+<span class="sd">                `tokenization_level=&#39;op&#39;`</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: the original prefix</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">token</span></div>
 
 <div class="viewcode-block" id="BaseNormalizer.handle_immediate"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_immediate">[docs]</a>    <span class="k">def</span> <span class="nf">handle_immediate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Handles an immediate value. Defaults to converting into decimal</span>
@@ -507,10 +511,7 @@
         <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">imm_to_int</span><span class="p">(</span><span class="n">token</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="BaseNormalizer.handle_memory_expression"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_memory_expression">[docs]</a>    <span class="k">def</span> <span class="nf">handle_memory_expression</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_start</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Handles memory expressions. Defaults to simply checking if the memory expression is valid</span>
-<span class="sd">        </span>
-<span class="sd">        Since this is an &#39;unnormalized&#39; normalization method, do nothing but make sure it is a valid memory expression </span>
-<span class="sd">            and clear out any extraneous information.</span>
+        <span class="sd">&quot;&quot;&quot;Handles memory expressions. Defaults to doing nothing special</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            memory_start (int): integer index in line where the full memory expression starts. The full memory expression</span>
@@ -521,26 +522,7 @@
 <span class="sd">                if `tokenization_level=&#39;instuction&#39;`, or single tokens with a separator between each assembly line if</span>
 <span class="sd">                `tokenization_level=&#39;op&#39;`</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">valid_memory_expression</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="n">memory_start</span><span class="p">:],</span> <span class="n">line</span><span class="p">)</span></div>
-    
-<div class="viewcode-block" id="BaseNormalizer.valid_memory_expression"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.valid_memory_expression">[docs]</a>    <span class="k">def</span> <span class="nf">valid_memory_expression</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">memory_expression</span><span class="p">,</span> <span class="n">line</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Raises an error if the input is an invalid memory expression</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            memory_expression (List[TokenTuple]): a list of (name, new_token, old_token) triplets</span>
-<span class="sd">            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line</span>
-
-<span class="sd">        Raises:</span>
-<span class="sd">            MalformedMemoryExpressionError: when the memory expression is malformed</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">string</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">memory_expression</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">MEM_EXPR_TOKEN_MAPPING</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">MalformedMemoryExpressionError</span><span class="p">(</span><span class="s2">&quot;Memory expression contains unexpected token type &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="n">name</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span>
-            <span class="n">string</span> <span class="o">+=</span> <span class="n">MEM_EXPR_TOKEN_MAPPING</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
-        
-        <span class="k">if</span> <span class="n">RE_MEM_EXPR_MATCH</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">string</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">MalformedMemoryExpressionError</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">string</span><span class="p">,</span> <span class="n">line</span><span class="p">)</span></div>
+        <span class="k">pass</span></div>
     
 <div class="viewcode-block" id="BaseNormalizer.handle_rose_info"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.BaseNormalizer.handle_rose_info">[docs]</a>    <span class="k">def</span> <span class="nf">handle_rose_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Checks to see if the rose info is telling us an immediate value is negative, otherwise ignores it</span>
@@ -804,30 +786,6 @@
 
     <span class="k">def</span> <span class="nf">unpickle</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">get_module</span><span class="p">(</span><span class="s1">&#39;dill&#39;</span><span class="p">,</span> <span class="n">err_message</span><span class="o">=</span><span class="n">_DILL_IMPORT_ERROR_MESSAGE</span><span class="p">)</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_normalizer</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_using_dill</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_normalizer</span>
-
-
-<div class="viewcode-block" id="MalformedMemoryExpressionError"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.MalformedMemoryExpressionError">[docs]</a><span class="k">class</span> <span class="nc">MalformedMemoryExpressionError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Error raised when there is a malformed memory expression&quot;&quot;&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">NEWLINE</span><span class="p">:</span>
-            <span class="n">start</span> <span class="o">=</span> <span class="s2">&quot;Reached newline before closing memory brackets&quot;</span>
-        <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">Tokens</span><span class="o">.</span><span class="n">OPEN_BRACKET</span><span class="p">:</span>
-            <span class="n">start</span> <span class="o">=</span> <span class="s2">&quot;Reached another open_bracket before closing memory brackets&quot;</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="n">start</span> <span class="o">=</span> <span class="n">name</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">start</span> <span class="o">=</span> <span class="s2">&quot;Malformed memory expression&quot;</span>
-        <span class="n">token</span> <span class="o">=</span> <span class="n">token</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="s1">&#39;None&#39;</span> <span class="k">if</span> <span class="n">token</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">token</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> at token </span><span class="si">%s</span><span class="s2">. Current line: </span><span class="se">\&quot;</span><span class="si">%s</span><span class="se">\&quot;</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">token</span><span class="p">),</span> <span class="n">line</span><span class="p">))</span></div>
-
-
-<div class="viewcode-block" id="MisplacedInstructionPrefixError"><a class="viewcode-back" href="../../../bincfg.normalization.html#bincfg.normalization.base_normalizer.MisplacedInstructionPrefixError">[docs]</a><span class="k">class</span> <span class="nc">MisplacedInstructionPrefixError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Error raised when there is an instruction prefix that is not at the start of a line&quot;&quot;&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="s2">&quot;Found an instruction prefix not at the start of line. &quot;</span>
-            <span class="s2">&quot;At token &#39;</span><span class="si">%s</span><span class="s2">&#39;. Current line:: </span><span class="si">%s</span><span class="se">\n</span><span class="s2">Current sentence: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">line</span><span class="p">,</span> <span class="n">sentence</span><span class="p">))</span></div>
 </pre></div>
 
            </div>

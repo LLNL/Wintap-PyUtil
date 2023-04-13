@@ -5,8 +5,7 @@ Classes for normalizing assembly instructions.
 import re
 import hashlib
 from types import MethodType
-from .norm_utils import imm_to_int, clean_nop, FAR_JUMP_SEGMENT_STR, MEM_EXPR_TOKEN_MAPPING, RE_MEM_EXPR_MATCH, \
-    IMMEDIATE_VALUE_STR, RE_ALL_DIGITS
+from .norm_utils import imm_to_int, clean_nop, FAR_JUMP_SEGMENT_STR, IMMEDIATE_VALUE_STR, RE_ALL_DIGITS
 from ..utils import get_module, eq_obj
 from .tokenization_constants import TokenMismatchError, Tokens, INSTRUCTION_START_TOKEN, TokenizationLevel
 from .base_tokenizer import DEFAULT_TOKENIZER
@@ -266,8 +265,6 @@ class BaseNormalizer(metaclass=MetaNorm):
                 be considered immediates. Defaults to True.
 
         Raises:
-            MalformedMemoryExpressionError: when memory expressions are malformed
-            MisplacedInstructionPrefixError: when instruction prefixes do not occur in the correct place
             TokenMismatchError: on a bad branch prediction string
 
         Returns:
@@ -292,11 +289,8 @@ class BaseNormalizer(metaclass=MetaNorm):
             elif name in [Tokens.MISMATCH]:
                 new_token = self.handle_mismatch(name, old_token, line, sentence)
 
-            # Check for a newline, making sure memory expressions were closed previously
-            # Instruction_start's should count as newlines
+            # Check for a newline, Instruction_start's should count as newlines
             elif name in [Tokens.NEWLINE, Tokens.INSTRUCTION_START]:
-                if memory_start >= 0:
-                    raise MalformedMemoryExpressionError(name, old_token, line)
                 new_token = self.handle_newline(old_token, line, sentence, cfg=cfg, block=block)
                 line.clear()
             
@@ -304,26 +298,17 @@ class BaseNormalizer(metaclass=MetaNorm):
             elif name == Tokens.ROSE_INFO:
                 new_token = self.handle_rose_info(old_token, line, sentence)
             
-            # Check for a start of memory expression. Raise an error if one was previously started but not closed
+            # Check for a start of memory expression
             elif name == Tokens.OPEN_BRACKET:
-                if memory_start >= 0:
-                    raise MalformedMemoryExpressionError(name, old_token, line)
                 memory_start = len(line)
             
-            # Check for a close of memory expression. Raise an error if one was not previously started
+            # Check for a close of memory expression
             elif name == Tokens.CLOSE_BRACKET:
-                if memory_start < 0:
-                    raise MalformedMemoryExpressionError(name, old_token, line)
 
                 # Insert the token first and clear token so it isn't inserted again
                 line.append((name, old_token, old_token))
                 new_token = self.handle_memory_expression(memory_start, old_token, line, sentence)
                 memory_start = -1
-            
-            # Check for an instruction prefix, and make sure it comes before other things
-            elif name == Tokens.INSTRUCTION_PREFIX:
-                if len(line) != 0:
-                    raise MisplacedInstructionPrefixError(old_token, line, sentence)
             
             # Check for a segment address. Convert the sub-tokens as needed
             # Only update the segment register to FAR_JUMP_SEGMENT_STR if we are not doing an 'unnormalized' normalization
@@ -333,6 +318,10 @@ class BaseNormalizer(metaclass=MetaNorm):
                 right = self.handle_immediate(right, [], []) if right[0] in "0123456789" else self.handle_register(right, [], [])
                 line.append((name, left + ':' + right, old_token))
                 new_token = None
+            
+            # Check for an instruction prefix
+            elif name == Tokens.INSTRUCTION_PREFIX:
+                new_token = self.handle_prefix(old_token, line, sentence)
             
             # Check for an immediate value
             elif name == Tokens.IMMEDIATE:
@@ -419,6 +408,21 @@ class BaseNormalizer(metaclass=MetaNorm):
             str: the original token
         """
         return token
+    
+    def handle_prefix(self, token, line, sentence):
+        """Handles an instruction prefix. Defaults to returning the original prefix
+
+        Args:
+            token (str): the current string token
+            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line
+            sentence (List[str]): the current sentence, a list of strings. These will be either full assembly instructions
+                if `tokenization_level='instuction'`, or single tokens with a separator between each assembly line if
+                `tokenization_level='op'`
+
+        Returns:
+            str: the original prefix
+        """
+        return token
 
     def handle_immediate(self, token, line, sentence):
         """Handles an immediate value. Defaults to converting into decimal
@@ -436,10 +440,7 @@ class BaseNormalizer(metaclass=MetaNorm):
         return str(imm_to_int(token))
 
     def handle_memory_expression(self, memory_start, token, line, sentence):
-        """Handles memory expressions. Defaults to simply checking if the memory expression is valid
-        
-        Since this is an 'unnormalized' normalization method, do nothing but make sure it is a valid memory expression 
-            and clear out any extraneous information.
+        """Handles memory expressions. Defaults to doing nothing special
 
         Args:
             memory_start (int): integer index in line where the full memory expression starts. The full memory expression
@@ -450,26 +451,7 @@ class BaseNormalizer(metaclass=MetaNorm):
                 if `tokenization_level='instuction'`, or single tokens with a separator between each assembly line if
                 `tokenization_level='op'`
         """
-        self.valid_memory_expression(line[memory_start:], line)
-    
-    def valid_memory_expression(self, memory_expression, line):
-        """Raises an error if the input is an invalid memory expression
-
-        Args:
-            memory_expression (List[TokenTuple]): a list of (name, new_token, old_token) triplets
-            line (List[TokenTuple]): a list of (token_name, token) tuples. the current assembly line
-
-        Raises:
-            MalformedMemoryExpressionError: when the memory expression is malformed
-        """
-        string = ""
-        for name, token, _ in memory_expression:
-            if name not in MEM_EXPR_TOKEN_MAPPING:
-                raise MalformedMemoryExpressionError("Memory expression contains unexpected token type '%s'" % name, token, line)
-            string += MEM_EXPR_TOKEN_MAPPING[name]
-        
-        if RE_MEM_EXPR_MATCH.fullmatch(string) is None:
-            raise MalformedMemoryExpressionError(None, string, line)
+        pass
     
     def handle_rose_info(self, token, line, sentence):
         """Checks to see if the rose info is telling us an immediate value is negative, otherwise ignores it
@@ -733,27 +715,3 @@ class _Pickled_Normalizer():
 
     def unpickle(self):
         return get_module('dill', err_message=_DILL_IMPORT_ERROR_MESSAGE).loads(self._normalizer) if self._using_dill else self._normalizer
-
-
-class MalformedMemoryExpressionError(Exception):
-    """Error raised when there is a malformed memory expression"""
-
-    def __init__(self, name, token, line):
-        if name == Tokens.NEWLINE:
-            start = "Reached newline before closing memory brackets"
-        elif name == Tokens.OPEN_BRACKET:
-            start = "Reached another open_bracket before closing memory brackets"
-        elif isinstance(name, str):
-            start = name
-        else:
-            start = "Malformed memory expression"
-        token = token if isinstance(token, str) else 'None' if token is None else token[1]
-        super().__init__("%s at token %s. Current line: \"%s\"" % (start, repr(token), line))
-
-
-class MisplacedInstructionPrefixError(Exception):
-    """Error raised when there is an instruction prefix that is not at the start of a line"""
-
-    def __init__(self, token, line, sentence):
-        super().__init__("Found an instruction prefix not at the start of line. "
-            "At token '%s'. Current line:: %s\nCurrent sentence: %s" % (token, line, sentence))

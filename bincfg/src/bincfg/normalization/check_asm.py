@@ -156,6 +156,9 @@ def check_assembly_rules(token_list, original_token_list, string, newline_tup, a
             curr_tokens = []
         else:
             curr_tokens.append((token_type, token))
+    
+    # Check everything that is left if there is any
+    _check_instruction(curr_tokens)
 
     # Now that everything is all good, we can check that the concatenation of the strings is good
     expected = string + (newline_tup[1] if newline_tup is not None else '')
@@ -178,6 +181,9 @@ def _check_instruction(token_list):
     Args:
         token_list (List[Tuple[str, str]]): list of tokens for one instruction
     """
+    if len(token_list) == 0:
+        return
+    
     instr_as_str = ''.join([TOKEN_TO_REGEX_CHAR[tt] for tt, _ in token_list])
     m = re.fullmatch(INSTRUCTION_REGEX, instr_as_str)
     if m is None:

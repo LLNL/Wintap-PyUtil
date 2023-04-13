@@ -1,6 +1,8 @@
 bincfg.labeling package
 =======================
 
+This subpackage provides utilities for labelling C/C++ basic blocks. It is still in development.
+
 Submodules
 ----------
 

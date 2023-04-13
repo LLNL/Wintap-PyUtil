@@ -144,12 +144,16 @@ def normalize_cfg_data(cfg_data, normalizer, inplace=False, using_tokens=None, f
     
     # Datasets will have their cfg's normalized as a list, then will need their tokens recounted
     elif isinstance(cfg_data, (bincfg.CFGDataset, bincfg.MemCFGDataset)):
+        using_tokens = None if isinstance(cfg_data, bincfg.CFGDataset) else using_tokens if using_tokens is not None else {}
         ret.cfgs = normalize_cfg_data(cfg_data.cfgs, normalizer=normalizer, inplace=inplace, using_tokens=using_tokens, 
             progress=progress)
+        
+        if isinstance(cfg_data, bincfg.MemCFGDataset):
+            ret.tokens = using_tokens
 
         # Convert to MemCFGDataset if needed
         if convert_to_mem and isinstance(cfg_data, bincfg.CFGDataset):
-            ret = bincfg.MemCFGDataset(ret, normalizer=normalizer, tokens=using_tokens)
+            ret = bincfg.MemCFGDataset(ret, normalizer=normalizer, tokens=ret.tokens)
     
     else:
         raise TypeError("Got an unknown type: '%s'" % type(cfg_data).__name__)

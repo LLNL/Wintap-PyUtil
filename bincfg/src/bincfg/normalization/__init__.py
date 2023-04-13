@@ -1,4 +1,4 @@
-from .base_normalizer import BaseNormalizer, MalformedMemoryExpressionError, MisplacedInstructionPrefixError
+from .base_normalizer import BaseNormalizer
 from .base_tokenizer import BaseTokenizer, DEFAULT_TOKENIZER
 from .builtin_normalizers import get_normalizer, InnerEyeNormalizer, DeepBinDiffNormalizer, SafeNormalizer, \
     DeepSemanticNormalizer, MyNormalizer, CompressedStatsNormalizer
