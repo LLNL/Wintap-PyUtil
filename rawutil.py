@@ -235,26 +235,36 @@ def run_sql_no_args(con, sqlfile):
             logging.info(f"  Failed: {e}")
 
 
-def write_parquet(con, dataset, daypk=None):
+def get_db_objects(con, exclude=None):
     """
-    Write tables/views from duckdb instance to parquet.
-    Skip tables starting with 'raw_' or 'tmp'
-    If daypk is provided, write to corresponding path in rolling.
-    Otherwise, write to stdview.
+    Get all tables/views defined in the db.
+    exclude should be a list of strings. If the strings appear in the object names, they'll be dropped from the result.
     """
     db_objects = con.execute(
         "select table_name, table_type from information_schema.tables where table_schema='main' order by all"
     ).fetchall()
-    for object_name, object_type in db_objects:
-        if object_name.lower().startswith("raw_") or "tmp" in object_name.lower():
-            logging.debug(f"Skipping {object_name}")
-        else:
+    if exclude!=None:
+        # Find matches NOT including any of the words
+        tables=[t for t,x in db_objects if not any(e in t for e in exclude )]
+        logging.debug(f'Not Matches: {tables}')
+    else:
+        tables=[t for t,x in db_objects]
+    return tables     
+
+
+def write_parquet(con, datasetpath, db_objects, daypk=None):
+    """
+    Write tables/views from duckdb instance to parquet.
+    If daypk is provided, write to corresponding path in rolling.
+    Otherwise, write to stdview.
+    """
+    for object_name in db_objects:
             logging.info(f"Writing {object_name}")
             if daypk == None:
-                pathspec = f"{dataset}/stdview"
+                pathspec = f"{datasetpath}/stdview"
                 filename = f"{object_name}.parquet"
             else:
-                pathspec = f"{dataset}/rolling/{object_name}/dayPK={daypk}"
+                pathspec = f"{datasetpath}/rolling/{object_name}/dayPK={daypk}"
                 filename = f"{object_name}-{daypk}.parquet"
             if not os.path.exists(pathspec):
                 os.makedirs(pathspec)
@@ -262,5 +272,5 @@ def write_parquet(con, dataset, daypk=None):
             else:
                 logging.debug("folder {} already exists".format(pathspec))
             # TODO Add test for file existence
-            sql = f"COPY (SELECT * FROM {object_name}) TO '{pathspec}/{filename}' (FORMAT 'parquet')"
+            sql = f"COPY {object_name} TO '{pathspec}/{filename}' (FORMAT 'parquet')"
             con.execute(sql)

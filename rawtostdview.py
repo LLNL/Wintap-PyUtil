@@ -25,7 +25,7 @@ def main():
     globs=ru.get_glob_paths_for_dataset(cur_dataset)
     ru.create_raw_views(con,globs,jpy)
     ru.run_sql_no_args(con,'./RawToStdView.sql')
-    ru.write_parquet(con,cur_dataset)
+    ru.write_parquet(con,cur_dataset,ru.get_db_objects(con,exclude=['raw_','tmp']))
 
 if __name__ == '__main__':
     main()

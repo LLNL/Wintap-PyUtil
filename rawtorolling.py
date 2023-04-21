@@ -20,7 +20,7 @@ def process_range(cur_dataset, start_date, end_date):
         globs=ru.get_globs_for(cur_dataset,daypk)
         ru.create_raw_views(con,globs,jpy)
         ru.run_sql_no_args(con,'./RawToStdView.sql')
-        ru.write_parquet(con,cur_dataset,daypk)
+        ru.write_parquet(con,cur_dataset,ru.get_db_objects(con,exclude=['tmp']),daypk)
         con.close()
     
 def main():
