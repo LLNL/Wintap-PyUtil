@@ -112,7 +112,12 @@ def get_globs_for(dataset, daypk):
                 table = pq.read_table(file)
                 if table.num_rows == 0:
                     logging.info(f"{file} is empty, deleting.")
-            globs[event_type] = pathspec
+                    os.remove(file)
+            # Sometimes, all the files have been removed, skip the pathspec in those cases
+            if len(glob(pathspec))>0:
+                globs[event_type] = pathspec
+            else:
+                logging.info(f"Skipping empty path: {pathspec}")
     return globs
 
 
