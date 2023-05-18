@@ -1,8 +1,7 @@
 import argparse
+from datetime import datetime
 import logging
 import sys
-
-from jinjasql import JinjaSql
 
 import rawutil as ru
 
@@ -10,6 +9,8 @@ import rawutil as ru
 def main():
     parser = argparse.ArgumentParser( prog='rawtostdview.py', description='Convert raw Wintap data into standard form, no partitioning')
     parser.add_argument('-d','--dataset', help='Path to the dataset dir to process')
+    parser.add_argument('-s','--start', help='Start date (YYYYMMDD)')
+    parser.add_argument('-e','--end', help='End date (YYYYMMDD)')
     parser.add_argument('-l', '--log-level', default='INFO', help='Logging Level: INFO, WARN, ERROR, DEBUG')
     args = parser.parse_args()
     
@@ -20,10 +21,10 @@ def main():
         sys.exit(1)
 
     cur_dataset=args.dataset
-    jpy = JinjaSql()
+
     con = ru.initdb()
-    globs=ru.get_glob_paths_for_dataset(cur_dataset)
-    ru.create_raw_views(con,globs,jpy)
+    globs=ru.get_glob_paths_for_dataset(cur_dataset,subdir='rolling',include='raw_')
+    ru.create_raw_views(con,globs,args.start,args.end)
     ru.run_sql_no_args(con,'./RawToStdView.sql')
     ru.write_parquet(con,cur_dataset,ru.get_db_objects(con,exclude=['raw_','tmp']))
 
