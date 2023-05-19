@@ -3,7 +3,10 @@
  * SQL Dialect: DuckDB
  *
  */
-CREATE TABLE IF NOT EXISTS HOST
+
+/* TODO: Change first() to mode(), which returns the most frequent value */
+
+CREATE TABLE IF NOT EXISTS host
 AS
 SELECT
  -- Ignore host.id.hash for now as it is really only composed of the hostname.

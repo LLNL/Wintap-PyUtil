@@ -107,8 +107,11 @@ def download_one_file(bucket: str, client: boto3.client, s3_file: S3File):
         s3_file (S3File): S3 object metadata
     """
     make_dirs(s3_file)
+    # Replace '=' in filename to avoid DuckDB mistaking it for a key=value pair.
+    # TODO: Fix this in Wintap.
+    new_filename=s3_file.filename.replace('=','+')
     client.download_file(
-        Bucket=bucket, Key=s3_file.key, Filename= os.path.join(s3_file.local_file_path, s3_file.filename)
+        Bucket=bucket, Key=s3_file.key, Filename= os.path.join(s3_file.local_file_path, new_filename)
     )
 
 def download_files_threaded(bucket: str, client: boto3.client, s3_files, retry_attempt: int=0):
@@ -136,10 +139,10 @@ def download_files_threaded(bucket: str, client: boto3.client, s3_files, retry_a
                 pbar.update(1)
     if len(failed_downloads) > 0:
         if retry_attempt<MAX_RETRIES:
-            logging.warn(f"  {len(failed_downloads)} downloads have failed. Retrying.")
+            logging.warning(f"  {len(failed_downloads)} downloads have failed. Retrying.")
             download_files_threaded(bucket,client,failed_downloads,retry_attempt+1)
         else:
-            logging.warn(f"  {len(failed_downloads)} downloads have failed. Writing to CSV.")
+            logging.warning(f"  {len(failed_downloads)} downloads have failed. Writing to CSV.")
             with open(
                 os.path.join(".", f"failed_downloads_{datetime.now()}.csv"), "w", newline=""
             ) as csvfile:
@@ -183,6 +186,11 @@ def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
     Parse metadata from S3. This will be used for generating the correct path to write to.
     TODO: Write this data also to a parquet file for metadata analytics.
     """
+    # Prefix all event_types with "raw_" TODO: fix this in Wintap
+    if event_type.lower().startswith('raw_'):
+        new_event_type=event_type
+    else:
+        new_event_type='raw_'+event_type
     files_metadata = []
     for file in files:
         (s3_path, delim, filename) = file.get("Key").rpartition("/")
@@ -192,7 +200,7 @@ def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
         datadpk = data_capture_ts.strftime("%Y%m%d")
         datahpk = data_capture_ts.strftime("%H")
         # Define fully-qualified local name
-        local_file_path = f"{local_path}/raw_sensor/{event_type}/dayPK={datadpk}/hourPK={datahpk}"
+        local_file_path = f"{local_path}/raw_sensor/{new_event_type}/dayPK={datadpk}/hourPK={datahpk}"
 
         s3File = S3File(
             file.get("Key"),

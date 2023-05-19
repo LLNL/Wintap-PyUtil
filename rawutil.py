@@ -10,12 +10,15 @@ import pyarrow.parquet as pq
 from duckdb import CatalogException
 
 
-def initdb():
+def initdb(dataset=None, agg_level="rolling", database=":memory:"):
     """
     Initialize an in memory db instance and configure with our custom sql.
     """
-    con = duckdb.connect(database=":memory:")
+    con = duckdb.connect(database=database)
     run_sql_no_args(con,"initdb.sql")
+    if not dataset==None:
+        globs=get_glob_paths_for_dataset(dataset,agg_level)
+        create_views(con, globs)
     return con
 
 
@@ -30,12 +33,12 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None):
     Single file at the top level:
     {dataset}/{eventType}.parquet
     """
-    dataset_path = dataset + "/" + subdir
+    dataset_path = os.path.join(dataset,subdir)
     event_types = [fn for fn in os.listdir(dataset_path)
               if include==None or fn.startswith(include)]
     globs = defaultdict(set)
     for event_type in event_types:
-        cur_event = dataset_path + "/" + event_type
+        cur_event = os.path.join(dataset_path,event_type)
         if os.path.isdir(cur_event):
             for dirpath, dirnames, filenames in os.walk(cur_event):
                 if not dirnames:
@@ -154,6 +157,29 @@ def loadSqlStatements(file):
     return statements
 
 
+def generate_view_sql(event_map):
+    '''
+    Create SQL for each of the event_types in the map.
+    '''
+    # View Template
+    stmts=[]
+    for event_type, pathspec in event_map.items():
+        view_sql = f"""
+        create or replace view {event_type} as
+        select * from parquet_scan('{pathspec}',hive_partitioning=1)
+        """
+        stmts.append(view_sql)
+    return stmts
+
+
+def create_views(con, event_map):
+    stmts=generate_view_sql(event_map)
+    for sql in stmts:
+        cursor = con.cursor()
+        cursor.execute(sql)
+        cursor.close()
+
+
 def create_raw_views(con, raw_data, start=None, end=None):
     '''
     Create views in the db for each of the event_types.
@@ -176,7 +202,6 @@ def create_raw_views(con, raw_data, start=None, end=None):
 
     # For now, processing REQUIREs that RAW_PROCESS_STOP exist even if its empty. Create an empty table if needed.
     create_empty_process_stop(con)
-
 
 def create_empty_process_stop(con):
     """
