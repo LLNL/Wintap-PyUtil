@@ -13,12 +13,12 @@ def daterange(start_date, end_date):
         yield start_date + timedelta(n)
 
 def process_range(cur_dataset, start_date, end_date):
-    jpy = JinjaSql()
     for single_date in daterange(start_date, end_date):
         daypk=single_date.strftime("%Y%m%d")
         con=ru.initdb()
         globs=ru.get_globs_for(cur_dataset,daypk)
-        ru.create_raw_views(con,globs,jpy)
+        # No need to pass dayPK as the globs already include it.
+        ru.create_raw_views(con,globs)
         ru.run_sql_no_args(con,'./RawToStdView.sql')
         ru.write_parquet(con,cur_dataset,ru.get_db_objects(con,exclude=['tmp']),daypk)
         con.close()

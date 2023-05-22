@@ -10,16 +10,19 @@ import pyarrow.parquet as pq
 from duckdb import CatalogException
 
 
-def initdb():
+def initdb(dataset=None, agg_level="rolling", database=":memory:"):
     """
     Initialize an in memory db instance and configure with our custom sql.
     """
-    con = duckdb.connect(database=":memory:")
+    con = duckdb.connect(database=database)
     run_sql_no_args(con,"initdb.sql")
+    if not dataset==None:
+        globs=get_glob_paths_for_dataset(dataset,agg_level)
+        create_views(con, globs)
     return con
 
 
-def get_glob_paths_for_dataset(dataset, subdir="raw_sensor"):
+def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None):
     """
     Build fully-qualifed glob paths for the dataset path. Return a map keyed by top level (event) dir.
     Expected structure is one of:
@@ -30,11 +33,12 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor"):
     Single file at the top level:
     {dataset}/{eventType}.parquet
     """
-    dataset_path = dataset + "/" + subdir
-    event_types = os.listdir(dataset_path)
+    dataset_path = os.path.join(dataset,subdir)
+    event_types = [fn for fn in os.listdir(dataset_path)
+              if include==None or fn.startswith(include)]
     globs = defaultdict(set)
     for event_type in event_types:
-        cur_event = dataset_path + "/" + event_type
+        cur_event = os.path.join(dataset_path,event_type)
         if os.path.isdir(cur_event):
             for dirpath, dirnames, filenames in os.walk(cur_event):
                 if not dirnames:
@@ -153,28 +157,51 @@ def loadSqlStatements(file):
     return statements
 
 
-def create_raw_views(con, raw_data, jpy):
+def generate_view_sql(event_map):
+    '''
+    Create SQL for each of the event_types in the map.
+    '''
+    # View Template
+    stmts=[]
+    for event_type, pathspec in event_map.items():
+        view_sql = f"""
+        create or replace view {event_type} as
+        select * from parquet_scan('{pathspec}',hive_partitioning=1)
+        """
+        stmts.append(view_sql)
+    return stmts
+
+
+def create_views(con, event_map):
+    stmts=generate_view_sql(event_map)
+    for sql in stmts:
+        cursor = con.cursor()
+        cursor.execute(sql)
+        cursor.close()
+
+
+def create_raw_views(con, raw_data, start=None, end=None):
     '''
     Create views in the db for each of the event_types.
     '''
-    # Raw View Template
-    raw_view_sql = """
-    create view raw_{{event_type}} as
-    select * from '{{filepath | sqlsafe}}'
-    """
     for event_type, pathspec in raw_data.items():
-        query, bind_params = jpy.prepare_query(
-            raw_view_sql, {"event_type": event_type, "filepath": pathspec}
-        )
-        stmt = query % tuple(bind_params)
+        # Raw View Template
+        stmt = f"""
+        create view {event_type} as
+        select * from parquet_scan('{pathspec}',hive_partitioning=1)
+        """
+        if start!=None and end!=None:
+            stmt += f'where dayPK between {start} and {end}'
+        if start!=None and end==None:
+            stmt += f'where dayPK = {start}'
         logging.debug(f"Create raw view for {event_type} using {pathspec}")
+        logging.debug(stmt)
         cursor = con.cursor()
         cursor.execute(stmt)
         cursor.close()
 
     # For now, processing REQUIREs that RAW_PROCESS_STOP exist even if its empty. Create an empty table if needed.
     create_empty_process_stop(con)
-
 
 def create_empty_process_stop(con):
     """
@@ -238,6 +265,7 @@ def run_sql_no_args(con, sqlfile):
             logging.info(f"No raw data for {key}")
         except Exception as e:
             logging.info(f"  Failed: {e}")
+            logging.info(type(e))
 
 
 def get_db_objects(con, exclude=None):
