@@ -4,18 +4,20 @@ import re
 from collections import defaultdict
 from datetime import datetime
 from glob import glob
+from importlib_resources import files
 
 import duckdb
 import pyarrow.parquet as pq
+from pyarrow.lib import ArrowInvalid
 from duckdb import CatalogException
 
 
-def initdb(dataset=None, agg_level="rolling", database=":memory:"):
+def init_db(dataset=None, agg_level="rolling", database=":memory:"):
     """
     Initialize an in memory db instance and configure with our custom sql.
     """
     con = duckdb.connect(database=database)
-    run_sql_no_args(con,"initdb.sql")
+    run_sql_no_args(con,files('SQL').joinpath('initdb.sql'))
     if not dataset==None:
         globs=get_glob_paths_for_dataset(dataset,agg_level)
         create_views(con, globs)
@@ -113,10 +115,16 @@ def get_globs_for(dataset, daypk):
             logging.info(f"Found {num_files} parquet files in {pathspec}")
             # Check for empty files. These confuse duckdb and lead to schema errors.
             for file in glob(pathspec):
-                table = pq.read_table(file)
-                if table.num_rows == 0:
-                    logging.info(f"{file} is empty, deleting.")
-                    os.remove(file)
+                try:
+                    table = pq.read_table(file)
+                    if table.num_rows == 0:
+                        logging.info(f"{file} is empty, deleting.")
+                        os.remove(file)
+                except ArrowInvalid:
+                    # Move invalid files out of the way
+                    # Move to dataset/invalid/path
+                    logging.error(f'Invalid parquet: {file}')
+                    os.rename(file,file+'.invalid')
             # Sometimes, all the files have been removed, skip the pathspec in those cases
             if len(glob(pathspec))>0:
                 globs[event_type] = pathspec
@@ -293,17 +301,20 @@ def write_parquet(con, datasetpath, db_objects, daypk=None):
     """
     for object_name in db_objects:
             logging.info(f"Writing {object_name}")
-            if daypk == None:
-                pathspec = f"{datasetpath}/stdview"
-                filename = f"{object_name}.parquet"
-            else:
-                pathspec = f"{datasetpath}/rolling/{object_name}/dayPK={daypk}"
-                filename = f"{object_name}-{daypk}.parquet"
-            if not os.path.exists(pathspec):
-                os.makedirs(pathspec)
-                logging.debug("folder '{}' created ".format(pathspec))
-            else:
-                logging.debug("folder {} already exists".format(pathspec))
-            # TODO Add test for file existence
-            sql = f"COPY {object_name} TO '{pathspec}/{filename}' (FORMAT 'parquet')"
-            con.execute(sql)
+            try:
+                if daypk == None:
+                    pathspec = f"{datasetpath}/stdview"
+                    filename = f"{object_name}.parquet"
+                else:
+                    pathspec = f"{datasetpath}/rolling/{object_name}/dayPK={daypk}"
+                    filename = f"{object_name}-{daypk}.parquet"
+                if not os.path.exists(pathspec):
+                    os.makedirs(pathspec)
+                    logging.debug("folder '{}' created ".format(pathspec))
+                else:
+                    logging.debug("folder {} already exists".format(pathspec))
+                # TODO Add test for file existence
+                sql = f"COPY {object_name} TO '{pathspec}/{filename}' (FORMAT 'parquet')"
+                con.execute(sql)
+            except duckdb.IOException as e:
+                logging.exception(f"Failed to write: {object_name}")

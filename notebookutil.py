@@ -4,15 +4,16 @@
 '''
 
 import os
-
 import altair as alt
 import pandas as pd
 from dotenv import load_dotenv
 from ipyfilechooser import FileChooser
-from IPython.display import display
+from IPython import get_ipython
 
+# Import packages used in notebooks
 import stdviewutil as sv
-
+import rawutil as ru
+import stdview_duckdb as svd
 
 def dataset_chooser():
     """
@@ -35,3 +36,7 @@ pd.set_option("display.max_colwidth", None)
 
 # Set altair options
 alt.data_transformers.disable_max_rows()
+
+# Load magic support for DuckDB
+ipython = get_ipython()
+ipython.run_line_magic('load_ext','magic_duckdb')
