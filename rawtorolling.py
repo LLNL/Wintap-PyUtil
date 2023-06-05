@@ -16,7 +16,7 @@ def daterange(start_date, end_date):
 def process_range(cur_dataset, start_date, end_date):
     for single_date in daterange(start_date, end_date):
         daypk=single_date.strftime("%Y%m%d")
-        con=ru.initdb()
+        con=ru.init_db()
         globs=ru.get_globs_for(cur_dataset,daypk)
         # No need to pass dayPK as the globs already include it.
         ru.create_raw_views(con,globs)

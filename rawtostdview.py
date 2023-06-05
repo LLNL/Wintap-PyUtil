@@ -22,7 +22,7 @@ def main():
 
     cur_dataset=args.dataset
 
-    con = ru.initdb()
+    con = ru.init_db()
     globs=ru.get_glob_paths_for_dataset(cur_dataset,subdir='rolling',include='raw_')
     ru.create_raw_views(con,globs,args.start,args.end)
     ru.run_sql_no_args(con,'./RawToStdView.sql')
