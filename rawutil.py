@@ -125,6 +125,9 @@ def get_globs_for(dataset, daypk):
                     # Move to dataset/invalid/path
                     logging.error(f'Invalid parquet: {file}')
                     os.rename(file,file+'.invalid')
+                except OSError as e:
+                    logging.error(f'OSError on {file}',e)
+                    os.rename(file,file+'.oserror_invalid')
             # Sometimes, all the files have been removed, skip the pathspec in those cases
             if len(glob(pathspec))>0:
                 globs[event_type] = pathspec
