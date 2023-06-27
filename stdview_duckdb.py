@@ -47,7 +47,7 @@ def create_event_summary_view(con):
     logging.info(f'Missing: {set(db_tables) - set(esm.table for esm in esms)}')
 
     template = """
-    CREATE OR replace  VIEW event_summary_raw
+    CREATE OR replace VIEW event_summary_raw_v1
     AS
     {%- for esm in esms %}
     SELECT '{{esm.label}}' as Event,
@@ -71,9 +71,9 @@ def init_db(con,bucket_size=30):
     con.execute(f"create or replace macro tb(wts) as time_bucket(interval '{bucket_size} minutes', to_timestamp_micros(win32_to_epoch(wts)))")
     create_event_summary_view(con)
     
-
 def duckdb_table_metadata(con):
-    tablesDF = con.execute('select table_name from information_schema.tables order by all').df()
+    # Ignore objects ending in _v1 as they are likely complex view and can be expensive to count.
+    tablesDF = con.execute("select table_name from information_schema.tables where table_name not like '%_v1' order by all").df()
     tables = tablesDF['table_name'].tolist()
     template = """
     {%- for table in tables %}
@@ -105,7 +105,7 @@ def table_summary(con,dataset,agg_level='rolling'):
     return tablesDF
 
 def fetch_summary_data(con):
-    eventDF = con.execute('select "Event", "Hostname",bin_date as BinDT,"NumRows" from event_summary_raw order by all').df()
+    eventDF = con.execute('select "Event", "Hostname",bin_date as BinDT,"NumRows" from event_summary_raw_v1 order by all').df()
     #eventDF['BinDT']=pd.to_datetime(eventDF['bin_date'])
 
     # Calcuate "robust" scaling. eventDF has ALL event types so, need to handle that:
@@ -139,8 +139,8 @@ def display_event_chart(eventDF):
     eventsChart = alt.Chart(allEvents).mark_circle().encode(
         x='BinDT',
         y='y',
-    #    y='Hostname',
-        size=alt.Size('NumRowsRobust:N', scale=None),
+        #size=alt.Size('NumRowsRobust:N', scale=None),
+        #size=20,
         color='Event',
         tooltip=['Event:N','NumRows:Q','BinDT']
     ).properties(
