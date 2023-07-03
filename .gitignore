@@ -59,3 +59,5 @@ ENV/
 env.bak/
 venv.bak/
 
+# Dev Tools
+.mypy_cache/

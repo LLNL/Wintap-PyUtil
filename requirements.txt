@@ -26,3 +26,7 @@ ipyfilechooser
 tqdm
 # AWS
 boto3
+# Dev
+black
+isort
+sqlfluff
