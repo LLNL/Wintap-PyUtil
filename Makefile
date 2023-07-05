@@ -1,17 +1,21 @@
-packages='./analytics/'
+analytics='./analytics/'
+database ='./database/'
 
 ## TODO: running the commands in this file requires that a python environment 
 ## has already been setup and is activated.
-## In the future, we could consider setting up python env for use in CI and for ease of 
-## getting setup from scratch
+## In the future, we could consider setting up python env for use in CI
 fmt:
-	black $(packages)
-	isort $(packages)
+	black $(analytics)
+	black $(database)
+	isort $(analytics)
+	isort $(database)
+
 
 lint: 
-	sqlfluff lint $(packages)
+	sqlfluff lint $(analytics)
 #	pylint $(packages)
-	mypy $(packages)
+	mypy $(analytics)
+	mypy $(database)
 
 test:
 	pytest

@@ -1,13 +1,12 @@
-SELECT
-    p.process_name,
-    p.command_line
+-- Reg.exe called from Command Shell
+SELECT p.pid_hash AS pid_hash
 FROM process AS p
 WHERE
     p.parent_pid_hash IN
     (
         SELECT child.pid_hash
-        FROM raw_process_may AS child,
-            raw_process_may AS parent
+        FROM process AS child,
+            process AS parent
         WHERE
             parent.pid_hash = child.parent_pid_hash
             AND parent.process_name != 'explorer.exe'
