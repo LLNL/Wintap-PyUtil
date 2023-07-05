@@ -4,8 +4,10 @@ pandas
 networkx
 matplotlib
 scipy
+importlib_resources
 # DuckDB is an embedded DB with parquet support
 duckdb
+magic_duckdb
 ipython-sql
 SQLAlchemy
 duckdb-engine
