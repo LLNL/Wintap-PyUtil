@@ -65,10 +65,10 @@ def create_event_summary_view(con):
     con.execute(sql)
 
 
-def init_db(con,bucket_size=30):
+def init_db(con,bucket_size='30 minutes'):
     # Create a macro (function) that will create the time bins.
     # To do: derive the intertotal_size based on the dataset time range and the desired target number of data points. The data points size directly affects performance of the chart. Too fine-grained isn't generally useful.
-    con.execute(f"create or replace macro tb(wts) as time_bucket(interval '{bucket_size} minutes', to_timestamp_micros(win32_to_epoch(wts)))")
+    con.execute(f"create or replace macro tb(wts) as time_bucket(interval '{bucket_size}', to_timestamp_micros(win32_to_epoch(wts)))")
     create_event_summary_view(con)
     
 def duckdb_table_metadata(con):
@@ -77,11 +77,11 @@ def duckdb_table_metadata(con):
     tables = tablesDF['table_name'].tolist()
     template = """
     {%- for table in tables %}
-    SELECT '{{table}}' as table_name,
-        count(*) as num_rows
+    SELECT '{{table}}' as Table_Name, min(daypk) Min_DayPK, max(daypk) Max_DayPK, count(*) as Num_Rows
     FROM {{table}}
     {% if not loop.last %}UNION{% endif %}
     {%- endfor %}
+    ORDER BY table_name
     """
 
     sql=Template(template).render(tables=tables)
@@ -94,14 +94,14 @@ def table_summary(con,dataset,agg_level='rolling'):
     '''
     tablesDF=duckdb_table_metadata(con)
 
-    total_size=0
     globs=ru.get_glob_paths_for_dataset(dataset,agg_level)
     for event, glob in globs.items():
-        cur_size=0
+        cur_size = cur_files = 0
         for file in iglob(glob):
             cur_size += os.path.getsize(file)
-            total_size += os.path.getsize(file)
-        tablesDF.loc[tablesDF.table_name==event,'Size']=format_size(cur_size)
+            cur_files += 1
+        tablesDF.loc[tablesDF.Table_Name==event,'Size']=format_size(cur_size)
+        tablesDF.loc[tablesDF.Table_Name==event,'Files']=cur_files
     return tablesDF
 
 def fetch_summary_data(con):
@@ -134,15 +134,15 @@ def display_event_chart(eventDF):
     allEvents=eventDF
 
     # Create a compound key for the Y. Can't seem to specify it in the altair syntax
-    allEvents['y']=allEvents['Hostname']+': '+allEvents['Event']
+    allEvents['Hostname+Event']=allEvents['Hostname']+': '+allEvents['Event']
 
     eventsChart = alt.Chart(allEvents).mark_circle().encode(
         x='BinDT',
-        y='y',
+        y='Hostname+Event',
         #size=alt.Size('NumRowsRobust:N', scale=None),
         #size=20,
         color='Event',
-        tooltip=['Event:N','NumRows:Q','BinDT']
+        tooltip=['Hostname:N','Event:N','NumRows:Q','BinDT']
     ).properties(
         width=1200,
         height=600,
