@@ -168,7 +168,7 @@ def loadSqlStatements(file):
     return statements
 
 
-def generate_view_sql(event_map):
+def generate_view_sql(event_map, start=None, end=None):
     '''
     Create SQL for each of the event_types in the map.
     '''
@@ -179,7 +179,13 @@ def generate_view_sql(event_map):
         create or replace view {event_type} as
         select * from parquet_scan('{pathspec}',hive_partitioning=1)
         """
+        if start!=None and end!=None:
+            stmt += f'where dayPK between {start} and {end}'
+        if start!=None and end==None:
+            stmt += f'where dayPK = {start}'
         stmts.append(view_sql)
+        logging.debug(f"View for {event_type} using {pathspec}")
+        logging.debug(view_sql)
     return stmts
 
 
@@ -195,21 +201,7 @@ def create_raw_views(con, raw_data, start=None, end=None):
     '''
     Create views in the db for each of the event_types.
     '''
-    for event_type, pathspec in raw_data.items():
-        # Raw View Template
-        stmt = f"""
-        create view {event_type} as
-        select * from parquet_scan('{pathspec}',hive_partitioning=1)
-        """
-        if start!=None and end!=None:
-            stmt += f'where dayPK between {start} and {end}'
-        if start!=None and end==None:
-            stmt += f'where dayPK = {start}'
-        logging.debug(f"Create raw view for {event_type} using {pathspec}")
-        logging.debug(stmt)
-        cursor = con.cursor()
-        cursor.execute(stmt)
-        cursor.close()
+    create_views(con, raw_data)
 
     # For now, processing REQUIREs that RAW_PROCESS_STOP exist even if its empty. Create an empty table if needed.
     create_empty_process_stop(con)
