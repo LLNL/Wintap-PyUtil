@@ -4,6 +4,7 @@ database ='./database/'
 ## TODO: running the commands in this file requires that a python environment 
 ## has already been setup and is activated.
 ## In the future, we could consider setting up python env for use in CI
+## TODO: clean this up
 fmt:
 	black $(analytics)
 	black $(database)
