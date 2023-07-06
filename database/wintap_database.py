@@ -8,5 +8,7 @@ class WintapDatabase(ABC):
         pass
 
     @abstractmethod
-    def write(self, partition_key: Optional[str]) -> None:
+    def write(
+        self, include: Optional[list], exclude: Optional[list], partition_key: Optional[str]
+    ) -> None:
         pass

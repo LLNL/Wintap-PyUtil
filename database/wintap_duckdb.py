@@ -8,11 +8,12 @@ from duckdb import DuckDBPyConnection
 
 from .wintap_database import WintapDatabase
 
+
 @dataclass
 class WintapDuckDBOptions:
     connection: DuckDBPyConnection
     dataset_path: str
-    exclude_tables: Optional[list] = None
+
 
 class WintapDuckDB(WintapDatabase):
     _connection: DuckDBPyConnection
@@ -22,9 +23,8 @@ class WintapDuckDB(WintapDatabase):
         ## TODO: in the future, we could move the db connection setup here too
         self._connection = options.connection
         self._dataset_path = options.dataset_path
-        self._tables = self._get_tables(options.exclude_tables)
 
-    def _get_tables(self, exclude=Optional[list]) -> list:
+    def _get_tables(self, include: Optional[list] = None, exclude: Optional[list] = None) -> list:
         """
         Get all tables/views defined in the db.
         exclude should be a list of strings. If the strings appear in the object names, they'll be dropped from the result.
@@ -32,13 +32,15 @@ class WintapDuckDB(WintapDatabase):
         db_objects = self._connection.execute(
             "select table_name, table_type from information_schema.tables where table_schema='main' order by all"
         ).fetchall()
-        if exclude!=None:
+        if exclude is not None:
             # Find matches NOT including any of the words
-            tables=[t for t,x in db_objects if not any(e in t for e in exclude )]
-            logging.debug(f'Not Matches: {tables}')
+            tables = [t for t, _ in db_objects if not any(e in t for e in exclude)]
+            logging.debug(f"Not Matches: {tables}")
+        elif include is not None:
+            tables = [t for t, _ in db_objects if t in include]
         else:
-            tables=[t for t,x in db_objects]
-        self._tables = tables  
+            tables = [t for t, x in db_objects]
+        return tables
 
     def query(self, query_string: str) -> list:
         """
@@ -47,13 +49,18 @@ class WintapDuckDB(WintapDatabase):
         """
         return self._connection.execute(query_string).fetchall()
 
-    def write(self, partition_key=None) -> None:
+    def write(
+        self,
+        include: Optional[list] = None,
+        exclude: Optional[list] = None,
+        partition_key: Optional[str] = None,
+    ) -> None:
         """
         Write tables/views from duckdb instance to parquet.
         If partition_key is provided, write to corresponding path in rolling.
         Otherwise, write to stdview.
         """
-        for object_name in self._tables:
+        for object_name in self._get_tables(include, exclude):
             logging.info(f"Writing {object_name}")
             try:
                 if partition_key == None:
