@@ -22,3 +22,5 @@ test:
 	pytest
 
 ci: lint test
+
+.PHONY: fmt lint test ci

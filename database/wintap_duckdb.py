@@ -24,7 +24,7 @@ class WintapDuckDB(WintapDatabase):
         self._connection = options.connection
         self._dataset_path = options.dataset_path
 
-    def _get_tables(self, include: Optional[list] = None, exclude: Optional[list] = None) -> list:
+    def get_tables(self) -> list:
         """
         Get all tables/views defined in the db.
         exclude should be a list of strings. If the strings appear in the object names, they'll be dropped from the result.
@@ -32,15 +32,8 @@ class WintapDuckDB(WintapDatabase):
         db_objects = self._connection.execute(
             "select table_name, table_type from information_schema.tables where table_schema='main' order by all"
         ).fetchall()
-        if exclude is not None:
-            # Find matches NOT including any of the words
-            tables = [t for t, _ in db_objects if not any(e in t for e in exclude)]
-            logging.debug(f"Not Matches: {tables}")
-        elif include is not None:
-            tables = [t for t, _ in db_objects if t in include]
-        else:
-            tables = [t for t, x in db_objects]
-        return tables
+
+        return [t for t, _ in db_objects]
 
     def query(self, query_string: str) -> list:
         """
@@ -49,10 +42,9 @@ class WintapDuckDB(WintapDatabase):
         """
         return self._connection.execute(query_string).fetchall()
 
-    def write(
+    def write_table(
         self,
-        include: Optional[list] = None,
-        exclude: Optional[list] = None,
+        table: str,
         partition_key: Optional[str] = None,
     ) -> None:
         """
@@ -60,23 +52,22 @@ class WintapDuckDB(WintapDatabase):
         If partition_key is provided, write to corresponding path in rolling.
         Otherwise, write to stdview.
         """
-        for object_name in self._get_tables(include, exclude):
-            logging.info(f"Writing {object_name}")
-            try:
-                if partition_key == None:
-                    pathspec = f"{self._dataset_path}/stdview"
-                    filename = f"{object_name}.parquet"
-                else:
-                    pathspec = f"{self._dataset_path}/rolling/{object_name}/dayPK={partition_key}"
-                    filename = f"{object_name}-{partition_key}.parquet"
-                if not os.path.exists(pathspec):
-                    os.makedirs(pathspec)
-                    logging.debug("folder '{}' created ".format(pathspec))
-                else:
-                    logging.debug("folder {} already exists".format(pathspec))
-                # TODO Add test for file existence
-                sql = f"COPY {object_name} TO '{pathspec}/{filename}' (FORMAT 'parquet')"
-                self._connection.execute(sql)
-            except duckdb.IOException as e:
-                logging.exception(f"Failed to write: {object_name}")
+        logging.info(f"Writing {table}")
+        try:
+            if partition_key == None:
+                pathspec = f"{self._dataset_path}/stdview"
+                filename = f"{table}.parquet"
+            else:
+                pathspec = f"{self._dataset_path}/rolling/{table}/dayPK={partition_key}"
+                filename = f"{table}-{partition_key}.parquet"
+            if not os.path.exists(pathspec):
+                os.makedirs(pathspec)
+                logging.debug("folder '{}' created ".format(pathspec))
+            else:
+                logging.debug("folder {} already exists".format(pathspec))
+            # TODO Add test for file existence
+            sql = f"COPY {table} TO '{pathspec}/{filename}' (FORMAT 'parquet')"
+            self._connection.execute(sql)
+        except duckdb.IOException as e:
+            logging.exception(f"Failed to write: {table}")
         return
