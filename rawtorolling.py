@@ -35,7 +35,7 @@ def main():
     try:
         logging.basicConfig(level=args.log_level,format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     except ValueError:
-        logging.error('Invalid log level: {}'.format(args.log_level))
+        logging.error(f'Invalid log level: {args.log_level}')
         sys.exit(1)
 
     cur_dataset=args.dataset

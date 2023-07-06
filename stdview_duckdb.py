@@ -106,8 +106,7 @@ def table_summary(con,dataset,agg_level='rolling'):
 
 def fetch_summary_data(con):
     eventDF = con.execute('select "Event", "Hostname",bin_date as BinDT,"NumRows" from event_summary_raw_v1 order by all').df()
-    #eventDF['BinDT']=pd.to_datetime(eventDF['bin_date'])
-
+ 
     # Calcuate "robust" scaling. eventDF has ALL event types so, need to handle that:
     for event in eventDF['Event'].unique():
         logging.debug(f'Event: {event}')
@@ -125,8 +124,8 @@ def fetch_summary_data(con):
 def display_event_chart(eventDF):
 
     # Set jupyter options
-    pd.set_option("display.max_columns", None)
-    pd.set_option("display.max_colwidth", None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.max_colwidth', None)
 
     # Set altair options
     alt.data_transformers.disable_max_rows()
