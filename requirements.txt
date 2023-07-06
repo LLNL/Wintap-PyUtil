@@ -29,4 +29,5 @@ boto3
 # Dev
 black
 isort
+mypy
 sqlfluff
