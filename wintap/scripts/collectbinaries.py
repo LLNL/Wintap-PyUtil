@@ -10,7 +10,7 @@ import tarfile
 
 import duckdb
 import pandas as pd
-import rawutil as ru
+from wintap.datautils import rawutil as ru
 
 
 def get_data_existing_df(datapath):
@@ -21,9 +21,9 @@ def get_data_existing_df(datapath):
 
 
 def get_data_from_stdview(datapath):
-    '''
+    """
     From the given datapath, load the stdview/process data and generate the unique_process_df.
-    '''
+    """
     stmt = f"""
     create or replace view process as select * from '{datapath}/process.parquet'
     """
@@ -57,11 +57,11 @@ def calcHash(filename):
 
 
 def search_for(unique_process_df, output_path, collect_ts):
-    '''
+    """
     Exhaustive search for all files by path, then comparing MD5s
     Results are stored as new columns in the panda
     Panda is written to parquet and can be used on subsequent runs on other hosts
-    '''
+    """
     for index, row in unique_process_df.iterrows():
         curPath = row["process_path"]
         unique_process_df.at[index, "bin_found"] = False
@@ -86,6 +86,7 @@ def search_for(unique_process_df, output_path, collect_ts):
 
     return unique_process_df
 
+
 def main():
     parser = argparse.ArgumentParser(
         prog="collectbinaries.py",
@@ -95,20 +96,20 @@ def main():
         "-d",
         "--dataset",
         help="Path to the dataset dir to use as a source. By default, the stdview/process table will be used.",
-        type=pathlib.Path
+        type=pathlib.Path,
     )
     parser.add_argument(
         "-p",
         "--process_df",
         help="Path to an existing parquet file to load into unique_process_df.",
-        type=pathlib.Path
+        type=pathlib.Path,
     )
     parser.add_argument(
         "-s",
         "--summary",
         default=False,
         help="Print the summary of what is found. Does not write the tar file of binaries",
-        action="store_true"
+        action="store_true",
     )
     parser.add_argument(
         "-l",
@@ -128,15 +129,19 @@ def main():
         logging.error("Invalid log level: {}".format(args.log_level))
         sys.exit(1)
 
-    if (args.process_df is None and args.dataset is None) or (args.process_df is not None and args.dataset is not None) :
+    if (args.process_df is None and args.dataset is None) or (
+        args.process_df is not None and args.dataset is not None
+    ):
         logging.error("One of dataset or process_df must be given")
         sys.exit(1)
     else:
         if args.process_df is None:
-            (unique_process_df, output_path) = get_data_from_stdview(os.path.join(args.dataset,'stdview'))
+            (unique_process_df, output_path) = get_data_from_stdview(
+                os.path.join(args.dataset, "stdview")
+            )
         else:
             (unique_process_df, output_path) = get_data_existing_df(args.process_df)
-    
+
     # Timestamp to use in filenames
     collect_ts = datetime.strftime(datetime.now(), "%Y%m%d_%H_%M")
     unique_process_df = search_for(unique_process_df, output_path, collect_ts)
