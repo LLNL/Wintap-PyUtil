@@ -7,7 +7,7 @@ class TestWinTapDuckDB:
     dataset_path = "test"
 
     @mock.patch("duckdb.DuckDBPyConnection")
-    def test_get_tables(self, connection: mock.MagicMock):
+    def test_get_tables(self, connection: mock.MagicMock) -> None:
         wintap_db = WintapDuckDB(WintapDuckDBOptions(connection, self.dataset_path))
         wintap_db.get_tables()
         connection.execute.assert_called_once_with(
@@ -15,14 +15,14 @@ class TestWinTapDuckDB:
         )
 
     @mock.patch("duckdb.DuckDBPyConnection")
-    def test_query(self, connection: mock.MagicMock):
+    def test_query(self, connection: mock.MagicMock) -> None:
         wintap_db = WintapDuckDB(WintapDuckDBOptions(connection, self.dataset_path))
         query = "select 1"
         wintap_db.query(query)
         connection.execute.assert_called_once_with(query)
 
     @mock.patch("duckdb.DuckDBPyConnection")
-    def test_write(self, connection: mock.MagicMock):
+    def test_write(self, connection: mock.MagicMock) -> None:
         wintap_db = WintapDuckDB(WintapDuckDBOptions(connection, self.dataset_path))
         table_name, day_pk = "my-test-table", "202306"
         wintap_db.write_table(table_name, day_pk)

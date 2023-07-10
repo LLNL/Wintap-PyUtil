@@ -1,7 +1,7 @@
 -- Command Launched from WinLogon
 SELECT
     child.pid_hash,
-    child.pid_hash
+    parent.pid_hash
 FROM process AS child,
     process AS parent
 WHERE

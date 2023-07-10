@@ -24,6 +24,10 @@ ipywidgets
 humanfriendly
 ipyfilechooser
 tqdm
+# utils
+pyyaml
+types-pyyaml
+gitpython
 # AWS
 boto3
 # Dev
@@ -31,3 +35,4 @@ black
 isort
 mypy
 sqlfluff
+pytest
