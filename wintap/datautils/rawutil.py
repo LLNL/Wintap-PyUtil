@@ -18,7 +18,7 @@ def init_db(dataset=None, agg_level="rolling", database=":memory:"):
     """
     con = duckdb.connect(database=database)
     # TODO fix reference to SQL scripts
-    run_sql_no_args(con, "./SQL/initdb.sql")  # files("SQL").joinpath("initdb.sql"))
+    run_sql_no_args(con, files("wintap.datautils").joinpath("initdb.sql"))
     if not dataset == None:
         globs = get_glob_paths_for_dataset(dataset, agg_level)
         create_views(con, globs)
