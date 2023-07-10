@@ -34,7 +34,7 @@ def get_car_query(raw_id: str) -> str:
     return data
 
 
-def get_car_analytics() -> list:
+def get_car_analytics() -> Dict[str, QueryAnalytic]:
     analytics: Dict[str, QueryAnalytic] = {}
     metadata = load_car_analtyic_metadata()
     cwd = os.path.dirname(__file__)

@@ -10,7 +10,8 @@ from jinja2 import Template
 from pandas import DataFrame
 
 from analytics.query_analytic import QueryAnalytic
-from .constants import TEMPLATE_DIR
+
+from .constants import PID_HASH, TEMPLATE_DIR
 
 
 @dataclass
@@ -19,7 +20,7 @@ class WintapDuckDBOptions:
     dataset_path: str
 
 
-class WintapDuckDB():
+class WintapDuckDB:
     _connection: DuckDBPyConnection
     _dataset_path: str
 
@@ -30,9 +31,9 @@ class WintapDuckDB():
         self._setup_tables()
 
     def _setup_tables(self) -> None:
-        """ Create extra tables that store analytics results """
+        """Create extra tables that store analytics results"""
         cwd = os.path.dirname(__file__)
-        file_path = os.path.join(cwd, TEMPLATE_DIR, 'create_analytics.sql')
+        file_path = os.path.join(cwd, TEMPLATE_DIR, "create_analytics.sql")
         with open(file_path, "r") as f:
             self.query(f.read())
         return
@@ -73,24 +74,26 @@ class WintapDuckDB():
             else:
                 pathspec = f"{self._dataset_path}/rolling/{table}/dayPK={partition_key}"
                 filename = f"{table}-{partition_key}.parquet"
-            #if not os.path.exists(pathspec):
-            #    os.makedirs(pathspec)
-            #    logging.debug("folder '{}' created ".format(pathspec))
-            #else:
-            #    logging.debug("folder {} already exists".format(pathspec))
+            if not os.path.exists(pathspec):
+                os.makedirs(pathspec)
+                logging.debug("folder '{}' created ".format(pathspec))
+            else:
+                logging.debug("folder {} already exists".format(pathspec))
             # TODO Add test for file existence
             sql = f"COPY {table} TO '{pathspec}/{filename}' (FORMAT 'parquet')"
             print(f"sql: {sql}")
-            #self._connection.execute(sql)
+            self._connection.execute(sql)
         except duckdb.IOException as e:
             logging.exception(f"Failed to write: {table}")
         return
 
-    def insert_analytics_table(self, query_analytic: QueryAnalytic, entity_id: str, entity_type: str=PID_HASH) -> None:
+    def insert_analytics_table(
+        self, query_analytic: QueryAnalytic, entity_id: str, entity_type: str = PID_HASH
+    ) -> None:
         cwd = os.path.dirname(__file__)
-        file_path = os.path.join(cwd, TEMPLATE_DIR, 'insert_analytics.sql')
+        file_path = os.path.join(cwd, TEMPLATE_DIR, "insert_analytics.sql")
         with open(file_path, "r") as f:
-            sql=Template(f.read()).render(
+            sql = Template(f.read()).render(
                 # for now, we will simply support pid_hash as entity ids
                 entity=entity_id,
                 analytic_id=query_analytic.analytic_id,
@@ -98,5 +101,5 @@ class WintapDuckDB():
                 # for now, we will simply support pid_hash as entity types
                 entity_type=entity_type,
             )
-            logging.debug(f'generated insert analtyic: {sql}')
+            logging.debug(f"generated insert analtyic: {sql}")
             self._connection.execute(sql)

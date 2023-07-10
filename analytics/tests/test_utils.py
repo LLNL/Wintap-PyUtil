@@ -49,10 +49,10 @@ class TestSqlUtils:
         cwd = os.path.dirname(__file__)
         mock_join.return_value = f"{cwd}/fixtures"
         output = get_car_analytics()
-        expected_output = [
-            QueryAnalytic(
-                id=self.test_id,
-                query_str=self.test_query_str,
+        expected_output = {
+            self.test_id: QueryAnalytic(
+                analytic_id=self.test_id,
+                query_string=self.test_query_str,
                 query_type=MITRE_CAR_TYPE,
                 coverage=[
                     MITREAttackCoverage(
@@ -63,13 +63,13 @@ class TestSqlUtils:
                     )
                 ],
             )
-        ]
+        }
         assert expected_output == output
 
     def test_format_car_analytic_normal(self) -> None:
         expected_output = QueryAnalytic(
-            id=self.test_id,
-            query_str=self.test_query_str,
+            analytic_id=self.test_id,
+            query_string=self.test_query_str,
             query_type=MITRE_CAR_TYPE,
             coverage=[
                 MITREAttackCoverage(
@@ -87,7 +87,10 @@ class TestSqlUtils:
     def test_format_car_analytic_no_coverage(self) -> None:
         my_metadata: Dict[str, Any] = {"my-test-id": {"id": "my-test-id"}}
         expected_output = QueryAnalytic(
-            id=self.test_id, query_str=self.test_query_str, query_type=MITRE_CAR_TYPE, coverage=[]
+            analytic_id=self.test_id,
+            query_string=self.test_query_str,
+            query_type=MITRE_CAR_TYPE,
+            coverage=[],
         )
         assert expected_output == format_car_analytic(
             self.test_id, my_metadata, self.test_query_str

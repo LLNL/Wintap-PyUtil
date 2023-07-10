@@ -20,7 +20,7 @@ class QueryAnalytic:
     query_string: str
     query_type: str
     coverage: List[MITREAttackCoverage]
-    '''_results: Optional[DataFrame] = None
+    """_results: Optional[DataFrame] = None
 
     @property
     def results(self) -> Optional[DataFrame]:
@@ -29,4 +29,4 @@ class QueryAnalytic:
     @results.setter
     def results(self, results: DataFrame) -> None:
         self._results = results
-        return 8'''
+        return 8"""
