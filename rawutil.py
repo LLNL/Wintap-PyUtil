@@ -4,22 +4,27 @@ import re
 from collections import defaultdict
 from datetime import datetime
 from glob import glob
+from importlib_resources import files
 
 import duckdb
 import pyarrow.parquet as pq
+from pyarrow.lib import ArrowInvalid
 from duckdb import CatalogException
 
 
-def initdb():
+def init_db(dataset=None, agg_level='rolling', database=':memory:'):
     """
     Initialize an in memory db instance and configure with our custom sql.
     """
-    con = duckdb.connect(database=":memory:")
-    run_sql_no_args(con,"initdb.sql")
+    con = duckdb.connect(database=database)
+    run_sql_no_args(con,files('SQL').joinpath('initdb.sql'))
+    if not dataset==None:
+        globs=get_glob_paths_for_dataset(dataset,agg_level)
+        create_views(con, globs)
     return con
 
 
-def get_glob_paths_for_dataset(dataset, subdir="raw_sensor"):
+def get_glob_paths_for_dataset(dataset, subdir='raw_sensor', include=None):
     """
     Build fully-qualifed glob paths for the dataset path. Return a map keyed by top level (event) dir.
     Expected structure is one of:
@@ -30,28 +35,29 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor"):
     Single file at the top level:
     {dataset}/{eventType}.parquet
     """
-    dataset_path = dataset + "/" + subdir
-    event_types = os.listdir(dataset_path)
+    dataset_path = os.path.join(dataset,subdir)
+    event_types = [fn for fn in os.listdir(dataset_path)
+              if include==None or fn.startswith(include)]
     globs = defaultdict(set)
     for event_type in event_types:
-        cur_event = dataset_path + "/" + event_type
+        cur_event = os.path.join(dataset_path,event_type)
         if os.path.isdir(cur_event):
             for dirpath, dirnames, filenames in os.walk(cur_event):
                 if not dirnames:
                     if dirpath == cur_event:
                         # No dir globs needed
-                        globs[event_type].add(f"{cur_event}/*.parquet")
+                        globs[event_type].add(f'{cur_event}/*.parquet')
                     else:
                         # Remove the pre-fix, including event_type. Convert that to a glob.
-                        subdir = dirpath.replace(cur_event, "")
-                        glob = "/".join(["*"] * subdir.count(os.path.sep))
-                        globs[event_type].add(f"{cur_event}/{glob}/*.parquet")
-                        logging.debug(f"{event_type} {subdir} {glob} has 0 subdirectories and {len(filenames)} files")
+                        subdir = dirpath.replace(cur_event, '')
+                        glob = '/'.join(['*'] * subdir.count(os.path.sep))
+                        globs[event_type].add(f'{cur_event}/{glob}/*.parquet')
+                        logging.debug(f'{event_type} {subdir} {glob} has 0 subdirectories and {len(filenames)} files')
         else:
             # Treat as a simple, single file.
-            if event_type.lower().endswith("parquet"):
-                event = re.split(r"\.", event_type)[0]
-                logging.info(f"{datetime.now()} Found {event} file: {event_type}")
+            if event_type.lower().endswith('parquet'):
+                event = re.split(r'\.', event_type)[0]
+                logging.info(f'{datetime.now()} Found {event} file: {event_type}')
                 globs[event].add(cur_event)
     return validate_globs(globs)
 
@@ -70,14 +76,14 @@ def validate_globs(raw_data):
     for event_type, pathspec_set in raw_data.items():
         # Normally, we'll only have one pathspec.
         if len(pathspec_set) > 1:
-            raise Exception(f"Too many leaf dirs!: {pathspec_set}")
+            raise Exception(f'Too many leaf dirs!: {pathspec_set}')
         else:
             pathspec = next(iter(pathspec_set))
             num_files = len(glob(pathspec))
             if num_files == 0:
-                logging.info(f"Not found: {pathspec}  Skipping")
+                logging.info(f'Not found: {pathspec}  Skipping')
             else:
-                logging.info(f"Found {num_files} parquet files in {pathspec}")
+                logging.info(f'Found {num_files} parquet files in {pathspec}')
                 #                for file in glob(pathspec):
                 #                    table=pq.read_table(file)
                 #                    if table.num_rows==0:
@@ -85,7 +91,7 @@ def validate_globs(raw_data):
                 #                        os.remove(file)
                 #                        num_files-=1
                 if num_files == 0:
-                    logging.info(f"Skipping empty glob: {pathspec}")
+                    logging.info(f'Skipping empty glob: {pathspec}')
                 else:
                     globs[event_type] = pathspec
     return globs
@@ -101,18 +107,32 @@ def get_globs_for(dataset, daypk):
     globs = {}
     for event_type, pathspec in globs_all.items():
         # Add in the daypk filter
-        pathspec = pathspec.replace("/*/", f"/dayPK={daypk}/", 1)
+        pathspec = pathspec.replace('/*/', f'/dayPK={daypk}/', 1)
         num_files = len(glob(pathspec))
         if num_files == 0:
-            logging.info(f"Not found: {pathspec}  Skipping")
+            logging.info(f'Not found: {pathspec}  Skipping')
         else:
-            logging.info(f"Found {num_files} parquet files in {pathspec}")
+            logging.info(f'Found {num_files} parquet files in {pathspec}')
             # Check for empty files. These confuse duckdb and lead to schema errors.
             for file in glob(pathspec):
-                table = pq.read_table(file)
-                if table.num_rows == 0:
-                    logging.info(f"{file} is empty, deleting.")
-            globs[event_type] = pathspec
+                try:
+                    table = pq.read_table(file)
+                    if table.num_rows == 0:
+                        logging.info(f'{file} is empty, deleting.')
+                        os.remove(file)
+                except ArrowInvalid:
+                    # Move invalid files out of the way
+                    # Move to dataset/invalid/path
+                    logging.error(f'Invalid parquet: {file}')
+                    os.rename(file,f'{file}.invalid')
+                except OSError as e:
+                    logging.error(f'OSError on {file}',e)
+                    os.rename(file,f'{file}.oserror_invalid')
+            # Sometimes, all the files have been removed, skip the pathspec in those cases
+            if len(glob(pathspec))>0:
+                globs[event_type] = pathspec
+            else:
+                logging.info(f'Skipping empty path: {pathspec}')
     return globs
 
 
@@ -120,56 +140,71 @@ def loadSqlStatements(file):
     """
     Read sql script into map keyed by table name.
     """
-    file = open(file, "r")
+    file = open(file, 'r')
     lines = file.readlines()
 
     statements = {}
     count = 0
     # Strips the newline character
-    curKey = ""
-    curStatement = ""
+    curKey = ''
+    curStatement = ''
     for count, line in enumerate(lines):
-        if line.lower().startswith("create "):
+        if line.lower().startswith('create '):
             # For tables and views, use the object name
             curKey = line.strip().split()[-1]
             curStatement = line
-        elif line.lower().startswith("update "):
+        elif line.lower().startswith('update '):
             # Add line number to be sure its unique
-            curKey = f"{line.strip()}-{count}"
+            curKey = f'{line.strip()}-{count}'
             curStatement = line
         else:
-            if line.strip() == ";":
+            if line.strip() == ';':
                 # We done. Save the statement. Don't save the semi-colon.
                 statements[curKey] = curStatement
-                curStatement = "SKIP"
+                curStatement = 'SKIP'
             else:
-                if curStatement != "SKIP":
+                if curStatement != 'SKIP':
                     curStatement += line
     return statements
 
 
-def create_raw_views(con, raw_data, jpy):
+def generate_view_sql(event_map, start=None, end=None):
+    '''
+    Create SQL for each of the event_types in the map.
+    '''
+    # View Template
+    stmts=[]
+    for event_type, pathspec in event_map.items():
+        view_sql = f"""
+        create or replace view {event_type} as
+        select * from parquet_scan('{pathspec}',hive_partitioning=1)
+        """
+        if start!=None and end!=None:
+            stmt += f'where dayPK between {start} and {end}'
+        if start!=None and end==None:
+            stmt += f'where dayPK = {start}'
+        stmts.append(view_sql)
+        logging.debug(f'View for {event_type} using {pathspec}')
+        logging.debug(view_sql)
+    return stmts
+
+
+def create_views(con, event_map):
+    stmts=generate_view_sql(event_map)
+    for sql in stmts:
+        cursor = con.cursor()
+        cursor.execute(sql)
+        cursor.close()
+
+
+def create_raw_views(con, raw_data, start=None, end=None):
     '''
     Create views in the db for each of the event_types.
     '''
-    # Raw View Template
-    raw_view_sql = """
-    create view raw_{{event_type}} as
-    select * from '{{filepath | sqlsafe}}'
-    """
-    for event_type, pathspec in raw_data.items():
-        query, bind_params = jpy.prepare_query(
-            raw_view_sql, {"event_type": event_type, "filepath": pathspec}
-        )
-        stmt = query % tuple(bind_params)
-        logging.debug(f"Create raw view for {event_type} using {pathspec}")
-        cursor = con.cursor()
-        cursor.execute(stmt)
-        cursor.close()
+    create_views(con, raw_data)
 
     # For now, processing REQUIREs that RAW_PROCESS_STOP exist even if its empty. Create an empty table if needed.
     create_empty_process_stop(con)
-
 
 def create_empty_process_stop(con):
     """
@@ -180,7 +215,7 @@ def create_empty_process_stop(con):
         "select table_name, table_type from information_schema.tables where table_schema='main' and lower(table_name)='raw_process_stop'"
     ).fetchall()
     if len(db_objects) == 0:
-        logging.info("Creating empty RAW_PROCESS_STOP")
+        logging.info('Creating empty RAW_PROCESS_STOP')
         cursor = con.cursor()
         cursor.execute(
             """
@@ -226,41 +261,55 @@ def run_sql_no_args(con, sqlfile):
     '''
     etl_sql = loadSqlStatements(sqlfile)
     for key in etl_sql:
-        logging.info(f"Processing: {key}")
+        logging.info(f'Processing: {key}')
         try:
             con.execute(etl_sql[key])
         except CatalogException as e:
-            logging.info(f"No raw data for {key}")
+            logging.info(f'No raw data for {key}')
         except Exception as e:
-            logging.info(f"  Failed: {e}")
+            logging.info(f'  Failed: {e}')
+            logging.info(type(e))
 
 
-def write_parquet(con, dataset, daypk=None):
+def get_db_objects(con, exclude=None):
     """
-    Write tables/views from duckdb instance to parquet.
-    Skip tables starting with 'raw_' or 'tmp'
-    If daypk is provided, write to corresponding path in rolling.
-    Otherwise, write to stdview.
+    Get all tables/views defined in the db.
+    exclude should be a list of strings. If the strings appear in the object names, they'll be dropped from the result.
     """
     db_objects = con.execute(
         "select table_name, table_type from information_schema.tables where table_schema='main' order by all"
     ).fetchall()
-    for object_name, object_type in db_objects:
-        if object_name.lower().startswith("raw_") or "tmp" in object_name.lower():
-            logging.debug(f"Skipping {object_name}")
-        else:
-            logging.info(f"Writing {object_name}")
-            if daypk == None:
-                pathspec = f"{dataset}/stdview"
-                filename = f"{object_name}.parquet"
-            else:
-                pathspec = f"{dataset}/rolling/{object_name}/dayPK={daypk}"
-                filename = f"{object_name}-{daypk}.parquet"
-            if not os.path.exists(pathspec):
-                os.makedirs(pathspec)
-                logging.debug("folder '{}' created ".format(pathspec))
-            else:
-                logging.debug("folder {} already exists".format(pathspec))
-            # TODO Add test for file existence
-            sql = f"COPY (SELECT * FROM {object_name}) TO '{pathspec}/{filename}' (FORMAT 'parquet')"
-            con.execute(sql)
+    if exclude!=None:
+        # Find matches NOT including any of the words
+        tables=[t for t,x in db_objects if not any(e in t for e in exclude )]
+        logging.debug(f'Not Matches: {tables}')
+    else:
+        tables=[t for t,x in db_objects]
+    return tables     
+
+
+def write_parquet(con, datasetpath, db_objects, daypk=None):
+    """
+    Write tables/views from duckdb instance to parquet.
+    If daypk is provided, write to corresponding path in rolling.
+    Otherwise, write to stdview.
+    """
+    for object_name in db_objects:
+            logging.info(f'Writing {object_name}')
+            try:
+                if daypk == None:
+                    pathspec = f'{datasetpath}/stdview'
+                    filename = f'{object_name}.parquet'
+                else:
+                    pathspec = f'{datasetpath}/rolling/{object_name}/dayPK={daypk}'
+                    filename = f'{object_name}-{daypk}.parquet'
+                if not os.path.exists(pathspec):
+                    os.makedirs(pathspec)
+                    logging.debug(f'created folder: {pathspec} ')
+                else:
+                    logging.debug(f'folder already exists: {pathspec}')
+                # TODO Add test for file existence
+                sql = f"COPY {object_name} TO '{pathspec}/{filename}' (FORMAT 'parquet')"
+                con.execute(sql)
+            except duckdb.IOException as e:
+                logging.exception(f'Failed to write: {object_name}')
