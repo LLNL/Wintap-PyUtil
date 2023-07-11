@@ -1,5 +1,5 @@
-import pandas as pd
 import altair as alt
+import pandas as pd
 from IPython import get_ipython
 
 # Set jupyter options

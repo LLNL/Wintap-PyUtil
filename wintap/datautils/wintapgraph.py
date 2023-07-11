@@ -1,18 +1,17 @@
 """
 Functions for creating graph data structures from wintap dataframes
 """
-import pandas as pd
-import networkx as nx
 import matplotlib
 import matplotlib.pyplot as plt
+import networkx as nx
+import pandas as pd
+
 
 def add_proc_node_for(g, pid_hashes, procdf):
     proc = procdf.loc[procdf["pid_hash"].isin(pid_hashes)]
     print(f"Adding {proc.shape[0]} process nodes")
     for _, row in proc.iterrows():
-        add_node(
-            g, row["pid_hash"], "process", f"{row['process_name']}\n ({row['os_pid']})"
-        )
+        add_node(g, row["pid_hash"], "process", f"{row['process_name']}\n ({row['os_pid']})")
 
 
 def get_parent_pid_hashes(processdf):
@@ -70,9 +69,7 @@ def get_parents(parent_hashes, process_tree_edges, all_processes):
         # processTreeEdges=processTreeEdges.append(parents)
         # Call for another round of parents, removing any roots
         process_tree_edges = get_parents(
-            get_parent_pid_hashes(
-                parents[parents["parent_pid_hash"] != parents["pid_hash"]]
-            ),
+            get_parent_pid_hashes(parents[parents["parent_pid_hash"] != parents["pid_hash"]]),
             process_tree_edges,
             all_processes,
         )
@@ -108,16 +105,12 @@ def get_node_type(row):
 def add_all_file_activity(graph, process_file_df):
     for _, row in process_file_df.iterrows():
         # Only display the last 15 chars of filename
-        add_node(
-            graph, idx=row["file_hash"], label=row["filename"][:-15], nodetype="file"
-        )
+        add_node(graph, idx=row["file_hash"], label=row["filename"][:-15], nodetype="file")
         # TODO: Figure out how to have a "global" reference for procDF so it doesn't have to be passed here.
         # addProcNodeFor(graph, [row['pid_hash']] )
         # For now, add a proxy node
         add_node(graph, idx=row["pid_hash"], label="Proxy", nodetype="proxyProcess")
-        graph.add_edge(
-            row["pid_hash"], row["file_hash"], activity_type=row["activity_type"]
-        )
+        graph.add_edge(row["pid_hash"], row["file_hash"], activity_type=row["activity_type"])
 
 
 def add_file_activity(pid_hashes, graph, process_file_df):
@@ -183,13 +176,9 @@ def add_network_activity(graph, pid_hashes, process_net_conn_df, proc_df, max_pn
     for pid_hash in pid_hashes:
         pncdf = process_net_conn_df.loc[process_net_conn_df["pid_hash"] == pid_hash]
         conn_ids = pncdf["conn_id"].unique()
-        other_end = process_net_conn_df.loc[
-            process_net_conn_df["conn_id"].isin(conn_ids)
-        ]
+        other_end = process_net_conn_df.loc[process_net_conn_df["conn_id"].isin(conn_ids)]
         if pncdf.shape[0] < max_pnc:
-            new_pid_hashes = add_all_network_activity(
-                graph, pd.concat([pncdf, other_end]), proc_df
-            )
+            new_pid_hashes = add_all_network_activity(graph, pd.concat([pncdf, other_end]), proc_df)
         else:
             print(
                 f"Skipping {pncdf.shape[0]} PNC edges from pid_hash {pid_hash} with {len(conn_ids)} conn_ids with {other_end.shape[0]} other ends"
@@ -204,8 +193,7 @@ def add_network_activity(graph, pid_hashes, process_net_conn_df, proc_df, max_pn
 
     # Add network activity for the new Processes, but filter out common, high degree nodes that just add noise.
     proc_df = proc_df.loc[
-        (proc_df["pid_hash"].isin(pid_hashes))
-        & (~proc_df["process_name"].isin(ignore_list))
+        (proc_df["pid_hash"].isin(pid_hashes)) & (~proc_df["process_name"].isin(ignore_list))
     ]
     if len(new_pid_hashes) > 0:
         print(f"Adding {len(new_pid_hashes)} nodes")

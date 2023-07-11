@@ -1,0 +1,31 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+black = "*"
+isort = "*"
+mypy = "*"
+sqlfluff = "*"
+
+[packages]
+altair = "*"
+boto3 = "*"
+duckdb = "*"
+magic_duckdb = "*"
+humanfriendly = "*"
+importlib_resources = "*"
+ipyfilechooser = "*"
+jinja2 = "==3.0.3"
+jinjasql = "*"
+matplotlib = "*"
+nbstripout = "*"
+networkx = "*"
+pandas = "*"
+pyarrow = "*"
+toml = "*"
+tqdm = "*"
+
+[requires]
+python_version = "3.10"

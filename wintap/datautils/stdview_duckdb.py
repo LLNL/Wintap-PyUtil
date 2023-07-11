@@ -1,15 +1,16 @@
 import logging
-import pandas as pd
-import altair as alt
-from typing import NamedTuple
-from jinja2 import Template
-from glob import iglob
 import os
+from glob import iglob
+from typing import NamedTuple
+
+import altair as alt
+import pandas as pd
 from humanfriendly import format_size
+from jinja2 import Template
+
 from wintap.datautils import rawutil as ru
 
-
-EventSummary = NamedTuple(
+EventSummaryColumn = NamedTuple(
     "EventSummaryColumn",
     [
         ("table", str),
@@ -26,12 +27,12 @@ def event_summary_metadata():
     Define metadata for known tables that is used to generate SQL for the overall summary.
     """
     esm = []
-    # esm.append(EventSummary('raw_host','host','Hostname','tb2(EventTime)', 'count(*)'))
+    # esm.append(EventSummaryColumn('raw_host','host','Hostname','tb2(EventTime)', 'count(*)'))
     esm.append(
-        EventSummary("raw_process", "process", "Hostname", "tb(EventTime)", "count(*)")
+        EventSummaryColumn("raw_process", "process", "Hostname", "tb(EventTime)", "count(*)")
     )
     esm.append(
-        EventSummary(
+        EventSummaryColumn(
             "raw_process_conn_incr",
             "network",
             "Hostname",
@@ -40,7 +41,7 @@ def event_summary_metadata():
         )
     )
     esm.append(
-        EventSummary(
+        EventSummaryColumn(
             "raw_process_file",
             "file",
             "Hostname",
@@ -49,12 +50,10 @@ def event_summary_metadata():
         )
     )
     esm.append(
-        EventSummary(
-            "raw_imageload", "dll", "ComputerName", "tb(EventTime)", "count(*)"
-        )
+        EventSummaryColumn("raw_imageload", "dll", "ComputerName", "tb(EventTime)", "count(*)")
     )
     esm.append(
-        EventSummary(
+        EventSummaryColumn(
             "raw_process_registry",
             "registry",
             "HostHame",
@@ -63,7 +62,7 @@ def event_summary_metadata():
         )
     )
     esm.append(
-        EventSummary(
+        EventSummaryColumn(
             "raw_genericmessage",
             "generic_message",
             "ComputerName",
@@ -168,9 +167,7 @@ def fetch_summary_data(con):
         # Max size for circle marker should be ~600. Calculate multiplier to use based on max robust total_sizeue.
         sizeMx = 600 / eventDF.loc[eventDF.Event == event, "NumRowsRobust"].max()
         logging.debug(f"Min: {eventDF.loc[eventDF.Event==event,'NumRowsRobust'].min()}")
-        logging.debug(
-            f"Med: {eventDF.loc[eventDF.Event==event,'NumRowsRobust'].median()}"
-        )
+        logging.debug(f"Med: {eventDF.loc[eventDF.Event==event,'NumRowsRobust'].median()}")
         logging.debug(f"Max: {eventDF.loc[eventDF.Event==event,'NumRowsRobust'].max()}")
         # Hmm, need positive total_size for a sensible marker size. Shift'em. Note: min is assumed to always be < 0.
         eventDF.loc[eventDF.Event == event, "NumRowsRobust"] = (

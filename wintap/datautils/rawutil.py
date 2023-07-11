@@ -4,12 +4,12 @@ import re
 from collections import defaultdict
 from datetime import datetime
 from glob import glob
-from importlib_resources import files
 
 import duckdb
 import pyarrow.parquet as pq
-from pyarrow.lib import ArrowInvalid
 from duckdb import CatalogException
+from importlib_resources import files
+from pyarrow.lib import ArrowInvalid
 
 
 def init_db(dataset=None, agg_level="rolling", database=":memory:"):
@@ -38,9 +38,7 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None):
     """
     dataset_path = os.path.join(dataset, subdir)
     event_types = [
-        fn
-        for fn in os.listdir(dataset_path)
-        if include == None or fn.startswith(include)
+        fn for fn in os.listdir(dataset_path) if include == None or fn.startswith(include)
     ]
     globs = defaultdict(set)
     for event_type in event_types:
