@@ -3,7 +3,7 @@ import logging
 import sys
 from datetime import datetime
 
-from wintap.datautils import rawutil as ru
+from wintappy.datautils import rawutil as ru
 
 
 def main():
@@ -37,7 +37,7 @@ def main():
     con = ru.init_db()
     globs = ru.get_glob_paths_for_dataset(cur_dataset, subdir="rolling", include="raw_")
     ru.create_raw_views(con, globs, args.start, args.end)
-    ru.run_sql_no_args(con, "./RawToStdView.sql")
+    ru.run_sql_no_args(con, "./rawtostdview.sql")
     ru.write_parquet(con, cur_dataset, ru.get_db_objects(con, exclude=["raw_", "tmp"]))
 
 
