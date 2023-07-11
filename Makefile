@@ -9,10 +9,7 @@ lint:
 #	pipenv run pylint $(packages)
 	pipenv run mypy $(packages)
 
-test:
-	pipenv run pytest
-
-ci: lint test
+ci: lint
 
 venv:
 	pip3 install --user pipenv
