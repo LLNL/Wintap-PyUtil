@@ -1,26 +1,33 @@
-analytics='./analytics/'
-database ='./database/'
+packages='./wintappy'
 
-## TODO: running the commands in this file requires that a python environment 
-## has already been setup and is activated.
-## In the future, we could consider setting up python env for use in CI
-## TODO: clean this up
 fmt:
-	black $(analytics)
-	black $(database)
-	isort $(analytics)
-	isort $(database)
+	pipenv run black $(packages)
+	pipenv run isort $(packages)
 
+fmt-check:
+	pipenv run black --check $(packages)
+	pipenv run isort --check $(packages)
 
 lint: 
-	sqlfluff lint $(analytics)
-#	pylint $(packages)
-	mypy $(analytics)
-	mypy $(database)
+#	sqlfluff lint $(analytics)
+	pipenv run mypy $(packages)
 
-test:
-	pytest
+ci: lint fmt-check
 
-ci: lint test
+venv:
+	pip3 install --user pipenv
+	pipenv install --dev
 
-.PHONY: fmt lint test ci
+build:
+	rm -rf dist/
+	pipenv run python setup.py sdist
+
+clean:
+	pipenv --rm
+
+setup: venv cleanpynb
+
+cleanpynb:
+	pipenv run nbstripout --install --attributes .gitattributes
+
+.PHONY: fmt lint test ci venv setup cleanpynb

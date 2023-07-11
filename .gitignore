@@ -59,6 +59,8 @@ ENV/
 env.bak/
 venv.bak/
 
+wintappy/examples/*.db
+
 # Dev Tools
 .mypy_cache/
 .pytest_cache/

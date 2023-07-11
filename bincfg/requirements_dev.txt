@@ -1,9 +1,0 @@
-numpy>=1.10
-pytest>=6.0
-pytest-cov>=2.0
-tox>=3.24
-pandas>=0.9
-dill>=0.3.0
-atomicwrites
-sphinx
-sphinxcontrib-confluencebuilder
