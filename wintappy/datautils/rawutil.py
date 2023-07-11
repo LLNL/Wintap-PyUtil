@@ -4,12 +4,12 @@ import re
 from collections import defaultdict
 from datetime import datetime
 from glob import glob
-from importlib_resources import files
 
 import duckdb
 import pyarrow.parquet as pq
-from pyarrow.lib import ArrowInvalid
 from duckdb import CatalogException
+from importlib_resources import files
+from pyarrow.lib import ArrowInvalid
 
 
 def init_db(dataset=None, agg_level="rolling", database=":memory:"):
@@ -18,7 +18,7 @@ def init_db(dataset=None, agg_level="rolling", database=":memory:"):
     """
     con = duckdb.connect(database=database)
     # TODO fix reference to SQL scripts
-    run_sql_no_args(con, files("wintap.datautils").joinpath("initdb.sql"))
+    run_sql_no_args(con, files("wintappy.datautils").joinpath("initdb.sql"))
     if not dataset == None:
         globs = get_glob_paths_for_dataset(dataset, agg_level)
         create_views(con, globs)

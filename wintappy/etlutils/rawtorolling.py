@@ -2,8 +2,8 @@ import argparse
 import logging
 import sys
 from datetime import datetime, timedelta
-from importlib_resources import files
 
+from importlib_resources import files
 from jinjasql import JinjaSql
 
 from wintappy.datautils import rawutil as ru
@@ -21,7 +21,9 @@ def process_range(cur_dataset, start_date, end_date):
         globs = ru.get_globs_for(cur_dataset, daypk)
         # No need to pass dayPK as the globs already include it.
         ru.create_raw_views(con, globs)
-        ru.run_sql_no_args(con, files("wintap.datautils").joinpath("rawtostdview.sql"))
+        ru.run_sql_no_args(
+            con, files("wintappy.datautils").joinpath("rawtostdview.sql")
+        )
         ru.write_parquet(
             con, cur_dataset, ru.get_db_objects(con, exclude=["tmp"]), daypk
         )

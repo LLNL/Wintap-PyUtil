@@ -4,14 +4,14 @@ Functions loading data from the standard view structure
 
 import os
 import re
-from datetime import datetime
 from collections import defaultdict
-import pandas as pd
-import altair as alt
-from humanfriendly import format_size
-from IPython.display import display, Markdown
+from datetime import datetime
 
+import altair as alt
+import pandas as pd
 from dotenv import load_dotenv
+from humanfriendly import format_size
+from IPython.display import Markdown, display
 
 
 def load_files_from_dataset(dataset_path):
@@ -52,6 +52,7 @@ def load_data(batch):
     for event_type, files in batch.items():
         batchdf[f"{event_type}"] = pd.read_parquet(files, engine="pyarrow")
     return batchdf
+
 
 class WintapDataset:
     def __init__(self, dataset_path, agg_level="stdview"):
@@ -110,6 +111,7 @@ class WintapDataset:
 
 
 ######## Various dataset display widgets for Jupyter
+
 
 def data_summary(pandasdf):
     """

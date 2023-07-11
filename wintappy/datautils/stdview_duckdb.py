@@ -1,15 +1,16 @@
 import logging
-import pandas as pd
-import altair as alt
-from typing import NamedTuple
-from jinja2 import Template
-from glob import iglob
 import os
+from glob import iglob
+from typing import NamedTuple
+
+import altair as alt
+import pandas as pd
 from humanfriendly import format_size
-from wintap.datautils import rawutil as ru
+from jinja2 import Template
 
+from wintappy.datautils import rawutil as ru
 
-EventSummary = NamedTuple(
+EventSummaryColumn = NamedTuple(
     "EventSummaryColumn",
     [
         ("table", str),
@@ -26,12 +27,14 @@ def event_summary_metadata():
     Define metadata for known tables that is used to generate SQL for the overall summary.
     """
     esm = []
-    # esm.append(EventSummary('raw_host','host','Hostname','tb2(EventTime)', 'count(*)'))
+    # esm.append(EventSummaryColumn('raw_host','host','Hostname','tb2(EventTime)', 'count(*)'))
     esm.append(
-        EventSummary("raw_process", "process", "Hostname", "tb(EventTime)", "count(*)")
+        EventSummaryColumn(
+            "raw_process", "process", "Hostname", "tb(EventTime)", "count(*)"
+        )
     )
     esm.append(
-        EventSummary(
+        EventSummaryColumn(
             "raw_process_conn_incr",
             "network",
             "Hostname",
@@ -40,7 +43,7 @@ def event_summary_metadata():
         )
     )
     esm.append(
-        EventSummary(
+        EventSummaryColumn(
             "raw_process_file",
             "file",
             "Hostname",
@@ -49,12 +52,12 @@ def event_summary_metadata():
         )
     )
     esm.append(
-        EventSummary(
+        EventSummaryColumn(
             "raw_imageload", "dll", "ComputerName", "tb(EventTime)", "count(*)"
         )
     )
     esm.append(
-        EventSummary(
+        EventSummaryColumn(
             "raw_process_registry",
             "registry",
             "HostHame",
@@ -63,7 +66,7 @@ def event_summary_metadata():
         )
     )
     esm.append(
-        EventSummary(
+        EventSummaryColumn(
             "raw_genericmessage",
             "generic_message",
             "ComputerName",

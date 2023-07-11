@@ -1,7 +1,7 @@
 import argparse
-from datetime import datetime
 import logging
 import sys
+from datetime import datetime
 
 from wintappy.datautils import rawutil as ru
 

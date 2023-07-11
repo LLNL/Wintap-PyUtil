@@ -15,4 +15,3 @@ create or replace macro to_timestamp_micros(es)
 as to_timestamp(cast(floor(es) as bigint)) + to_microseconds(cast(floor((es - floor(es)) * 1e6) as bigint))
 ;
 
-

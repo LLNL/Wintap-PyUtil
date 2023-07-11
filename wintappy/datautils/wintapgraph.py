@@ -1,10 +1,11 @@
 """
 Functions for creating graph data structures from wintap dataframes
 """
-import pandas as pd
-import networkx as nx
 import matplotlib
 import matplotlib.pyplot as plt
+import networkx as nx
+import pandas as pd
+
 
 def add_proc_node_for(g, pid_hashes, procdf):
     proc = procdf.loc[procdf["pid_hash"].isin(pid_hashes)]
