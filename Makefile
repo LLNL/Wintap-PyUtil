@@ -8,9 +8,9 @@ fmt-check:
 	pipenv run black --check $(packages)
 	pipenv run isort --check $(packages)
 
-#lint: 
+lint: 
 #	sqlfluff lint $(analytics)
-#	pipenv run mypy $(packages)
+	pipenv run mypy $(packages)
 
 test:
 	pipenv run pytest 

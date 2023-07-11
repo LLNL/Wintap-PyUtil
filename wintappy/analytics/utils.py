@@ -27,7 +27,9 @@ def convert_id_to_filename(raw_id: str, filetype: str) -> str:
 
 def get_car_query(raw_id: str) -> str:
     cwd = os.path.dirname(__file__)
-    sql_file = os.path.join(cwd, MITRE_CAR_PATH, convert_analytic_to_sql_filename(raw_id))
+    sql_file = os.path.join(
+        cwd, MITRE_CAR_PATH, convert_analytic_to_sql_filename(raw_id)
+    )
     data = ""
     with open(sql_file, "r") as file:
         data = file.read()

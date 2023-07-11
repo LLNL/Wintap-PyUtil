@@ -8,6 +8,7 @@ black = {version = "*", extras = ["jupyter"]}
 isort = "*"
 mypy = "*"
 sqlfluff = "*"
+types-pyyaml = "*"
 
 [packages]
 altair = "*"
