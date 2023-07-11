@@ -174,7 +174,7 @@ def events_chart_description():
 * Event counts are aggregated in minute bins. Counts are ETW events.
 * Event totals are normalized within type to support generating reasonable sized markers
     * Min/max are targeted to fit nicely in the fixed size Y band per host/event type.
-* Time range is from the earliest to latest files from Wintap.
+* Time range is from the earliest to latest files from wintappy.
     * Note: Process event time range will include processes BEFORE the start of files. This is due to Wintap reading in process info back to boot of the system.   
     """
         )

@@ -1,12 +1,10 @@
-packages='./wintap'
+packages='./wintappy'
 
 fmt:
 	pipenv run black $(packages)
 	pipenv run isort $(packages)
 
 lint: 
-#	pipenv run sqlfluff lint $(packages)
-#	pipenv run pylint $(packages)
 	pipenv run mypy $(packages)
 
 ci: lint

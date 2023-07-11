@@ -111,7 +111,7 @@ def download_one_file(bucket: str, client: boto3.client, s3_file: S3File):
     make_dirs(s3_file)
     # Replace '=' in filename to avoid DuckDB mistaking it for a key=value pair.
     # Prefix event_type with 'raw_'
-    # TODO: This is fixed in Wintap. Still here for legacy data.
+    # TODO: This is fixed in wintappy. Still here for legacy data.
     if "=" in s3_file.filename:
         new_filename = s3_file.filename.replace("=", "+raw_")
     else:

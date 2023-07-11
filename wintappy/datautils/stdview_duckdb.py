@@ -8,7 +8,7 @@ import pandas as pd
 from humanfriendly import format_size
 from jinja2 import Template
 
-from wintap.datautils import rawutil as ru
+from wintappy.datautils import rawutil as ru
 
 EventSummaryColumn = NamedTuple(
     "EventSummaryColumn",
