@@ -1,6 +1,6 @@
 from unittest import mock
 
-from ..wintap_duckdb import WintapDuckDB, WintapDuckDBOptions
+from wintappy.database.wintap_duckdb import WintapDuckDB, WintapDuckDBOptions
 
 
 class TestWinTapDuckDB:

@@ -78,9 +78,7 @@ def search_for(unique_process_df, output_path, collect_ts):
         os.makedirs(output_path)
         logging.debug("folder '{}' created ".format(output_path))
 
-    pmdfile = os.path.join(
-        output_path, f"process_collect_{platform.node()}_{collect_ts}.parquet"
-    )
+    pmdfile = os.path.join(output_path, f"process_collect_{platform.node()}_{collect_ts}.parquet")
     logging.info(f"Writing process binaries metadata to {pmdfile}")
     # Write to a parquet file. This will be inlcuded with the binaries.
     unique_process_df.to_parquet(pmdfile)
@@ -149,9 +147,7 @@ def main():
 
     if not args.summary:
         # Collect binaries into a tar file
-        bintgz = os.path.join(
-            output_path, f"binaries_{platform.node()}_{collect_ts}.tgz"
-        )
+        bintgz = os.path.join(output_path, f"binaries_{platform.node()}_{collect_ts}.tgz")
         logging.info(f"Writing process binaries to {bintgz}")
         tar = tarfile.open(bintgz, "w:gz")
         for index, row in unique_process_df.loc[unique_process_df.md5_match].iterrows():

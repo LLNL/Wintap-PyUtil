@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "49f217ef72193393661e739e373698ea5d79d29bbaee1144cc1d1e3097f26f1a"
+            "sha256": "eaaf3a2ce64489f2322f66f98b26bb5fc08e4408106a32b75b9b4560b30c6ab3"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -266,6 +266,22 @@
             ],
             "markers": "python_version >= '3.8'",
             "version": "==4.40.0"
+        },
+        "gitdb": {
+            "hashes": [
+                "sha256:6eb990b69df4e15bad899ea868dc46572c3f75339735663b81de79b06f17eb9a",
+                "sha256:c286cf298426064079ed96a9e4a9d39e7f3e9bf15ba60701e95f5492f28415c7"
+            ],
+            "markers": "python_version >= '3.7'",
+            "version": "==4.0.10"
+        },
+        "gitpython": {
+            "hashes": [
+                "sha256:8d9b8cb1e80b9735e8717c9362079d3ce4c6e5ddeebedd0361b228c3a67a62f6",
+                "sha256:e3d59b1c2c6ebb9dfa7a184daf3b6dd4914237e7488a1730a6d8f6f5d0b4187f"
+            ],
+            "index": "pypi",
+            "version": "==3.1.32"
         },
         "humanfriendly": {
             "hashes": [
@@ -1095,6 +1111,14 @@
             ],
             "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.16.0"
+        },
+        "smmap": {
+            "hashes": [
+                "sha256:2aba19d6a040e78d8b09de5c57e96207b09ed71d8e55ce0959eeee6c8e190d94",
+                "sha256:c840e62059cd3be204b0c9c9f74be2c09d5648eddd4580d9314c3ecde0b30936"
+            ],
+            "markers": "python_version >= '3.6'",
+            "version": "==5.0.0"
         },
         "stack-data": {
             "hashes": [

@@ -29,9 +29,7 @@ def event_summary_metadata():
     esm = []
     # esm.append(EventSummaryColumn('raw_host','host','Hostname','tb2(EventTime)', 'count(*)'))
     esm.append(
-        EventSummaryColumn(
-            "raw_process", "process", "Hostname", "tb(EventTime)", "count(*)"
-        )
+        EventSummaryColumn("raw_process", "process", "Hostname", "tb(EventTime)", "count(*)")
     )
     esm.append(
         EventSummaryColumn(
@@ -52,9 +50,7 @@ def event_summary_metadata():
         )
     )
     esm.append(
-        EventSummaryColumn(
-            "raw_imageload", "dll", "ComputerName", "tb(EventTime)", "count(*)"
-        )
+        EventSummaryColumn("raw_imageload", "dll", "ComputerName", "tb(EventTime)", "count(*)")
     )
     esm.append(
         EventSummaryColumn(
@@ -171,9 +167,7 @@ def fetch_summary_data(con):
         # Max size for circle marker should be ~600. Calculate multiplier to use based on max robust total_sizeue.
         sizeMx = 600 / eventDF.loc[eventDF.Event == event, "NumRowsRobust"].max()
         logging.debug(f"Min: {eventDF.loc[eventDF.Event==event,'NumRowsRobust'].min()}")
-        logging.debug(
-            f"Med: {eventDF.loc[eventDF.Event==event,'NumRowsRobust'].median()}"
-        )
+        logging.debug(f"Med: {eventDF.loc[eventDF.Event==event,'NumRowsRobust'].median()}")
         logging.debug(f"Max: {eventDF.loc[eventDF.Event==event,'NumRowsRobust'].max()}")
         # Hmm, need positive total_size for a sensible marker size. Shift'em. Note: min is assumed to always be < 0.
         eventDF.loc[eventDF.Event == event, "NumRowsRobust"] = (

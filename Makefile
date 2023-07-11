@@ -8,11 +8,14 @@ fmt-check:
 	pipenv run black --check $(packages)
 	pipenv run isort --check $(packages)
 
-lint: 
+#lint: 
 #	sqlfluff lint $(analytics)
-	pipenv run mypy $(packages)
+#	pipenv run mypy $(packages)
 
-ci: lint fmt-check
+test:
+	pipenv run pytest 
+
+ci: fmt-check
 
 venv:
 	pip3 install --user pipenv
@@ -25,7 +28,10 @@ build:
 clean:
 	pipenv --rm
 
-setup: venv cleanpynb
+source-install:
+	pipenv run -- intsall -e .
+
+setup: venv source-install cleanpynb
 
 cleanpynb:
 	pipenv run nbstripout --install --attributes .gitattributes

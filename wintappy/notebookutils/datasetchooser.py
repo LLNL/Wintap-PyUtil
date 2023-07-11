@@ -18,9 +18,7 @@ def dataset_chooser():
     # Setup reasonable defaults if the user hasn't created an .env file
     path = os.path.expanduser("~")
     select_default = False
-    if (os.getenv("DEFAULT_PATH")) != None and os.path.exists(
-        os.getenv("DEFAULT_PATH")
-    ):
+    if (os.getenv("DEFAULT_PATH")) != None and os.path.exists(os.getenv("DEFAULT_PATH")):
         path = os.getenv("DEFAULT_PATH")
         select_default = True
     elif (os.getenv("DATAPATH")) != None and os.path.exists(os.getenv("DATAPATH")):

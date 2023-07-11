@@ -9,8 +9,7 @@ from duckdb import DuckDBPyConnection
 from jinja2 import Template
 from pandas import DataFrame
 
-from analytics.query_analytic import QueryAnalytic
-
+from ..analytics.query_analytic import QueryAnalytic
 from .constants import PID_HASH, TEMPLATE_DIR
 
 

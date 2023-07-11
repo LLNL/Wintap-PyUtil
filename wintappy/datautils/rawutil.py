@@ -38,9 +38,7 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None):
     """
     dataset_path = os.path.join(dataset, subdir)
     event_types = [
-        fn
-        for fn in os.listdir(dataset_path)
-        if include == None or fn.startswith(include)
+        fn for fn in os.listdir(dataset_path) if include == None or fn.startswith(include)
     ]
     globs = defaultdict(set)
     for event_type in event_types:

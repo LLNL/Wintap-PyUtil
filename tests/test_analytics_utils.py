@@ -2,8 +2,8 @@ import os
 from typing import Any, Dict
 from unittest import mock
 
-from ..query_analytic import MITRE_CAR_TYPE, MITREAttackCoverage, QueryAnalytic
-from ..utils import (
+from wintappy.analytics.query_analytic import MITRE_CAR_TYPE, MITREAttackCoverage, QueryAnalytic
+from wintappy.analytics.utils import (
     convert_id_to_filename,
     format_car_analytic,
     get_car_analytics,
@@ -43,7 +43,7 @@ class TestSqlUtils:
         assert self.test_query_str == get_car_query(self.test_id)
 
     @mock.patch("os.path.join")
-    @mock.patch("analytics.utils.load_car_analtyic_metadata")
+    @mock.patch("wintappy.analytics.utils.load_car_analtyic_metadata")
     def test_get_car_analytics(self, mock_load: mock.MagicMock, mock_join: mock.MagicMock) -> None:
         mock_load.return_value = self.test_metadata
         cwd = os.path.dirname(__file__)
