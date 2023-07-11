@@ -24,9 +24,6 @@ build:
 clean:
 	pipenv --rm
 
-setup: venv cleanpynb
-
-cleanpynb:
-	pipenv run nbstripout --install --attributes .gitattributes
+setup: venv
 
 .PHONY: fmt lint test ci venv setup cleanpynb
