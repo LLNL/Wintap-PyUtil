@@ -25,7 +25,9 @@ def load_files_from_dataset(dataset_path):
     for event_type in event_types:
         if os.path.isdir(dataset_path + "/" + event_type):
             # Structured format: subdir(s), multiple parquet files supported.
-            for dirpath, _, files in os.walk(f"{dataset_path}/{event_type}", followlinks=True):
+            for dirpath, _, files in os.walk(
+                f"{dataset_path}/{event_type}", followlinks=True
+            ):
                 if len(files) > 0:
                     print(f"{datetime.now()} Listing event files: {dirpath}")
                     for file in files:

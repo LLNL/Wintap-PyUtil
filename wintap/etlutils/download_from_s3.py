@@ -117,11 +117,15 @@ def download_one_file(bucket: str, client: boto3.client, s3_file: S3File):
     else:
         new_filename = s3_file.filename
     client.download_file(
-        Bucket=bucket, Key=s3_file.key, Filename=os.path.join(s3_file.local_file_path, new_filename)
+        Bucket=bucket,
+        Key=s3_file.key,
+        Filename=os.path.join(s3_file.local_file_path, new_filename),
     )
 
 
-def download_files_threaded(bucket: str, client: boto3.client, s3_files, retry_attempt: int = 0):
+def download_files_threaded(
+    bucket: str, client: boto3.client, s3_files, retry_attempt: int = 0
+):
     """
     Download files from S3 into the provided root path.
     Files are written to folders based on the timestamp they were collected, not uploaded.
@@ -145,12 +149,18 @@ def download_files_threaded(bucket: str, client: boto3.client, s3_files, retry_a
                 pbar.update(1)
     if len(failed_downloads) > 0:
         if retry_attempt < MAX_RETRIES:
-            logging.warning(f"  {len(failed_downloads)} downloads have failed. Retrying.")
+            logging.warning(
+                f"  {len(failed_downloads)} downloads have failed. Retrying."
+            )
             download_files_threaded(bucket, client, failed_downloads, retry_attempt + 1)
         else:
-            logging.warning(f"  {len(failed_downloads)} downloads have failed. Writing to CSV.")
+            logging.warning(
+                f"  {len(failed_downloads)} downloads have failed. Writing to CSV."
+            )
             with open(
-                os.path.join(".", f"failed_downloads_{datetime.now()}.csv"), "w", newline=""
+                os.path.join(".", f"failed_downloads_{datetime.now()}.csv"),
+                "w",
+                newline="",
             ) as csvfile:
                 wr = csv.writer(csvfile, quoting=csv.QUOTE_ALL)
                 wr.writerow(failed_downloads)
@@ -218,19 +228,21 @@ def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
         try:
             (s3_path, delim, filename) = file.get("Key").rpartition("/")
             hostname, data_capture_epoch = parse_filename(filename)
-            data_capture_ts = datetime.fromtimestamp(int(data_capture_epoch), timezone.utc)
+            data_capture_ts = datetime.fromtimestamp(
+                int(data_capture_epoch), timezone.utc
+            )
             datadpk = data_capture_ts.strftime("%Y%m%d")
             datahpk = data_capture_ts.strftime("%H")
             # Data date can be different! Thats ok, it just means the host got delayed sending for some reason.
             # TODO: Come up with a "dirty" flag to indicate that backdated data was found so rolling/stdview can be updated
             if datadpk != uploadedDPK or datahpk != uploadedHPK:
                 # Key by data date.
-                back_dated[(datadpk, datahpk)] = back_dated.get((datadpk, datahpk), 0) + 1
+                back_dated[(datadpk, datahpk)] = (
+                    back_dated.get((datadpk, datahpk), 0) + 1
+                )
 
             # Define fully-qualified local name
-            local_file_path = (
-                f"{local_path}/raw_sensor/{new_event_type}/dayPK={datadpk}/hourPK={datahpk}"
-            )
+            local_file_path = f"{local_path}/raw_sensor/{new_event_type}/dayPK={datadpk}/hourPK={datahpk}"
 
             s3File = S3File(
                 file.get("Key"),
@@ -262,10 +274,14 @@ def main():
     )
     parser.add_argument("--profile", help="AWS profile to use", required=True)
     parser.add_argument("-b", "--bucket", help="The S3 bucket", required=True)
-    parser.add_argument("-p", "--prefix", help="S3 prefix within the bucket", required=True)
+    parser.add_argument(
+        "-p", "--prefix", help="S3 prefix within the bucket", required=True
+    )
     parser.add_argument("-s", "--start", help="Start date (YYYYMMDD HH)", required=True)
     parser.add_argument("-e", "--end", help="End date (YYYYMMDD HH)", required=True)
-    parser.add_argument("-l", "--localpath", help="Local path to write files", required=True)
+    parser.add_argument(
+        "-l", "--localpath", help="Local path to write files", required=True
+    )
     parser.add_argument(
         "--log-level", default="INFO", help="Logging Level: INFO, WARN, ERROR, DEBUG"
     )
@@ -273,7 +289,9 @@ def main():
 
     try:
         logging.basicConfig(
-            level=args.log_level, format="%(asctime)s %(message)s", datefmt="%m/%d/%Y %I:%M:%S %p"
+            level=args.log_level,
+            format="%(asctime)s %(message)s",
+            datefmt="%m/%d/%Y %I:%M:%S %p",
         )
     except ValueError:
         logging.error("Invalid log level: {}".format(args.log_level))
@@ -297,10 +315,14 @@ def main():
         for single_date in hour_range(start_date, end_date):
             daypk = single_date.strftime("%Y%m%d")
             hourpk = single_date.strftime("%H")
-            prefix = f"{event_type.get('Prefix')}uploadedDPK={daypk}/uploadedHPK={hourpk}/"
+            prefix = (
+                f"{event_type.get('Prefix')}uploadedDPK={daypk}/uploadedHPK={hourpk}/"
+            )
             # Optimization: many event types are sparsely populated, so enumerate the dayPK/hourPK structure, then just get files from the ones that exist.
             files_tmp, existing_S3_paths = list_folders(
-                s3, bucket=args.bucket, prefix=f"{event_type.get('Prefix')}uploadedDPK={daypk}/"
+                s3,
+                bucket=args.bucket,
+                prefix=f"{event_type.get('Prefix')}uploadedDPK={daypk}/",
             )
             # list_folders returns a JSON list. Extract the paths as a simple string list
             existing_S3_paths = [x.get("Prefix") for x in existing_S3_paths]
