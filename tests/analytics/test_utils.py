@@ -28,6 +28,10 @@ class TestSqlUtils:
         }
     }
 
+    def setup_class(self):
+        cwd = os.path.dirname(__file__)
+        self.fixture_path = f"{cwd}/../fixtures"
+
     def test_convert_analytic_to_filename(self) -> None:
         analytic_name = "CAR_1234_56_79"
         assert "CAR-1234-56-79.sql" == convert_id_to_filename(analytic_name, "sql")
@@ -39,15 +43,14 @@ class TestSqlUtils:
     @mock.patch("os.path.join")
     def test_load_sql_query(self, mock_join: mock.MagicMock) -> None:
         cwd = os.path.dirname(__file__)
-        mock_join.return_value = f"{cwd}/fixtures/{self.test_id}.sql"
+        mock_join.return_value = f"{self.fixture_path}/{self.test_id}.sql"
         assert self.test_query_str == get_car_query(self.test_id)
 
     @mock.patch("os.path.join")
     @mock.patch("wintappy.analytics.utils.load_car_analtyic_metadata")
     def test_get_car_analytics(self, mock_load: mock.MagicMock, mock_join: mock.MagicMock) -> None:
         mock_load.return_value = self.test_metadata
-        cwd = os.path.dirname(__file__)
-        mock_join.return_value = f"{cwd}/fixtures"
+        mock_join.return_value = self.fixture_path
         output = get_car_analytics()
         expected_output = {
             self.test_id: QueryAnalytic(

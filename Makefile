@@ -15,7 +15,7 @@ lint:
 test:
 	pipenv run pytest 
 
-ci: fmt-check
+ci: fmt-check lint test
 
 venv:
 	pip3 install --user pipenv
