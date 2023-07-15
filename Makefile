@@ -1,4 +1,5 @@
 packages='./wintappy'
+analytics='./wintappy/analytics'
 
 fmt:
 	pipenv run black $(packages)
@@ -9,8 +10,8 @@ fmt-check:
 	pipenv run isort --check $(packages)
 
 lint: 
-#	sqlfluff lint $(analytics)
 	pipenv run mypy $(packages)
+	pipenv run sqlfluff lint $(analytics)
 
 test:
 	pipenv run pytest 
@@ -29,11 +30,12 @@ clean:
 	pipenv --rm
 
 source-install:
-	pipenv run -- intsall -e .
+	pipenv run -- pip install -e .
 
 setup: venv source-install cleanpynb
 
 cleanpynb:
-	pipenv run nbstripout --install --attributes .gitattributes
+	pip install nbstripout
+	nbstripout --install --attributes .gitattributes
 
 .PHONY: fmt lint test ci venv setup cleanpynb

@@ -19,5 +19,9 @@ IRI = "iri"
 LABEL = "label"
 
 ## MITRE CAR Repo with CAR analytics data
-REPO_URL = "https://github.com/mitre-attack/car.git"
+CAR_REPO_URL = "https://github.com/mitre-attack/car.git"
 ANALYTICS_DIR = "analytics"
+
+## MITRE ATT&CK Constants
+ATTACK_STIX_REPO_URL = "https://github.com/mitre-attack/attack-stix-data"
+LATEST_ENTERPRISE_DEFINITION = "enterprise-attack/enterprise-attack.json"

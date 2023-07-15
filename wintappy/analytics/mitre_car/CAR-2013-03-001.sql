@@ -1,5 +1,7 @@
+{%- from 'car_macros.sql' import limit_search_days, select_fallback -%}
+
 -- Reg.exe called from Command Shell
-SELECT p.pid_hash AS pid_hash
+SELECT {{ select_fallback( columns ) }}
 FROM process AS p
 WHERE
     p.parent_pid_hash IN
@@ -13,3 +15,4 @@ WHERE
             AND child.process_name = 'cmd.exe'
     )
     AND p.process_name = 'reg.exe'
+    AND p.daypk = {{ limit_search_days( search_day_pk ) }}

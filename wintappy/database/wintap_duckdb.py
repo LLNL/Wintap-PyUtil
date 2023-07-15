@@ -1,16 +1,21 @@
 import logging
 import os
-import time
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Optional
 
 import duckdb
 from duckdb import DuckDBPyConnection
-from jinja2 import Template
+from jinja2 import Environment, FileSystemLoader
 from pandas import DataFrame
 
 from ..analytics.query_analytic import QueryAnalytic
-from .constants import PID_HASH, TEMPLATE_DIR
+from .constants import (
+    CREATE_ANALYTICS_TEMPLATE,
+    INSERT_ANALYTICS_TEMPLATE,
+    PID_HASH,
+    TEMPLATE_DIR,
+)
 
 
 @dataclass
@@ -27,15 +32,14 @@ class WintapDuckDB:
         ## TODO: in the future, we could move the db connection setup here too
         self._connection = options.connection
         self._dataset_path = options.dataset_path
+        self._jinja_environment = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
         self._setup_tables()
 
     def _setup_tables(self) -> None:
         """Create extra tables that store analytics results"""
-        cwd = os.path.dirname(__file__)
-        file_path = os.path.join(cwd, TEMPLATE_DIR, "create_analytics.sql")
-        with open(file_path, "r") as f:
-            self.query(f.read())
-        return
+        self.query(
+            self._jinja_environment.get_template(CREATE_ANALYTICS_TEMPLATE).render()
+        )
 
     def get_tables(self) -> list:
         """
@@ -74,31 +78,32 @@ class WintapDuckDB:
                 pathspec = f"{self._dataset_path}/rolling/{table}/dayPK={partition_key}"
                 filename = f"{table}-{partition_key}.parquet"
             if not os.path.exists(pathspec):
-                os.makedirs(pathspec)
+                # os.makedirs(pathspec)
                 logging.debug("folder '{}' created ".format(pathspec))
             else:
                 logging.debug("folder {} already exists".format(pathspec))
             # TODO Add test for file existence
             sql = f"COPY {table} TO '{pathspec}/{filename}' (FORMAT 'parquet')"
-            print(f"sql: {sql}")
+            logging.debug(f"generated copy sql: {sql}")
             self._connection.execute(sql)
         except duckdb.IOException as e:
             logging.exception(f"Failed to write: {table}")
         return
 
     def insert_analytics_table(
-        self, query_analytic: QueryAnalytic, entity_id: str, entity_type: str = PID_HASH
+        self,
+        analytic_id: str,
+        entity_id: str,
+        entity_type: str = PID_HASH,
+        event_time: datetime = datetime.now(),
     ) -> None:
-        cwd = os.path.dirname(__file__)
-        file_path = os.path.join(cwd, TEMPLATE_DIR, "insert_analytics.sql")
-        with open(file_path, "r") as f:
-            sql = Template(f.read()).render(
-                # for now, we will simply support pid_hash as entity ids
-                entity=entity_id,
-                analytic_id=query_analytic.analytic_id,
-                time=int(time.time()),
-                # for now, we will simply support pid_hash as entity types
-                entity_type=entity_type,
-            )
-            logging.debug(f"generated insert analtyic: {sql}")
-            self._connection.execute(sql)
+        sql = self._jinja_environment.get_template(INSERT_ANALYTICS_TEMPLATE).render(
+            # for now, we will simply support pid_hash as entity ids
+            entity=entity_id,
+            analytic_id=analytic_id,
+            time=int(event_time.strftime("%s")),
+            # for now, we will simply support pid_hash as entity types
+            entity_type=entity_type,
+        )
+        logging.debug(f"generated insert analtyic: {sql}")
+        self._connection.execute(sql)

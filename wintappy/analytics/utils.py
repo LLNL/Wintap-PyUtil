@@ -6,9 +6,11 @@ from typing import Any, Dict, List, Optional
 
 import git
 import yaml
+from jinja2 import Environment
 
-from .mitre_car.constants import ANALYTICS_DIR, COVERAGE, ID, REPO_URL
-from .query_analytic import MITRE_CAR_TYPE, MITREAttackCoverage, QueryAnalytic
+from ..database.wintap_duckdb import WintapDuckDB
+from .constants import ANALYTICS_DIR, CAR_REPO_URL, COVERAGE, ID
+from .query_analytic import MITRE_CAR_TYPE, MitreAttackCoverage, QueryAnalytic
 
 MITRE_CAR_PATH = "mitre_car"
 
@@ -25,31 +27,22 @@ def convert_id_to_filename(raw_id: str, filetype: str) -> str:
     return f'{raw_id.replace("_", "-").upper()}.{filetype}'
 
 
-def get_car_query(raw_id: str) -> str:
-    cwd = os.path.dirname(__file__)
-    sql_file = os.path.join(
-        cwd, MITRE_CAR_PATH, convert_analytic_to_sql_filename(raw_id)
-    )
-    data = ""
-    with open(sql_file, "r") as file:
-        data = file.read()
-    return data
+## Analytics Helpers
 
 
-def get_car_analytics() -> Dict[str, QueryAnalytic]:
+def load_single(analytic_id: str) -> Optional[QueryAnalytic]:
+    metadata = load_car_analtyic_metadata()
+    return format_car_analytic(analytic_id, metadata)
+
+
+def load_all(env: Environment) -> Dict[str, QueryAnalytic]:
     analytics: Dict[str, QueryAnalytic] = {}
     metadata = load_car_analtyic_metadata()
-    cwd = os.path.dirname(__file__)
-    file_path = os.path.join(cwd, MITRE_CAR_PATH)
-    for f in os.scandir(file_path):
-        if f.is_file() and f.name.endswith("sql"):
-            analytic_id = f.name.removesuffix(".sql")
-            query_str = ""
-            with open(f.path, "r") as file:
-                query_str = file.read()
-            analytic = format_car_analytic(analytic_id, metadata, query_str)
-            if analytic:
-                analytics[analytic_id] = analytic
+    for template in env.list_templates():
+        if template.endswith(".sql"):
+            analytic_id = template.removesuffix(".sql")
+            if analytic_id in metadata:
+                analytics[analytic_id] = format_car_analytic(analytic_id, metadata)
     return analytics
 
 
@@ -59,7 +52,7 @@ def load_car_analtyic_metadata() -> Dict[str, Dict[str, Any]]:
     # create temporary dir
     tmp_dir = tempfile.mkdtemp()
     # clone car data into the temporary dir
-    git.Repo.clone_from(REPO_URL, tmp_dir, branch="master", depth=1)
+    git.Repo.clone_from(CAR_REPO_URL, tmp_dir, branch="master", depth=1)
     # load yaml files into list of dictionaries
     for f in os.scandir(f"{tmp_dir}/{ANALYTICS_DIR}"):
         if f.is_file() and f.name.endswith("yaml"):
@@ -74,20 +67,29 @@ def load_car_analtyic_metadata() -> Dict[str, Dict[str, Any]]:
     return analytics
 
 
-def format_car_analytic(
-    analytic_id: str, metadata: Dict[str, Any], query_str: str
-) -> Optional[QueryAnalytic]:
+def format_car_analytic(analytic_id: str, metadata: Dict[str, Any]) -> QueryAnalytic:
     # format coverage as expected
     coverage = []
     for entry in metadata.get(analytic_id, {}).get(COVERAGE, []):
-        coverage.append(MITREAttackCoverage(**entry))
-    # only format if we have the metadata for it
-    if analytic_id not in metadata:
-        logging.warning("skipping analytic (%s): missing metadata", analytic_id)
-        return None
+        coverage.append(MitreAttackCoverage(**entry))
     return QueryAnalytic(
         analytic_id=analytic_id,
-        query_string=query_str,
+        analytic_template=f"{analytic_id}.sql",
         query_type=MITRE_CAR_TYPE,
+        metadata=metadata.get(analytic_id, {}),
         coverage=coverage,
     )
+
+
+def run_against_day(
+    daypk: int, env: Environment, db: WintapDuckDB, analytics: List[QueryAnalytic]
+) -> None:
+    """' Runs a single or all CAR analytics against data for a single daypk."""
+    for analytic in analytics:
+        query_str = env.get_template(analytic.analytic_template).render(
+            {"search_day_pk": daypk}
+        )
+        results = db.query(query_str)
+        for _, row in results.iterrows():
+            db.insert_analytics_table(analytic.analytic_id, row["pid_hash"])
+    return
