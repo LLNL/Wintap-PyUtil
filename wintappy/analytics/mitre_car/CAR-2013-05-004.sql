@@ -1,4 +1,4 @@
-{%- from 'car_macros.sql' import limit_search_days, select_fallback -%}
+{%- from 'macros.sql' import limit_search_days, select_fallback -%}
 
 -- Execution with AT
 SELECT {{ select_fallback( columns ) }}

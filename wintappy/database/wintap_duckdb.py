@@ -32,7 +32,8 @@ class WintapDuckDB:
         ## TODO: in the future, we could move the db connection setup here too
         self._connection = options.connection
         self._dataset_path = options.dataset_path
-        self._jinja_environment = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
+        cwd = os.path.dirname(__file__)
+        self._jinja_environment = Environment(loader=FileSystemLoader(os.path.join(cwd, TEMPLATE_DIR)))
         self._setup_tables()
 
     def _setup_tables(self) -> None:

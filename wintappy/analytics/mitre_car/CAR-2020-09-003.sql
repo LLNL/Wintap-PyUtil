@@ -1,4 +1,4 @@
-{%- from 'car_macros.sql' import limit_search_days, select_fallback -%}
+{%- from 'macros.sql' import limit_search_days, select_fallback -%}
 
 -- Indicator Blocking - Driver Unloaded
 

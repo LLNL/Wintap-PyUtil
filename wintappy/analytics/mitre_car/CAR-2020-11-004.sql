@@ -44,5 +44,5 @@ WHERE
             AND parent.process_name NOT IN ('dwm.exe', 'winlogon.exe')
         )
     )
-    AND parent.daypk = '{{ search_day_pk|default("20230501", true) }}'
-    AND child.daypk = '{{ search_day_pk|default("20230501", true) }}'
+    AND parent.daypk = {{ search_day_pk|default("20230501", true) }}
+    AND child.daypk = {{ search_day_pk|default("20230501", true) }}
