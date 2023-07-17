@@ -14,6 +14,7 @@ install_requires = [
     "networkx",
     "pandas",
     "pyarrow",
+    "python-dotenv",
     "toml",
     "tqdm"
 ]
