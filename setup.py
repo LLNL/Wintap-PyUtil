@@ -16,7 +16,7 @@ install_requires = [
     "pyarrow",
     "python-dotenv",
     "toml",
-    "tqdm"
+    "tqdm",
 ]
 
 setup(
