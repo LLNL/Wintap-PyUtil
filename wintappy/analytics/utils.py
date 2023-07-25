@@ -7,9 +7,18 @@ from typing import Any, Dict, List, Optional
 import git
 import yaml
 from jinja2 import Environment
+from mitreattack.stix20 import MitreAttackData
 
 from ..database.wintap_duckdb import WintapDuckDB
-from .constants import ANALYTICS_DIR, CAR_REPO_URL, COVERAGE, ID
+from .constants import (
+    ANALYTICS_DIR, 
+    CAR_REPO_URL,
+    COVERAGE,
+    ATTACK_STIX_REPO_URL,
+    LATEST_ENTERPRISE_DEFINITION,
+    ID
+)
+
 from .query_analytic import MITRE_CAR_TYPE, MitreAttackCoverage, QueryAnalytic
 
 MITRE_CAR_PATH = "mitre_car"
@@ -93,3 +102,16 @@ def run_against_day(
         for _, row in results.iterrows():
             db.insert_analytics_table(analytic.analytic_id, row["pid_hash"])
     return
+
+## MITRE ATT&CK utils
+def load_attack_metadata() -> MitreAttackData:
+    # create temporary dir
+    tmp_dir = tempfile.mkdtemp()
+    # clone attack data into the temporary dir
+    git.Repo.clone_from(ATTACK_STIX_REPO_URL, tmp_dir, branch="master", depth=1)
+    path = f"{tmp_dir}/{LATEST_ENTERPRISE_DEFINITION}"
+    # load matrix stiix data
+    data = MitreAttackData(path)
+    # remove temporary dir
+    shutil.rmtree(tmp_dir)
+    return data
