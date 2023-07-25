@@ -7,7 +7,7 @@ FROM process AS child,
     process AS parent
 WHERE
     parent.pid_hash = child.parent_pid_hash
-    AND 
+    AND
     (
         (
             child.process_name = 'cmd.exe'
@@ -15,7 +15,7 @@ WHERE
             AND child.args LIKE '%echo%'
             AND child.args LIKE '%pipe%'
         )
-        OR 
+        OR
         (
             parent.process_name = 'rundll32.exe'
             AND child.args LIKE '%,a /p:%'

@@ -11,14 +11,13 @@ from mitreattack.stix20 import MitreAttackData
 
 from ..database.wintap_duckdb import WintapDuckDB
 from .constants import (
-    ANALYTICS_DIR, 
+    ANALYTICS_DIR,
+    ATTACK_STIX_REPO_URL,
     CAR_REPO_URL,
     COVERAGE,
-    ATTACK_STIX_REPO_URL,
+    ID,
     LATEST_ENTERPRISE_DEFINITION,
-    ID
 )
-
 from .query_analytic import MITRE_CAR_TYPE, MitreAttackCoverage, QueryAnalytic
 
 MITRE_CAR_PATH = "mitre_car"
@@ -102,6 +101,7 @@ def run_against_day(
         for _, row in results.iterrows():
             db.insert_analytics_table(analytic.analytic_id, row["pid_hash"])
     return
+
 
 ## MITRE ATT&CK utils
 def load_attack_metadata() -> MitreAttackData:

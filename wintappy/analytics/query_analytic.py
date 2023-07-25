@@ -23,14 +23,14 @@ class QueryAnalytic:
     coverage: List[MitreAttackCoverage]
 
     def get_tactics(self) -> List[str]:
-        '''Helper function to quickly return all tactics in coverage'''
+        """Helper function to quickly return all tactics in coverage"""
         tactics = []
         for c in self.coverage:
             tactics.extend(c.tactics)
         return tactics
 
     def get_techniques(self) -> List[str]:
-        '''Helper function to quickly return all techniques in coverage'''
+        """Helper function to quickly return all techniques in coverage"""
         techniques = []
         for c in self.coverage:
             techniques.append(c.technique)
