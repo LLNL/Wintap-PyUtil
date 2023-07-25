@@ -1,4 +1,5 @@
 -- Processes Started From Irregular Parent
+-- Tactic: Defense Evasion; Technique: Process Injection
 SELECT
     child.pid_hash AS pid_hash,
     child.parent_pid_hash AS parent_pid_hash
