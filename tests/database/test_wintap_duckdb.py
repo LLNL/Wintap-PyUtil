@@ -34,7 +34,9 @@ class TestWinTapDuckDB:
 
     @mock.patch("datetime.datetime")
     @mock.patch("duckdb.DuckDBPyConnection")
-    def test_insert_analytics(self, connection: mock.MagicMock, mock_datetime: mock.MagicMock) -> None:
+    def test_insert_analytics(
+        self, connection: mock.MagicMock, mock_datetime: mock.MagicMock
+    ) -> None:
         wintap_db = WintapDuckDB(WintapDuckDBOptions(connection, self.dataset_path))
         mock_time = "1689378948"
         mock_datetime.strftime.return_value = mock_time
