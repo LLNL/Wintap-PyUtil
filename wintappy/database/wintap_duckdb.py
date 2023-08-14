@@ -9,8 +9,8 @@ from duckdb import DuckDBPyConnection
 from jinja2 import Environment, FileSystemLoader
 from pandas import DataFrame
 
-from ..analytics.query_analytic import QueryAnalytic
 from .constants import (
+    ANALYTICS_RESULTS_TABLE,
     CREATE_ANALYTICS_TEMPLATE,
     INSERT_ANALYTICS_TEMPLATE,
     PID_HASH,
@@ -66,6 +66,7 @@ class WintapDuckDB:
         self,
         table: str,
         partition_key: Optional[str] = None,
+        location: Optional[str] = None,
     ) -> None:
         """
         Write tables/views from duckdb instance to parquet.
@@ -73,15 +74,19 @@ class WintapDuckDB:
         Otherwise, write to stdview.
         """
         logging.info(f"Writing {table}")
+        path = self._dataset_path
+        if location:
+            logging.debug(f"Writing to path {location} rather than the dataset path {path}")
+            path = location
         try:
             if partition_key == None:
-                pathspec = f"{self._dataset_path}/stdview"
+                pathspec = f"{path}/stdview"
                 filename = f"{table}.parquet"
             else:
-                pathspec = f"{self._dataset_path}/rolling/{table}/dayPK={partition_key}"
+                pathspec = f"{path}/rolling/{table}/dayPK={partition_key}"
                 filename = f"{table}-{partition_key}.parquet"
             if not os.path.exists(pathspec):
-                # os.makedirs(pathspec)
+                os.makedirs(pathspec)
                 logging.debug("folder '{}' created ".format(pathspec))
             else:
                 logging.debug("folder {} already exists".format(pathspec))
@@ -110,3 +115,14 @@ class WintapDuckDB:
         )
         logging.debug(f"generated insert analtyic: {sql}")
         self._connection.execute(sql)
+
+    def clear_table(self, table:str) -> None:
+        """ clear contents of a table in the connection. Mainly used after writing out table to file. """
+        logging.info(f"Clearing {table}")
+        try:
+            sql = f"DELETE FROM {table}"
+            logging.debug(f"generated delete sql: {sql}")
+            self._connection.execute(sql)
+        except duckdb.IOException as e:
+            logging.exception(f"Failed to clear: {table}")
+        return
