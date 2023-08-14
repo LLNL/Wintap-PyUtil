@@ -65,7 +65,7 @@ class WintapDuckDB:
     def write_table(
         self,
         table: str,
-        partition_key: Optional[str] = None,
+        partition_key: Optional[int] = None,
         location: Optional[str] = None,
     ) -> None:
         """
@@ -76,7 +76,9 @@ class WintapDuckDB:
         logging.info(f"Writing {table}")
         path = self._dataset_path
         if location:
-            logging.debug(f"Writing to path {location} rather than the dataset path {path}")
+            logging.debug(
+                f"Writing to path {location} rather than the dataset path {path}"
+            )
             path = location
         try:
             if partition_key == None:
@@ -116,8 +118,8 @@ class WintapDuckDB:
         logging.debug(f"generated insert analtyic: {sql}")
         self._connection.execute(sql)
 
-    def clear_table(self, table:str) -> None:
-        """ clear contents of a table in the connection. Mainly used after writing out table to file. """
+    def clear_table(self, table: str) -> None:
+        """clear contents of a table in the connection. Mainly used after writing out table to file."""
         logging.info(f"Clearing {table}")
         try:
             sql = f"DELETE FROM {table}"

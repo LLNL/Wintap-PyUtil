@@ -100,7 +100,13 @@ def run_against_day(
         )
         results = db.query(query_str)
         for _, row in results.iterrows():
-            db.insert_analytics_table(analytic.analytic_id, row["pid_hash"], event_time=row.get("first_seen", datetime.strptime(str(daypk),"%Y%m%d")))
+            db.insert_analytics_table(
+                analytic.analytic_id,
+                row["pid_hash"],
+                event_time=row.get(
+                    "first_seen", datetime.strptime(str(daypk), "%Y%m%d")
+                ),
+            )
     return
 
 
