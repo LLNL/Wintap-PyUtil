@@ -12,4 +12,8 @@ WHERE
         OR args LIKE '%stop%'
         OR args LIKE '%query%'
     )
+    AND (
+        args LIKE '%WinDefend'
+        OR args LIKE '%wintap'
+    )
     AND daypk = {{ search_day_pk|default(20230501, true) }}
