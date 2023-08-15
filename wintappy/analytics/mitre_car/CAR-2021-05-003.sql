@@ -1,12 +1,10 @@
 {%- from 'macros.sql' import limit_search_days, select_fallback -%}
 
--- Windows Remote Management (WinRM)
+-- BCDEdit Failure Recovery Modification
 
 SELECT {{ select_fallback( columns ) }}
-FROM process_net_conn
+FROM process
 WHERE
-    local_port = '5985'
-    OR local_port = '5986'
-    OR remote_port = '5985'
-    OR remote_port = '5986'
+    process_name = 'bcdedit.exe'
+    AND args LIKE '%recoveryenabled%'
     AND daypk = {{ limit_search_days( search_day_pk ) }}
