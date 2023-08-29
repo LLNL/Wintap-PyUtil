@@ -1,8 +1,6 @@
 -- Get System Elevation
 
-SELECT
-    child.pid_hash,
-    parent.pid_hash
+SELECT child.pid_hash AS pid_hash
 FROM process AS child,
     process AS parent
 WHERE

@@ -1,9 +1,7 @@
 -- Webshell-Indicative Process Tree
 -- Tactic: Persistence; Technique: Server Software Component
 
-SELECT
-    child.pid_hash,
-    parent.pid_hash
+SELECT child.pid_hash AS pid_hash
 FROM process AS child,
     process AS parent
 WHERE
