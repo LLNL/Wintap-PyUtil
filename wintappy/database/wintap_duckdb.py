@@ -48,7 +48,7 @@ class WintapDuckDB:
 
     def _is_table_or_view(self, table_name: str):
         try:
-            self.query(f'describe {table_name}')
+            self.query(f"describe {table_name}")
             logging.debug(f"table or view ({table_name}) already exists")
         except duckdb.CatalogException as err:
             logging.debug(f"table or view ({table_name}) does not exist")
