@@ -3,5 +3,5 @@
 {%- endmacro -%}
 
 {%- macro select_fallback(columns) -%}
-    {{ columns|default("pid_hash", true) }}
+    {{ columns|default("pid_hash, COALESCE(first_seen, dayPK) as first_seen", true) }}
 {%- endmacro -%}

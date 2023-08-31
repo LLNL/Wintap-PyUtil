@@ -1,7 +1,7 @@
 -- Command Launched from WinLogon
 SELECT
-    child.pid_hash,
-    parent.pid_hash
+    child.pid_hash AS pid_hash,
+    COALESCE(child.first_seen, child.dayPK) as first_seen
 FROM process AS child,
     process AS parent
 WHERE
