@@ -1,7 +1,7 @@
 -- Remote PowerShell Sessions
 SELECT
-    child.pid_hash as pid_hash,
-    COALESCE(child.first_seen, child.dayPK) as first_seen
+    child.pid_hash AS pid_hash,
+    COALESCE(child.first_seen, child.daypk) AS first_seen
 FROM process AS child,
     process AS parent
 WHERE
