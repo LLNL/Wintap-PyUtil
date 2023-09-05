@@ -2,11 +2,11 @@ import logging
 import os
 import shutil
 import tempfile
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import git
 import yaml
+from duckdb import CatalogException
 from jinja2 import Environment
 from mitreattack.stix20 import MitreAttackData
 
@@ -93,20 +93,18 @@ def format_car_analytic(analytic_id: str, metadata: Dict[str, Any]) -> QueryAnal
 def run_against_day(
     daypk: int, env: Environment, db: WintapDuckDB, analytics: List[QueryAnalytic]
 ) -> None:
-    """' Runs a single or all CAR analytics against data for a single daypk."""
+    """Runs a single or all CAR analytics against data for a single daypk."""
     for analytic in analytics:
         query_str = env.get_template(analytic.analytic_template).render(
             {"search_day_pk": daypk}
         )
-        results = db.query(query_str)
-        for _, row in results.iterrows():
-            db.insert_analytics_table(
-                analytic.analytic_id,
-                row["pid_hash"],
-                event_time=row.get(
-                    "first_seen", datetime.strptime(str(daypk), "%Y%m%d")
-                ),
+        try:
+            db.query(
+                f"INSERT INTO analytics_results SELECT pid_hash, '{analytic.analytic_id}', first_seen, 'pid_hash' FROM ( {query_str} )"
             )
+        except CatalogException as err:
+            # Don't include the stacktrace to keep the output succinct.
+            logging.error(f"{analytic.analytic_id}: {err.args}", stack_info=False)
     return
 
 
