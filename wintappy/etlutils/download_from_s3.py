@@ -272,7 +272,7 @@ def main():
     parser = argparse.ArgumentParser(
         prog="downloadFromS3.py", description="Download Wintap files from S3"
     )
-    parser.add_argument("--profile", help="AWS profile to use", required=True)
+    parser.add_argument("--profile", help="AWS profile to use", required=False)
     parser.add_argument("-b", "--bucket", help="The S3 bucket", required=True)
     parser.add_argument(
         "-p", "--prefix", help="S3 prefix within the bucket", required=True
@@ -297,7 +297,10 @@ def main():
         logging.error("Invalid log level: {}".format(args.log_level))
         sys.exit(1)
 
-    session = boto3.Session(profile_name=args.profile)
+    if args.profile:
+        session = boto3.Session(profile_name=args.profile)
+    else:
+        session = boto3.Session()
     s3 = session.client("s3", config=botocore.client.Config(max_pool_connections=50))
 
     files, folders = list_folders(s3, bucket=args.bucket, prefix=args.prefix)
