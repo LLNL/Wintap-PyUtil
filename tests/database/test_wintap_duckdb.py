@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from unittest import mock
 
+import duckdb
+
 from wintappy.database.wintap_duckdb import WintapDuckDB, WintapDuckDBOptions
 
 
@@ -49,3 +51,16 @@ class TestWinTapDuckDB:
             event_time=mock_datetime,
         )
         connection.execute.assert_called_with(expected_sql)
+
+    @mock.patch("duckdb.DuckDBPyConnection")
+    def test_is_not_table_or_view(self, connection: mock.MagicMock) -> None:
+        wintap_db = WintapDuckDB(WintapDuckDBOptions(connection, self.dataset_path))
+        # do this after the setup in order to isolate the is table check
+        connection.execute.side_effect = duckdb.CatalogException("whoops!")
+        assert wintap_db._is_table_or_view('my-table') == False
+
+    @mock.patch("duckdb.DuckDBPyConnection")
+    def test_is_table_or_view(self, connection: mock.MagicMock) -> None:
+        connection.execute.returns = "some data"
+        wintap_db = WintapDuckDB(WintapDuckDBOptions(connection, self.dataset_path))
+        assert wintap_db._is_table_or_view('my-table') == True

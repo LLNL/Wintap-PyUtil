@@ -40,9 +40,20 @@ class WintapDuckDB:
 
     def _setup_tables(self) -> None:
         """Create extra tables that store analytics results"""
+        if self._is_table_or_view(ANALYTICS_RESULTS_TABLE):
+            return
         self.query(
             self._jinja_environment.get_template(CREATE_ANALYTICS_TEMPLATE).render()
         )
+
+    def _is_table_or_view(self, table_name: str):
+        try:
+            self.query(f"describe {table_name}")
+            logging.debug(f"table or view ({table_name}) already exists")
+        except duckdb.CatalogException as err:
+            logging.debug(f"table or view ({table_name}) does not exist")
+            return False
+        return True
 
     def get_tables(self) -> list:
         """
