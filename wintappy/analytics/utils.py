@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 from typing import Any, Dict, List, Optional
+from duckdb import CatalogException
 
 import git
 import yaml
@@ -100,12 +101,18 @@ def run_against_day(
             {"search_day_pk": daypk}
         )
         try:
-            db.query(
-                f"INSERT INTO {ANALYTICS_RESULTS_TABLE} SELECT pid_hash, '{analytic.analytic_id}', first_seen, 'pid_hash' FROM ( {query_str} )"
-            )
-        except CatalogException as err:
+            results = db.query(query_str)
+            for _, row in results.iterrows():
+                db.insert_analytics_table(
+                    analytic.analytic_id,
+                    row["pid_hash"],
+                    event_time=row.get(
+                        "first_seen", datetime.strptime(str(daypk), "%Y%m%d")
+                    ),
+                )
+        except CatalogException as e:
             # Don't include the stacktrace to keep the output succinct.
-            logging.error(f"{analytic.analytic_id}: {err.args}", stack_info=False)
+            logging.error(f"{analytic.analytic_id}: {e.args}", stack_info=False)
     return
 
 

@@ -168,7 +168,7 @@ def loadSqlStatements(file):
             curKey = line.strip().split()[-1]
             curStatement = line
         elif line.lower().startswith("update "):
-            # Add line number to be sure its unique
+            # Add line number to be sure its unique as there can be multiple UPDATEs per table
             curKey = f"{line.strip()}-{count}"
             curStatement = line
         else:
@@ -274,7 +274,7 @@ def create_empty_process_stop(con):
 def run_sql_no_args(con, sqlfile):
     """
     Execute all SQL statements in the file without binding any parameters.
-    Format should SQL delimited with semi-colons. Comments are allowed SQL
+    Format should be SQL statements (DDL) delimited with semi-colons. Comments are allowed SQL
     style:
        -- for single line
        /*
