@@ -124,7 +124,7 @@ SELECT p.pidhash pid_hash, -- osfamily will eventually come back as a partition 
              END) file_sha2,
        count(DISTINCT p.filesha2) num_file_sha2,
        min(CASE
-               WHEN p.activitytype IN ('START', 'POLLED') THEN win32_to_epoch(p.EventTime)
+               WHEN p.activitytype IN ('start', 'refresh') THEN win32_to_epoch(p.EventTime)
                ELSE NULL
            END) process_started_seconds,
        to_timestamp_micros(process_started_seconds) process_started,
@@ -176,8 +176,7 @@ LEFT OUTER JOIN
           max(tokenelevationtype) token_elevation_type,
           max(exitcode) exit_code,
           count(*) num_process_stop
-   FROM raw_process_stop --	WHERE dayPk=20221227
-
+   FROM raw_process_stop
    GROUP BY pidhash) s ON p.pid_hash = s.pidhash
 ;
 
