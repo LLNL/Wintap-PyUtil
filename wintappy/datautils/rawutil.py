@@ -181,10 +181,17 @@ def generate_view_sql(event_map, start=None, end=None):
     # View Template
     stmts = []
     for event_type, pathspec in event_map.items():
-        view_sql = f"""
-        create or replace view {event_type} as
-        select * from parquet_scan('{pathspec}',hive_partitioning=1)
-        """
+        # Hack! Found that dups are in the raw tables, so remove them here using the GROUP BY ALL.
+        if "raw_" in event_type:
+            view_sql = f"""
+            create or replace view {event_type} as
+            select *, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1) group by all
+            """
+        else:
+            view_sql = f"""
+            create or replace view {event_type} as
+            select * from parquet_scan('{pathspec}',hive_partitioning=1)
+            """
         if start != None and end != None:
             stmt += f"where dayPK between {start} and {end}"
         if start != None and end == None:
