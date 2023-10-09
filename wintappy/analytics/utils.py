@@ -107,6 +107,7 @@ def run_against_day(
             logging.error(f"{analytic.analytic_id}: {err.args}", stack_info=False)
     return
 
+
 ## MITRE ATT&CK utils
 def load_attack_metadata() -> MitreAttackData:
     # create temporary dir

@@ -10,12 +10,12 @@ from jinja2 import Environment, FileSystemLoader
 from pandas import DataFrame
 
 from .constants import (
-    ANALYTICS_TABLE,
     ANALYTICS_RESULTS_TABLE,
-    CREATE_ANALYTICS_TEMPLATE,
-    INSERT_ANALYTICS_TEMPLATE,
+    ANALYTICS_TABLE,
     CREATE_ANALYTICS_RESULTS_TEMPLATE,
+    CREATE_ANALYTICS_TEMPLATE,
     INSERT_ANALYTICS_RESULTS_TEMPLATE,
+    INSERT_ANALYTICS_TEMPLATE,
     PID_HASH,
     TEMPLATE_DIR,
 )
@@ -53,9 +53,11 @@ class WintapDuckDB:
         # fof our data, else we will run into errors
         self.query(f"DROP VIEW IF EXISTS {ANALYTICS_RESULTS_TABLE}")
         self.query(
-            self._jinja_environment.get_template(CREATE_ANALYTICS_RESULTS_TEMPLATE).render()
+            self._jinja_environment.get_template(
+                CREATE_ANALYTICS_RESULTS_TEMPLATE
+            ).render()
         )
-        # Create table for analytics metadata 
+        # Create table for analytics metadata
         self.query(f"DROP VIEW IF EXISTS {ANALYTICS_TABLE}")
         self.query(
             self._jinja_environment.get_template(CREATE_ANALYTICS_TEMPLATE).render()
@@ -88,7 +90,7 @@ class WintapDuckDB:
         """
         return self._connection.execute(query_string).df()
 
-    def register_filesystem(self, fs: str) -> None: 
+    def register_filesystem(self, fs: str) -> None:
         return self._connection.register_filesystem(filesystem=fs)
 
     def write_table(
@@ -137,7 +139,9 @@ class WintapDuckDB:
         entity_type: str = PID_HASH,
         event_time: datetime = datetime.now(),
     ) -> None:
-        sql = self._jinja_environment.get_template(INSERT_ANALYTICS_RESULTS_TEMPLATE).render(
+        sql = self._jinja_environment.get_template(
+            INSERT_ANALYTICS_RESULTS_TEMPLATE
+        ).render(
             # for now, we will simply support pid_hash as entity ids
             entity=entity_id,
             analytic_id=analytic_id,
@@ -154,7 +158,7 @@ class WintapDuckDB:
         technique_id: str,
         technique_stix_type: str,
         tactic_id: str,
-        tactic_stix_type: str
+        tactic_stix_type: str,
     ) -> None:
         sql = self._jinja_environment.get_template(INSERT_ANALYTICS_TEMPLATE).render(
             analytic_id=analytic_id,

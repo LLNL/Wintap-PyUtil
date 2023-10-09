@@ -3,13 +3,14 @@ from typing import Dict
 
 from jinja2 import Environment, PackageLoader
 
-from wintappy.analytics.utils import load_all, QueryAnalytic
+from wintappy.analytics.utils import QueryAnalytic, load_all
 from wintappy.database.wintap_duckdb import WintapDuckDB, WintapDuckDBOptions
 from wintappy.datautils import rawutil as ru
 
+
 # Just a wrapper class to hold some of the commonly used objects in etl utils
 @dataclass
-class TransformerManager():
+class TransformerManager:
     analytics: Dict[str, QueryAnalytic]
     dataset_path: str
     jinja_environment: Environment

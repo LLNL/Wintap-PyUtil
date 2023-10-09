@@ -9,6 +9,7 @@ from jinjasql import JinjaSql
 from wintappy.datautils import rawutil as ru
 from wintappy.etlutils.utils import daterange
 
+
 def process_range(cur_dataset, start_date, end_date):
     for single_date in daterange(start_date, end_date):
         daypk = single_date.strftime("%Y%m%d")

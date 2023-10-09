@@ -3,21 +3,20 @@ import json
 import logging
 import sys
 from datetime import datetime
+
 import fsspec
 
-from wintappy.analytics.constants import (
-    TECHNIQUE_STIX_TYPE,
-    TACTIC_STIX_TYPE
-)
-from wintappy.analytics.utils import run_against_day, load_attack_metadata
+from wintappy.analytics.constants import TACTIC_STIX_TYPE, TECHNIQUE_STIX_TYPE
+from wintappy.analytics.utils import load_attack_metadata, run_against_day
 from wintappy.database.constants import (
     ANALYTICS_RESULTS_TABLE,
     ANALYTICS_TABLE,
     TACTICS_TABLE,
-    TECHNIQUES_TABLE
+    TECHNIQUES_TABLE,
 )
 from wintappy.etlutils.transformer_manager import TransformerManager
 from wintappy.etlutils.utils import daterange
+
 
 def add_enrichment_tables(manager: TransformerManager) -> None:
     # first, load analytics metadata
@@ -32,35 +31,50 @@ def add_enrichment_tables(manager: TransformerManager) -> None:
                     tactic_stix_type=TACTIC_STIX_TYPE,
                 )
     # write out the tables
-    manager.wintap_duckdb.write_table(
-        ANALYTICS_TABLE, location=manager.dataset_path
-    )
+    manager.wintap_duckdb.write_table(ANALYTICS_TABLE, location=manager.dataset_path)
     # clear out results table that we just wrote out to the fs
     manager.wintap_duckdb.clear_table(ANALYTICS_TABLE)
 
     # Next, load tactic and technique metadata
     mitre_attack_data = load_attack_metadata()
     metadata_tables = {
-        TECHNIQUES_TABLE: list(map(lambda x: json.loads(x.serialize()), mitre_attack_data.get_techniques(remove_revoked_deprecated=True))),
-        TACTICS_TABLE: list(map(lambda x: json.loads(x.serialize()), mitre_attack_data.get_tactics(remove_revoked_deprecated=True)))
+        TECHNIQUES_TABLE: list(
+            map(
+                lambda x: json.loads(x.serialize()),
+                mitre_attack_data.get_techniques(remove_revoked_deprecated=True),
+            )
+        ),
+        TACTICS_TABLE: list(
+            map(
+                lambda x: json.loads(x.serialize()),
+                mitre_attack_data.get_tactics(remove_revoked_deprecated=True),
+            )
+        ),
     }
     # Create a memory filesystem and write the dictionary data to it
     for table_name, table_data in metadata_tables.items():
         table_name_internal = f"{table_name}_internal"
-        with fsspec.filesystem('memory').open(f'{table_name_internal}.json', 'w') as file:
+        with fsspec.filesystem("memory").open(
+            f"{table_name_internal}.json", "w"
+        ) as file:
             file.write(json.dumps(table_data))
         # Register the memory filesystem and create the table
-        manager.wintap_duckdb.register_filesystem(fsspec.filesystem('memory'))
-        manager.wintap_duckdb.query(f"CREATE TABLE IF NOT EXISTS {table_name_internal} AS SELECT * FROM read_json_auto('memory://{table_name_internal}.json')")
-        # Insert the data into the table
-        manager.wintap_duckdb.query(f"INSERT INTO {table_name_internal} SELECT * FROM read_json_auto('memory://{table_name_internal}.json')")
-        # Now we need to unnest the data
-        manager.wintap_duckdb.query(f"CREATE OR REPLACE VIEW {table_name} as select unnest(external_references).external_id as external_id, * from {table_name_internal}")
-        # finally, write out the tables
-        manager.wintap_duckdb.write_table(
-            table_name, location=manager.dataset_path
+        manager.wintap_duckdb.register_filesystem(fsspec.filesystem("memory"))
+        manager.wintap_duckdb.query(
+            f"CREATE TABLE IF NOT EXISTS {table_name_internal} AS SELECT * FROM read_json_auto('memory://{table_name_internal}.json')"
         )
+        # Insert the data into the table
+        manager.wintap_duckdb.query(
+            f"INSERT INTO {table_name_internal} SELECT * FROM read_json_auto('memory://{table_name_internal}.json')"
+        )
+        # Now we need to unnest the data
+        manager.wintap_duckdb.query(
+            f"CREATE OR REPLACE VIEW {table_name} as select unnest(external_references).external_id as external_id, * from {table_name_internal}"
+        )
+        # finally, write out the tables
+        manager.wintap_duckdb.write_table(table_name, location=manager.dataset_path)
     return
+
 
 def process_range(
     manager: TransformerManager, start_date: datetime, end_date: datetime
@@ -71,7 +85,9 @@ def process_range(
         daypk = int(single_date.strftime("%Y%m%d"))
         logging.debug(f"running with daypk: {daypk}")
         # run analytics against this day
-        run_against_day(daypk, manager.jinja_environment, manager.wintap_duckdb, analytics_list)
+        run_against_day(
+            daypk, manager.jinja_environment, manager.wintap_duckdb, analytics_list
+        )
         # write results out to the fs for this day
         manager.wintap_duckdb.write_table(
             ANALYTICS_RESULTS_TABLE, daypk, location=manager.dataset_path
@@ -91,7 +107,13 @@ def main():
     )
     parser.add_argument("-s", "--start", help="Start date (YYYYMMDD)", required=True)
     parser.add_argument("-e", "--end", help="End date (YYYYMMDD)", required=True)
-    parser.add_argument("-E", "--populate-enrichment-tables", help="End date (YYYYMMDD)", default=False, required=False)
+    parser.add_argument(
+        "-E",
+        "--populate-enrichment-tables",
+        help="End date (YYYYMMDD)",
+        default=False,
+        required=False,
+    )
     parser.add_argument(
         "-l",
         "--log-level",
