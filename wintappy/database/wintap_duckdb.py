@@ -22,13 +22,13 @@ from .constants import (
 class WintapDuckDBOptions:
     connection: DuckDBPyConnection
     dataset_path: str
-    load_analytics: bool
+    load_analytics: bool = True
 
 
 class WintapDuckDB:
     _connection: DuckDBPyConnection
     _dataset_path: str
-    _load_analytics: bool = True
+    _load_analytics: bool
 
     def __init__(self, options: WintapDuckDBOptions):
         ## TODO: in the future, we could move the db connection setup here too
