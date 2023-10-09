@@ -25,3 +25,5 @@ ANALYTICS_DIR = "analytics"
 ## MITRE ATT&CK Constants
 ATTACK_STIX_REPO_URL = "https://github.com/mitre-attack/attack-stix-data"
 LATEST_ENTERPRISE_DEFINITION = "enterprise-attack/enterprise-attack.json"
+TECHNIQUE_STIX_TYPE = "attack-pattern"
+TACTIC_STIX_TYPE = "x-mitre-tactic"

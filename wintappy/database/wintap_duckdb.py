@@ -2,7 +2,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 
 import duckdb
 from duckdb import DuckDBPyConnection
@@ -10,9 +10,12 @@ from jinja2 import Environment, FileSystemLoader
 from pandas import DataFrame
 
 from .constants import (
+    ANALYTICS_TABLE,
     ANALYTICS_RESULTS_TABLE,
     CREATE_ANALYTICS_TEMPLATE,
     INSERT_ANALYTICS_TEMPLATE,
+    CREATE_ANALYTICS_RESULTS_TEMPLATE,
+    INSERT_ANALYTICS_RESULTS_TEMPLATE,
     PID_HASH,
     TEMPLATE_DIR,
 )
@@ -49,7 +52,11 @@ class WintapDuckDB:
         # Because we are generating analytics, we should drop any existing views
         # fof our data, else we will run into errors
         self.query(f"DROP VIEW IF EXISTS {ANALYTICS_RESULTS_TABLE}")
-        self.query(f"DROP TABLE IF EXISTS {ANALYTICS_RESULTS_TABLE}")
+        self.query(
+            self._jinja_environment.get_template(CREATE_ANALYTICS_RESULTS_TEMPLATE).render()
+        )
+        # Create table for analytics metadata 
+        self.query(f"DROP VIEW IF EXISTS {ANALYTICS_TABLE}")
         self.query(
             self._jinja_environment.get_template(CREATE_ANALYTICS_TEMPLATE).render()
         )
@@ -80,6 +87,9 @@ class WintapDuckDB:
         against the configured db connection
         """
         return self._connection.execute(query_string).df()
+
+    def register_filesystem(self, fs: str) -> None: 
+        return self._connection.register_filesystem(filesystem=fs)
 
     def write_table(
         self,
@@ -120,20 +130,38 @@ class WintapDuckDB:
             logging.exception(f"Failed to write: {table}")
         return
 
-    def insert_analytics_table(
+    def insert_analytics_results_table(
         self,
         analytic_id: str,
         entity_id: str,
         entity_type: str = PID_HASH,
         event_time: datetime = datetime.now(),
     ) -> None:
-        sql = self._jinja_environment.get_template(INSERT_ANALYTICS_TEMPLATE).render(
+        sql = self._jinja_environment.get_template(INSERT_ANALYTICS_RESULTS_TEMPLATE).render(
             # for now, we will simply support pid_hash as entity ids
             entity=entity_id,
             analytic_id=analytic_id,
             time=int(event_time.strftime("%s")),
             # for now, we will simply support pid_hash as entity types
             entity_type=entity_type,
+        )
+        logging.debug(f"generated insert analtyic: {sql}")
+        self._connection.execute(sql)
+
+    def insert_analytics_table(
+        self,
+        analytic_id: str,
+        technique_id: str,
+        technique_stix_type: str,
+        tactic_id: str,
+        tactic_stix_type: str
+    ) -> None:
+        sql = self._jinja_environment.get_template(INSERT_ANALYTICS_TEMPLATE).render(
+            analytic_id=analytic_id,
+            technique_id=technique_id,
+            technique_stix_type=technique_stix_type,
+            tactic_id=tactic_id,
+            tactic_stix_type=tactic_stix_type,
         )
         logging.debug(f"generated insert analtyic: {sql}")
         self._connection.execute(sql)
