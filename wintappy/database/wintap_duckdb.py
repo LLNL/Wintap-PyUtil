@@ -22,16 +22,19 @@ from .constants import (
 class WintapDuckDBOptions:
     connection: DuckDBPyConnection
     dataset_path: str
+    load_analytics: bool
 
 
 class WintapDuckDB:
     _connection: DuckDBPyConnection
     _dataset_path: str
+    _load_analytics: bool = True
 
     def __init__(self, options: WintapDuckDBOptions):
         ## TODO: in the future, we could move the db connection setup here too
         self._connection = options.connection
         self._dataset_path = options.dataset_path
+        self._load_analytics = options.load_analytics
         cwd = os.path.dirname(__file__)
         self._jinja_environment = Environment(
             loader=FileSystemLoader(os.path.join(cwd, TEMPLATE_DIR))
@@ -41,7 +44,12 @@ class WintapDuckDB:
     def _setup_tables(self) -> None:
         """Create extra tables that store analytics results"""
         if self._is_table_or_view(ANALYTICS_RESULTS_TABLE):
-            return
+            if self._load_analytics:
+                return
+        # Because we are generating analytics, we should drop any existing views
+        # fof our data, else we will run into errors
+        self.query(f"DROP VIEW IF EXISTS {ANALYTICS_RESULTS_TABLE}")
+        self.query(f"DROP TABLE IF EXISTS {ANALYTICS_RESULTS_TABLE}")
         self.query(
             self._jinja_environment.get_template(CREATE_ANALYTICS_TEMPLATE).render()
         )
@@ -84,7 +92,8 @@ class WintapDuckDB:
         If partition_key is provided, write to corresponding path in rolling.
         Otherwise, write to stdview.
         """
-        logging.info(f"Writing {table}")
+
+        logging.debug(f"Writing {table}")
         path = self._dataset_path
         if location:
             logging.debug(
@@ -131,7 +140,7 @@ class WintapDuckDB:
 
     def clear_table(self, table: str) -> None:
         """clear contents of a table in the connection. Mainly used after writing out table to file."""
-        logging.info(f"Clearing {table}")
+        logging.debug(f"Clearing {table}")
         try:
             sql = f"DELETE FROM {table}"
             logging.debug(f"generated delete sql: {sql}")
