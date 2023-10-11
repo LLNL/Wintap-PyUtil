@@ -50,7 +50,7 @@ class WintapDuckDB:
             if self._load_analytics:
                 return
         # Because we are generating analytics, we should drop any existing views
-        # fof our data, else we will run into errors
+        # of our data, else we will run into errors
         self.query(f"DROP VIEW IF EXISTS {ANALYTICS_RESULTS_TABLE}")
         self.query(
             self._jinja_environment.get_template(

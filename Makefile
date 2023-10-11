@@ -19,7 +19,7 @@ test:
 ci: fmt-check lint test
 
 venv:
-	pip3 install --user pipenv
+	pip3 install pipenv
 	pipenv install --dev
 
 build:

@@ -36,7 +36,7 @@ class TestWinTapDuckDB:
 
     @mock.patch("datetime.datetime")
     @mock.patch("duckdb.DuckDBPyConnection")
-    def test_insert_analytics(
+    def test_insert_analytics_results(
         self, connection: mock.MagicMock, mock_datetime: mock.MagicMock
     ) -> None:
         wintap_db = WintapDuckDB(WintapDuckDBOptions(connection, self.dataset_path))
@@ -49,6 +49,27 @@ class TestWinTapDuckDB:
             mock_analytic_id,
             mock_entity_type,
             event_time=mock_datetime,
+        )
+        connection.execute.assert_called_with(expected_sql)
+
+    @mock.patch("datetime.datetime")
+    @mock.patch("duckdb.DuckDBPyConnection")
+    def test_insert_analytics(
+        self, connection: mock.MagicMock, mock_datetime: mock.MagicMock
+    ) -> None:
+        wintap_db = WintapDuckDB(WintapDuckDBOptions(connection, self.dataset_path))
+        mock_analytic_id = "my-cool-analytic"
+        mock_technique_id = "tech-id"
+        mock_stix_type = "tech-id-stix"
+        mock_tactic_id = "tactic-id"
+        mock_tactic_stix_type = "tactic-id-stix"
+        expected_sql = f"INSERT INTO analytics(\n    analytic_id,\n    technique_id,\n    technique_stix_type,\n    tactic_id,\n    tactic_stix_type\n)\nVALUES (\n    '{mock_analytic_id}',\n    '{mock_technique_id}',\n    '{mock_stix_type}',\n    '{mock_tactic_id}',\n    '{mock_tactic_stix_type}'\n)"
+        wintap_db.insert_analytics_table(
+            mock_analytic_id,
+            mock_technique_id,
+            mock_stix_type,
+            mock_tactic_id,
+            mock_tactic_stix_type,
         )
         connection.execute.assert_called_with(expected_sql)
 
