@@ -114,7 +114,7 @@ class WintapDuckDB:
             path = location
         try:
             if partition_key == None:
-                pathspec = f"{path}/stdview"
+                pathspec = f"{path}"
                 filename = f"{table}.parquet"
             else:
                 pathspec = f"{path}/rolling/{table}/dayPK={partition_key}"

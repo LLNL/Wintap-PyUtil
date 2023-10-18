@@ -1,4 +1,4 @@
-INSERT INTO analytics_results(
+INSERT INTO mitre_labels(
     entity,
     analytic_id,
     time,

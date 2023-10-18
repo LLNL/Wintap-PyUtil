@@ -1,5 +1,5 @@
 -- create analytics results table if it doesn't already exist
-CREATE TABLE IF NOT EXISTS analytics_results(
+CREATE TABLE IF NOT EXISTS mitre_labels(
     -- value of pid_hash
     entity VARCHAR,
     -- unique id for the analytic that matched, e.g. CAR-2013-02-003

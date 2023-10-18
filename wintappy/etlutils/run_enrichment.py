@@ -11,6 +11,7 @@ from wintappy.analytics.utils import load_attack_metadata, run_against_day
 from wintappy.database.constants import (
     ANALYTICS_RESULTS_TABLE,
     ANALYTICS_TABLE,
+    LOOKUPS_DIR,
     TACTICS_TABLE,
     TECHNIQUES_TABLE,
 )
@@ -18,7 +19,9 @@ from wintappy.etlutils.transformer_manager import TransformerManager
 from wintappy.etlutils.utils import daterange
 
 
-def add_enrichment_tables(manager: TransformerManager) -> None:
+def add_enrichment_tables(
+    manager: TransformerManager, enrichment_location: str
+) -> None:
     # first, load analytics metadata
     for analytic_id in manager.analytics:
         for entry in manager.analytics[analytic_id].coverage:
@@ -31,7 +34,9 @@ def add_enrichment_tables(manager: TransformerManager) -> None:
                     tactic_stix_type=TACTIC_STIX_TYPE,
                 )
     # write out the tables
-    manager.wintap_duckdb.write_table(ANALYTICS_TABLE, location=manager.dataset_path)
+    manager.wintap_duckdb.write_table(
+        ANALYTICS_TABLE, location=f"{enrichment_location}/{LOOKUPS_DIR}"
+    )
     # clear out results table that we just wrote out to the fs
     manager.wintap_duckdb.clear_table(ANALYTICS_TABLE)
 
@@ -72,7 +77,9 @@ def add_enrichment_tables(manager: TransformerManager) -> None:
             f"CREATE OR REPLACE VIEW {table_name} as select unnest(external_references).external_id as external_id, * from {table_name_internal}"
         )
         # finally, write out the tables
-        manager.wintap_duckdb.write_table(table_name, location=manager.dataset_path)
+        manager.wintap_duckdb.write_table(
+            table_name, location=f"{enrichment_location}/{LOOKUPS_DIR}"
+        )
     return
 
 
@@ -110,8 +117,7 @@ def main():
     parser.add_argument(
         "-E",
         "--populate-enrichment-tables",
-        help="End date (YYYYMMDD)",
-        default=False,
+        help="Add enrichment tables to the specified path",
         required=False,
     )
     parser.add_argument(
@@ -141,7 +147,7 @@ def main():
     process_range(manager, start_date, end_date)
 
     if args.populate_enrichment_tables:
-        add_enrichment_tables(manager)
+        add_enrichment_tables(manager, args.populate_enrichment_tables)
 
 
 if __name__ == "__main__":
