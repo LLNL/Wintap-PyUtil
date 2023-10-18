@@ -19,6 +19,7 @@ from .constants import (
     ID,
     LATEST_ENTERPRISE_DEFINITION,
 )
+from ..database.constants import ANALYTICS_RESULTS_TABLE
 from .query_analytic import MITRE_CAR_TYPE, MitreAttackCoverage, QueryAnalytic
 
 MITRE_CAR_PATH = "mitre_car"
@@ -100,7 +101,7 @@ def run_against_day(
         )
         try:
             db.query(
-                f"INSERT INTO analytics_results SELECT pid_hash, '{analytic.analytic_id}', first_seen, 'pid_hash' FROM ( {query_str} )"
+                f"INSERT INTO {ANALYTICS_RESULTS_TABLE} SELECT pid_hash, '{analytic.analytic_id}', first_seen, 'pid_hash' FROM ( {query_str} )"
             )
         except CatalogException as err:
             # Don't include the stacktrace to keep the output succinct.
