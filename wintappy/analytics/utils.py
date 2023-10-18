@@ -10,6 +10,7 @@ from duckdb import CatalogException
 from jinja2 import Environment
 from mitreattack.stix20 import MitreAttackData
 
+from ..database.constants import ANALYTICS_RESULTS_TABLE
 from ..database.wintap_duckdb import WintapDuckDB
 from .constants import (
     ANALYTICS_DIR,
@@ -19,7 +20,6 @@ from .constants import (
     ID,
     LATEST_ENTERPRISE_DEFINITION,
 )
-from ..database.constants import ANALYTICS_RESULTS_TABLE
 from .query_analytic import MITRE_CAR_TYPE, MitreAttackCoverage, QueryAnalytic
 
 MITRE_CAR_PATH = "mitre_car"
