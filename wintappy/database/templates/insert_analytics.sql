@@ -1,4 +1,4 @@
-INSERT INTO analytics(
+INSERT INTO mitre_car(
     analytic_id,
     technique_id,
     technique_stix_type,

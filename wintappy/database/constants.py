@@ -1,5 +1,5 @@
 # constants
-ANALYTICS_TABLE = "analytics"
+ANALYTICS_TABLE = "mitre_car"
 ANALYTICS_RESULTS_TABLE = "mitre_labels"
 TACTICS_TABLE = "mitre_tactics"
 TECHNIQUES_TABLE = "mitre_techniques"
