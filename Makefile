@@ -34,6 +34,9 @@ source-install:
 
 setup: venv source-install cleanpynb
 
+requirements:
+	pipenv run pip freeze > requirements.txt
+
 cleanpynb:
 	pip install nbstripout
 	nbstripout --install --attributes .gitattributes
