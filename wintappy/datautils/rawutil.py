@@ -12,7 +12,7 @@ from importlib_resources import files
 from pyarrow.lib import ArrowInvalid
 
 
-def init_db(dataset=None, agg_level="rolling", database=":memory:"):
+def init_db(dataset=None, agg_level="rolling", database=":memory:", lookups=""):
     """
     Initialize an in memory db instance and configure with our custom sql.
     """
@@ -20,12 +20,12 @@ def init_db(dataset=None, agg_level="rolling", database=":memory:"):
     # TODO fix reference to SQL scripts
     run_sql_no_args(con, files("wintappy.datautils").joinpath("initdb.sql"))
     if not dataset == None:
-        globs = get_glob_paths_for_dataset(dataset, agg_level)
+        globs = get_glob_paths_for_dataset(dataset, agg_level, lookups=lookups)
         create_views(con, globs)
     return con
 
 
-def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None):
+def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None, lookups=""):
     """
     Build fully-qualifed glob paths for the dataset path. Return a map keyed by top level (event) dir.
     Expected structure is one of:
@@ -38,13 +38,17 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None):
     """
     dataset_path = os.path.join(dataset, subdir)
     event_types = [
-        fn
+        os.path.join(dataset_path, fn)
         for fn in os.listdir(dataset_path)
         if include == None or fn.startswith(include)
     ]
+    # optionally add lookup directory
+    if lookups != "":
+        for lookup in os.listdir(lookups):
+            event_types.append(os.path.join(lookups, lookup))
     globs = defaultdict(set)
-    for event_type in event_types:
-        cur_event = os.path.join(dataset_path, event_type)
+    for cur_event in event_types:
+        event_type = cur_event.split("/")[-1]
         if os.path.isdir(cur_event):
             for dirpath, dirnames, filenames in os.walk(cur_event):
                 if not dirnames:

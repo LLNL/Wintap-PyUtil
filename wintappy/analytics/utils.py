@@ -10,6 +10,7 @@ from duckdb import CatalogException
 from jinja2 import Environment
 from mitreattack.stix20 import MitreAttackData
 
+from ..database.constants import ANALYTICS_RESULTS_TABLE
 from ..database.wintap_duckdb import WintapDuckDB
 from .constants import (
     ANALYTICS_DIR,
@@ -100,7 +101,7 @@ def run_against_day(
         )
         try:
             db.query(
-                f"INSERT INTO analytics_results SELECT pid_hash, '{analytic.analytic_id}', first_seen, 'pid_hash' FROM ( {query_str} )"
+                f"INSERT INTO {ANALYTICS_RESULTS_TABLE} SELECT pid_hash, '{analytic.analytic_id}', first_seen, 'pid_hash' FROM ( {query_str} )"
             )
         except CatalogException as err:
             # Don't include the stacktrace to keep the output succinct.

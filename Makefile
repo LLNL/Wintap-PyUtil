@@ -19,7 +19,7 @@ test:
 ci: fmt-check lint test
 
 venv:
-	pip3 install --user pipenv
+	pip3 install pipenv
 	pipenv install --dev
 
 build:
@@ -33,6 +33,9 @@ source-install:
 	pipenv run -- pip install -e .
 
 setup: venv source-install cleanpynb
+
+requirements:
+	pipenv run pip freeze > requirements.txt
 
 cleanpynb:
 	pip install nbstripout

@@ -16,6 +16,7 @@ types-pyyaml = "*"
 altair = "*"
 boto3 = "*"
 duckdb = "*"
+fsspec = "*"
 humanfriendly = "*"
 importlib_resources = "*"
 ipyfilechooser = "*"
@@ -37,4 +38,4 @@ magic-duckdb = "*"
 pyyaml = "*"
 
 [requires]
-python_version = "3.10"
+python_version = "3.11"

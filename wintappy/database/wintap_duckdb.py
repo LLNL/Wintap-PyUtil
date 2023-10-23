@@ -2,7 +2,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 
 import duckdb
 from duckdb import DuckDBPyConnection
@@ -11,7 +11,10 @@ from pandas import DataFrame
 
 from .constants import (
     ANALYTICS_RESULTS_TABLE,
+    ANALYTICS_TABLE,
+    CREATE_ANALYTICS_RESULTS_TEMPLATE,
     CREATE_ANALYTICS_TEMPLATE,
+    INSERT_ANALYTICS_RESULTS_TEMPLATE,
     INSERT_ANALYTICS_TEMPLATE,
     PID_HASH,
     TEMPLATE_DIR,
@@ -22,16 +25,19 @@ from .constants import (
 class WintapDuckDBOptions:
     connection: DuckDBPyConnection
     dataset_path: str
+    load_analytics: bool = True
 
 
 class WintapDuckDB:
     _connection: DuckDBPyConnection
     _dataset_path: str
+    _load_analytics: bool
 
     def __init__(self, options: WintapDuckDBOptions):
         ## TODO: in the future, we could move the db connection setup here too
         self._connection = options.connection
         self._dataset_path = options.dataset_path
+        self._load_analytics = options.load_analytics
         cwd = os.path.dirname(__file__)
         self._jinja_environment = Environment(
             loader=FileSystemLoader(os.path.join(cwd, TEMPLATE_DIR))
@@ -41,7 +47,18 @@ class WintapDuckDB:
     def _setup_tables(self) -> None:
         """Create extra tables that store analytics results"""
         if self._is_table_or_view(ANALYTICS_RESULTS_TABLE):
-            return
+            if self._load_analytics:
+                return
+        # Because we are generating analytics, we should drop any existing views
+        # of our data, else we will run into errors
+        self.query(f"DROP VIEW IF EXISTS {ANALYTICS_RESULTS_TABLE}")
+        self.query(
+            self._jinja_environment.get_template(
+                CREATE_ANALYTICS_RESULTS_TEMPLATE
+            ).render()
+        )
+        # Create table for analytics metadata
+        self.query(f"DROP VIEW IF EXISTS {ANALYTICS_TABLE}")
         self.query(
             self._jinja_environment.get_template(CREATE_ANALYTICS_TEMPLATE).render()
         )
@@ -73,6 +90,9 @@ class WintapDuckDB:
         """
         return self._connection.execute(query_string).df()
 
+    def register_filesystem(self, fs: str) -> None:
+        return self._connection.register_filesystem(filesystem=fs)
+
     def write_table(
         self,
         table: str,
@@ -84,7 +104,8 @@ class WintapDuckDB:
         If partition_key is provided, write to corresponding path in rolling.
         Otherwise, write to stdview.
         """
-        logging.info(f"Writing {table}")
+
+        logging.debug(f"Writing {table}")
         path = self._dataset_path
         if location:
             logging.debug(
@@ -93,7 +114,7 @@ class WintapDuckDB:
             path = location
         try:
             if partition_key == None:
-                pathspec = f"{path}/stdview"
+                pathspec = f"{path}"
                 filename = f"{table}.parquet"
             else:
                 pathspec = f"{path}/rolling/{table}/dayPK={partition_key}"
@@ -111,14 +132,16 @@ class WintapDuckDB:
             logging.exception(f"Failed to write: {table}")
         return
 
-    def insert_analytics_table(
+    def insert_analytics_results_table(
         self,
         analytic_id: str,
         entity_id: str,
         entity_type: str = PID_HASH,
         event_time: datetime = datetime.now(),
     ) -> None:
-        sql = self._jinja_environment.get_template(INSERT_ANALYTICS_TEMPLATE).render(
+        sql = self._jinja_environment.get_template(
+            INSERT_ANALYTICS_RESULTS_TEMPLATE
+        ).render(
             # for now, we will simply support pid_hash as entity ids
             entity=entity_id,
             analytic_id=analytic_id,
@@ -129,9 +152,27 @@ class WintapDuckDB:
         logging.debug(f"generated insert analtyic: {sql}")
         self._connection.execute(sql)
 
+    def insert_analytics_table(
+        self,
+        analytic_id: str,
+        technique_id: str,
+        technique_stix_type: str,
+        tactic_id: str,
+        tactic_stix_type: str,
+    ) -> None:
+        sql = self._jinja_environment.get_template(INSERT_ANALYTICS_TEMPLATE).render(
+            analytic_id=analytic_id,
+            technique_id=technique_id,
+            technique_stix_type=technique_stix_type,
+            tactic_id=tactic_id,
+            tactic_stix_type=tactic_stix_type,
+        )
+        logging.debug(f"generated insert analtyic: {sql}")
+        self._connection.execute(sql)
+
     def clear_table(self, table: str) -> None:
         """clear contents of a table in the connection. Mainly used after writing out table to file."""
-        logging.info(f"Clearing {table}")
+        logging.debug(f"Clearing {table}")
         try:
             sql = f"DELETE FROM {table}"
             logging.debug(f"generated delete sql: {sql}")
