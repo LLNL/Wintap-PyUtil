@@ -1,12 +1,14 @@
-INSERT INTO analytics_results(
-    entity,
+INSERT INTO mitre_car(
     analytic_id,
-    time,
-    entity_type
+    technique_id,
+    technique_stix_type,
+    tactic_id,
+    tactic_stix_type
 )
 VALUES (
-    '{{entity}}',
     '{{analytic_id}}',
-    to_timestamp({{time}}),
-    '{{entity_type}}'
+    '{{technique_id}}',
+    '{{technique_stix_type}}',
+    '{{tactic_id}}',
+    '{{tactic_stix_type}}'
 )

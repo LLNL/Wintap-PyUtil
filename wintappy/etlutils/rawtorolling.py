@@ -7,11 +7,7 @@ from importlib_resources import files
 from jinjasql import JinjaSql
 
 from wintappy.datautils import rawutil as ru
-
-
-def daterange(start_date, end_date):
-    for n in range(int((end_date - start_date).days)):
-        yield start_date + timedelta(n)
+from wintappy.etlutils.utils import daterange
 
 
 def process_range(cur_dataset, start_date, end_date):
