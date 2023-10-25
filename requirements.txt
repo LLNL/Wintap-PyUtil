@@ -150,5 +150,4 @@ wcwidth==0.2.8
 weakrefmethod==1.0.3
 webcolors==1.13
 widgetsnbextension==4.0.9
--e git+ssh://git@github.com/LLNL/Wintap-PyUtil.git@a1482724b17b3e81bd1af1009b0fcbf74f5dcd77#egg=wintappy
 XlsxWriter==3.1.9
