@@ -8,7 +8,7 @@ from glob import glob
 import duckdb
 import pyarrow.parquet as pq
 from duckdb import CatalogException
-from importlib_resources import files
+from importlib.resources import files as resource_files
 from pyarrow.lib import ArrowInvalid
 
 
@@ -18,7 +18,7 @@ def init_db(dataset=None, agg_level="rolling", database=":memory:", lookups=""):
     """
     con = duckdb.connect(database=database)
     # TODO fix reference to SQL scripts
-    run_sql_no_args(con, files("wintappy.datautils").joinpath("initdb.sql"))
+    run_sql_no_args(con, resource_files("wintappy.datautils").joinpath("initdb.sql"))
     if not dataset == None:
         globs = get_glob_paths_for_dataset(dataset, agg_level, lookups=lookups)
         create_views(con, globs)
@@ -277,6 +277,7 @@ def run_sql_no_args(con, sqlfile):
        Multi-line
        */
     """
+    logging.info(f"sqlfile: {sqlfile}; type: {type(sqlfile)}")
     etl_sql = loadSqlStatements(sqlfile)
     for key in etl_sql:
         logging.info(f"Processing: {key}")
