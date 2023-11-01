@@ -4,11 +4,11 @@ import re
 from collections import defaultdict
 from datetime import datetime
 from glob import glob
+from importlib.resources import files as resource_files
 
 import duckdb
 import pyarrow.parquet as pq
 from duckdb import CatalogException
-from importlib.resources import files as resource_files
 from pyarrow.lib import ArrowInvalid
 
 
@@ -270,7 +270,6 @@ def run_sql_no_args(con, sqlfile):
        Multi-line
        */
     """
-    logging.info(f"sqlfile: {sqlfile}; type: {type(sqlfile)}")
     etl_sql = loadSqlStatements(sqlfile)
     for key in etl_sql:
         logging.info(f"Processing: {key}")

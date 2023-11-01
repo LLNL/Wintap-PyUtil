@@ -1,7 +1,6 @@
 import argparse
 import logging
 import sys
-
 from importlib.resources import resource_files
 
 from wintappy.datautils import rawutil as ru
@@ -38,7 +37,9 @@ def main():
     con = ru.init_db()
     globs = ru.get_glob_paths_for_dataset(cur_dataset, subdir="rolling", include="raw_")
     ru.create_raw_views(con, globs, args.start, args.end)
-    ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath("rawtostdview.sql"))
+    ru.run_sql_no_args(
+        con, resource_files("wintappy.datautils").joinpath("rawtostdview.sql")
+    )
     ru.write_parquet(con, cur_dataset, ru.get_db_objects(con, exclude=["raw_", "tmp"]))
 
 

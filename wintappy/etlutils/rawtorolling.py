@@ -2,7 +2,6 @@ import argparse
 import logging
 import sys
 from datetime import datetime
-
 from importlib.resources import files as resource_files
 
 from wintappy.datautils import rawutil as ru
