@@ -1,7 +1,7 @@
 import argparse
 import logging
 import sys
-from importlib.resources import resource_files
+from importlib.resources import files as resource_files
 
 from wintappy.datautils import rawutil as ru
 
