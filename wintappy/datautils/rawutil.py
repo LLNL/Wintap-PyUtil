@@ -43,7 +43,7 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None, looku
         if include == None or fn.startswith(include)
     ]
     # optionally add lookup directory
-    if lookups != "":
+    if lookups is not None and lookups != "":
         for lookup in os.listdir(lookups):
             event_types.append(os.path.join(lookups, lookup))
     globs = defaultdict(set)
