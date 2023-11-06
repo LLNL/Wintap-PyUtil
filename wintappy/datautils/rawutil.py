@@ -58,7 +58,7 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None, looku
                     else:
                         # Remove the pre-fix, including event_type. Convert that to a glob.
                         subdir = dirpath.replace(cur_event, "")
-                        glob = "/".join(["*"] * subdir.count(os.path.sep))
+                        glob = os.sep.join(["*"] * subdir.count(os.path.sep))
                         globs[event_type].add(
                             os.path.join(cur_event, glob, "*.parquet")
                         )
