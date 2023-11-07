@@ -191,9 +191,10 @@ def generate_view_sql(event_map, start=None, end=None):
     for event_type, pathspec in event_map.items():
         # Hack! Found that dups are in the raw tables, so remove them here using the GROUP BY ALL.
         if "raw_" in event_type:
+            # Raw files *may* have differing schemas, so enable union'ing of all schemas.
             view_sql = f"""
             create or replace view {event_type} as
-            select *, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1) group by all
+            select *, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
             """
         else:
             view_sql = f"""
