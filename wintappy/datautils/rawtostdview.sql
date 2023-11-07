@@ -59,7 +59,7 @@ SELECT hostname,
            WHEN privategateway='' THEN NULL
            ELSE privategateway
        END private_gateway,
-''       int_to_ip(cast(ipaddr AS bigint)) ip_addr_no,
+       int_to_ip(cast(ipaddr AS bigint)) ip_addr_no,
        CASE
            WHEN mac='' THEN NULL
            ELSE mac
@@ -465,8 +465,8 @@ SELECT computername hostname,
  min(imagesize) min_image_size,
  max(imagesize) max_image_size,
  count(DISTINCT imagesize) num_image_size,
- sum(if(upper(activitytype)='LOAD'), 1, 0) num_load,
- sum(if(upper(activitytype)='UNLOAD'), 1, 0) num_unload,
+ sum(if(upper(activitytype)='LOAD', 1, 0)) num_load,
+ sum(if(upper(activitytype)='UNLOAD', 1, 0)) num_unload,
  to_timestamp_micros(win32_to_epoch(min(eventtime))) first_seen,
  to_timestamp_micros(win32_to_epoch(max(eventtime))) last_seen
 FROM raw_imageload
