@@ -215,8 +215,15 @@ def create_views(con, event_map):
     stmts = generate_view_sql(event_map)
     for sql in stmts:
         cursor = con.cursor()
-        cursor.execute(sql)
-        cursor.close()
+        try:
+            cursor.execute(sql)
+        except duckdb.duckdb.IOException as e:
+            logging.error(f"SQL Failed: {sql}", e)
+            logging.error('If the error is too many files open, try this on OSX:')
+            logging.error('ulimit -Sn 524288; ulimit -Hn 10485760')
+            raise e
+        finally:
+            cursor.close()
 
 
 def create_raw_views(con, raw_data, start=None, end=None):
