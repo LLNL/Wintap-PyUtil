@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import tempfile
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 from duckdb import CatalogException
 
