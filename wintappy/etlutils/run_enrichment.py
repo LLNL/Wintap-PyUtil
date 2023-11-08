@@ -16,7 +16,7 @@ from wintappy.database.constants import (
     TECHNIQUES_TABLE,
 )
 from wintappy.etlutils.transformer_manager import TransformerManager
-from wintappy.etlutils.utils import daterange
+from wintappy.etlutils.utils import configure_basic_logging, daterange, get_date_range
 
 
 def add_enrichment_tables(
@@ -105,6 +105,7 @@ def process_range(
 
 
 def main():
+    configure_basic_logging()
     parser = argparse.ArgumentParser(
         prog="run_enrichment.py",
         description="Run enrichements against wintap data, write out results partitioned by day",
@@ -112,8 +113,8 @@ def main():
     parser.add_argument(
         "-d", "--dataset", help="Path to the dataset dir to process", required=True
     )
-    parser.add_argument("-s", "--start", help="Start date (YYYYMMDD)", required=True)
-    parser.add_argument("-e", "--end", help="End date (YYYYMMDD)", required=True)
+    parser.add_argument("-s", "--start", help="Start date (YYYYMMDD)", required=False)
+    parser.add_argument("-e", "--end", help="End date (YYYYMMDD)", required=False)
     parser.add_argument(
         "-E",
         "--populate-enrichment-tables",
@@ -130,9 +131,6 @@ def main():
 
     try:
         logging.getLogger().setLevel(args.log_level)
-        logging.getLogger().handlers[0].setFormatter(
-            logging.Formatter("%(asctime)s %(message)s", datefmt="%m/%d/%Y %I:%M:%S %p")
-        )
     except ValueError:
         logging.error(f"Invalid log level: {args.log_level}")
         sys.exit(1)
@@ -141,8 +139,7 @@ def main():
 
     manager = TransformerManager(current_dataset=cur_dataset)
 
-    start_date = datetime.strptime(args.start, "%Y%m%d")
-    end_date = datetime.strptime(args.end, "%Y%m%d")
+    start_date, end_date = get_date_range(args.start, args.end)
 
     process_range(manager, start_date, end_date)
 

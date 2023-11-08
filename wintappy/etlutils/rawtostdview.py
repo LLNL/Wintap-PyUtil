@@ -5,7 +5,6 @@ from importlib.resources import files as resource_files
 
 from wintappy.datautils import rawutil as ru
 
-
 def main():
     parser = argparse.ArgumentParser(
         prog="rawtostdview.py",
@@ -36,7 +35,7 @@ def main():
 
     con = ru.init_db()
     globs = ru.get_glob_paths_for_dataset(cur_dataset, subdir="rolling", include="raw_")
-    ru.create_raw_views(con, globs, args.start, args.end)
+    ru.create_raw_views(con, globs)
     ru.run_sql_no_args(
         con, resource_files("wintappy.datautils").joinpath("rawtostdview.sql")
     )

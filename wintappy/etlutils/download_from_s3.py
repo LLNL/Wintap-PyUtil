@@ -22,10 +22,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from typing import NamedTuple
+from dataclasses import dataclass
 
 import boto3
 import botocore
 import tqdm
+
+from wintappy.config import get_config
+from wintappy.etlutils.utils import get_date_range, configure_basic_logging
 
 # Maximum number of open HTTP(s) connections
 MAX_POOL_CONNECTIONS = 50
@@ -34,25 +38,21 @@ MAX_WORKERS = 32
 # Maximum number of retries for failed downloads
 MAX_RETRIES = 3
 
-
-S3File = NamedTuple(
-    "S3File",
-    [
-        ("key", str),
-        ("filename", str),
-        ("s3_path", str),
-        ("hostname", str),
-        ("data_capture_ts", datetime),
-        ("uploadedDPK", str),
-        ("uploadedHPK", str),
-        ("dataDPK", str),
-        ("dataHPK", str),
-        ("local_file_path", str),
-        ("os", str),
-        ("sensor_version", str),
-        ("event_type", str),
-    ],
-)
+@dataclass
+class S3File:
+    key: str
+    filename: str
+    s3_path: str
+    hostname: str 
+    data_capture_ts: datetime
+    uploadedDPK: str
+    uploadedHPK: str
+    dataDPK: str
+    dataHPK: str
+    local_file_path: str
+    os: str
+    sensor_version: str
+    event_type: str
 
 
 def list_files(s3_client, bucket, prefix):
@@ -197,21 +197,6 @@ def hour_range(start_date, end_date):
         yield start_date + timedelta(hours=n)
 
 
-def parse_filename(filename):
-    """
-    Legacy format: hostname=event_type+epoch_ts.parquet
-    New format:    hostname+event_type+epoch_ts.parquet
-    """
-    if "=" in filename:
-        hostname = filename.split("=")[0]
-        data_capture_epoch = filename.split("=")[1].rsplit("-")[1].split(".")[0]
-    else:
-        hostname = filename.split("+")[0]
-        # Drop the '.parquet' also
-        data_capture_epoch = filename.split("+")[2].split(".")[0]
-    return hostname, data_capture_epoch
-
-
 def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
     """
     Parse metadata from S3. This will be used for generating the correct path to write to.
@@ -226,7 +211,7 @@ def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
     back_dated = {}
     for file in files:
         try:
-            (s3_path, delim, filename) = file.get("Key").rpartition("/")
+            (s3_path, _, filename) = file.get("Key").rpartition("/")
             hostname, data_capture_epoch = parse_filename(filename)
             data_capture_ts = datetime.fromtimestamp(
                 int(data_capture_epoch), timezone.utc
@@ -268,48 +253,54 @@ def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
     return files_metadata
 
 
-def main():
+
+def main(argv=None):
+    configure_basic_logging()
     parser = argparse.ArgumentParser(
         prog="downloadFromS3.py", description="Download Wintap files from S3"
     )
-    parser.add_argument("--profile", help="AWS profile to use", required=False)
-    parser.add_argument("-b", "--bucket", help="The S3 bucket", required=True)
+    parser.add_argument("--profile", help="AWS profile to use")
+    parser.add_argument("-b", "--bucket", help="The S3 bucket")
     parser.add_argument(
-        "-p", "--prefix", help="S3 prefix within the bucket", required=True
+        "-p", "--prefix", help="S3 prefix within the bucket"
     )
-    parser.add_argument("-s", "--start", help="Start date (YYYYMMDD HH)", required=True)
-    parser.add_argument("-e", "--end", help="End date (YYYYMMDD HH)", required=True)
+    parser.add_argument("-s", "--start", help="Start date (YYYYMMDD HH)")
+    parser.add_argument("-e", "--end", help="End date (YYYYMMDD HH)")
     parser.add_argument(
-        "-l", "--localpath", help="Local path to write files", required=True
+        "-l", "--localpath", help="Local path to write files"
     )
     parser.add_argument(
         "--log-level", default="INFO", help="Logging Level: INFO, WARN, ERROR, DEBUG"
     )
-    args = parser.parse_args()
+    options, _ = parser.parse_known_args(argv)
+
+    # setup config based on env variables and config file
+    args = get_config(options.config)
+    # update config with CLI args
+    args.update({k:v for k,v in vars(options).items() if v is not None})
 
     try:
-        logging.basicConfig(
-            level=args.log_level,
-            format="%(asctime)s %(message)s",
-            datefmt="%m/%d/%Y %I:%M:%S %p",
-        )
+        logging.getLogger().setLevel(args.LOG_LEVEL)
     except ValueError:
-        logging.error("Invalid log level: {}".format(args.log_level))
+        logging.error("Invalid log level: {}".format(args.LOG_LEVEL))
         sys.exit(1)
 
-    if args.profile:
-        session = boto3.Session(profile_name=args.profile)
+    if args.AWS_PROFILE:
+        session = boto3.Session(profile_name=args.AWS_PROFILE)
     else:
         session = boto3.Session()
-    s3 = session.client("s3", config=botocore.client.Config(max_pool_connections=50))
+    if args.AWS_REGION:
+        s3 = session.client("s3", config=botocore.client.Config(max_pool_connections=50), region_name=args.AWS_REGION)
+    else:
+        s3 = session.client("s3", config=botocore.client.Config(max_pool_connections=50))
 
-    files, folders = list_folders(s3, bucket=args.bucket, prefix=args.prefix)
+    files = sync_s3_local(session, args.LOCAL_PATH, args.BUCKET, args.PREFIX)
+    files, folders = list_folders(s3, bucket=args.BUCKET, prefix=args.PREFIX)
 
     # Top level is event types
     event_types = folders
+    start_date, end_date = get_date_range(args.START, args.END, "%Y%m%d %H")
 
-    start_date = datetime.strptime(args.start, "%Y%m%d %H")
-    end_date = datetime.strptime(args.end, "%Y%m%d %H")
     logging.debug(f"start_date={start_date}; end_date={end_date}")
     for event_type in event_types:
         logging.info(event_type.get("Prefix"))
@@ -357,4 +348,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(argv=None)

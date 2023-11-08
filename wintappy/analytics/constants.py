@@ -20,10 +20,15 @@ LABEL = "label"
 
 ## MITRE CAR Repo with CAR analytics data
 CAR_REPO_URL = "https://github.com/mitre-attack/car.git"
+CAR_REPO_OWNER = "mitre-attack"
+CAR_REPO_NAME = "car"
 ANALYTICS_DIR = "analytics"
 
 ## MITRE ATT&CK Constants
 ATTACK_STIX_REPO_URL = "https://github.com/mitre-attack/attack-stix-data"
-LATEST_ENTERPRISE_DEFINITION = "enterprise-attack/enterprise-attack.json"
+ATTACK_STIX_REPO_OWNER = "mitre-attack"
+ATTACK_STIX_REPO_NAME = "attack-stix-data"
+ENTERPRISE_DIRECTORY = "enterprise-attack"
+LATEST_ENTERPRISE_DEFINITION = "enterprise-attack.json"
 TECHNIQUE_STIX_TYPE = "attack-pattern"
 TACTIC_STIX_TYPE = "x-mitre-tactic"
