@@ -198,6 +198,22 @@ def hour_range(start_date, end_date):
         yield start_date + timedelta(hours=n)
 
 
+def parse_filename(filename):
+    """
+    Legacy format: hostname=event_type+epoch_ts.parquet
+    New format:    hostname+event_type+epoch_ts.parquet
+    """
+    if "=" in filename:
+        hostname = filename.split("=")[0]
+        data_capture_epoch = filename.split("=")[1].rsplit("-")[1].split(".")[0]
+    else:
+        hostname = filename.split("+")[0]
+        # Drop the '.parquet' also
+        data_capture_epoch = filename.split("+")[2].split(".")[0]
+    return hostname, data_capture_epoch
+
+
+
 def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
     """
     Parse metadata from S3. This will be used for generating the correct path to write to.
