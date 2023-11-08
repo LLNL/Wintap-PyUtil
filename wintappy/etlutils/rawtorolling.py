@@ -7,6 +7,7 @@ from wintappy.config import get_config, print_config
 from wintappy.datautils import rawutil as ru
 from wintappy.etlutils.utils import configure_basic_logging, daterange, get_date_range
 
+
 def process_range(cur_dataset, start_date, end_date):
     for single_date in daterange(start_date, end_date):
         daypk = single_date.strftime("%Y%m%d")
@@ -44,7 +45,7 @@ def main(argv=None) -> None:
     # setup config based on env variables and config file
     args = get_config(options.config)
     # update config with CLI args
-    args.update({k:v for k,v in vars(options).items() if v is not None})
+    args.update({k: v for k, v in vars(options).items() if v is not None})
 
     try:
         logging.getLogger().setLevel(args.LOG_LEVEL)

@@ -4,9 +4,8 @@ import shutil
 import tempfile
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from duckdb import CatalogException
-import fsspec
 
+import fsspec
 import git
 import yaml
 from duckdb import CatalogException
@@ -17,13 +16,13 @@ from ..database.constants import ANALYTICS_RESULTS_TABLE
 from ..database.wintap_duckdb import WintapDuckDB
 from .constants import (
     ANALYTICS_DIR,
-    ATTACK_STIX_REPO_OWNER,
     ATTACK_STIX_REPO_NAME,
-    CAR_REPO_OWNER,
+    ATTACK_STIX_REPO_OWNER,
     CAR_REPO_NAME,
+    CAR_REPO_OWNER,
     COVERAGE,
-    ID,
     ENTERPRISE_DIRECTORY,
+    ID,
     LATEST_ENTERPRISE_DEFINITION,
 )
 from .query_analytic import MITRE_CAR_TYPE, MitreAttackCoverage, QueryAnalytic
@@ -73,7 +72,7 @@ def load_car_analtyic_metadata() -> Dict[str, Dict[str, Any]]:
     # load yaml files into list of dictionaries
     for f in os.scandir(tmp_dir):
         if f.is_file() and f.name.endswith("yaml"):
-            with open(f.path, "r", encoding='utf-8') as single:
+            with open(f.path, "r", encoding="utf-8") as single:
                 try:
                     raw_yaml = yaml.safe_load(single)
                     analytics[raw_yaml[ID]] = raw_yaml
@@ -127,7 +126,9 @@ def load_attack_metadata() -> MitreAttackData:
     # create temporary dir
     tmp_dir = f"{tempfile.mkdtemp()}{os.sep}{ENTERPRISE_DIRECTORY}"
     # clone attack data into the temporary dir
-    fs = fsspec.filesystem("github", org=ATTACK_STIX_REPO_OWNER, repo=ATTACK_STIX_REPO_NAME)
+    fs = fsspec.filesystem(
+        "github", org=ATTACK_STIX_REPO_OWNER, repo=ATTACK_STIX_REPO_NAME
+    )
     fs.get(fs.ls(ENTERPRISE_DIRECTORY), tmp_dir)
     # load matrix stiix data
     data = MitreAttackData(f"{tmp_dir}{os.sep}{LATEST_ENTERPRISE_DEFINITION}")

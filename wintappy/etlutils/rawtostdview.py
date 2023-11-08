@@ -5,6 +5,7 @@ from importlib.resources import files as resource_files
 
 from wintappy.datautils import rawutil as ru
 
+
 def main():
     parser = argparse.ArgumentParser(
         prog="rawtostdview.py",

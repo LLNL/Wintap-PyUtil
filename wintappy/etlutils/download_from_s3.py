@@ -19,17 +19,17 @@ import os
 import sys
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from typing import NamedTuple
-from dataclasses import dataclass
 
 import boto3
 import botocore
 import tqdm
 
 from wintappy.config import get_config
-from wintappy.etlutils.utils import get_date_range, configure_basic_logging
+from wintappy.etlutils.utils import configure_basic_logging, get_date_range
 
 # Maximum number of open HTTP(s) connections
 MAX_POOL_CONNECTIONS = 50
@@ -38,12 +38,13 @@ MAX_WORKERS = 32
 # Maximum number of retries for failed downloads
 MAX_RETRIES = 3
 
+
 @dataclass
 class S3File:
     key: str
     filename: str
     s3_path: str
-    hostname: str 
+    hostname: str
     data_capture_ts: datetime
     uploadedDPK: str
     uploadedHPK: str
@@ -253,7 +254,6 @@ def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
     return files_metadata
 
 
-
 def main(argv=None):
     configure_basic_logging()
     parser = argparse.ArgumentParser(
@@ -261,14 +261,10 @@ def main(argv=None):
     )
     parser.add_argument("--profile", help="AWS profile to use")
     parser.add_argument("-b", "--bucket", help="The S3 bucket")
-    parser.add_argument(
-        "-p", "--prefix", help="S3 prefix within the bucket"
-    )
+    parser.add_argument("-p", "--prefix", help="S3 prefix within the bucket")
     parser.add_argument("-s", "--start", help="Start date (YYYYMMDD HH)")
     parser.add_argument("-e", "--end", help="End date (YYYYMMDD HH)")
-    parser.add_argument(
-        "-l", "--localpath", help="Local path to write files"
-    )
+    parser.add_argument("-l", "--localpath", help="Local path to write files")
     parser.add_argument(
         "--log-level", default="INFO", help="Logging Level: INFO, WARN, ERROR, DEBUG"
     )
@@ -277,7 +273,7 @@ def main(argv=None):
     # setup config based on env variables and config file
     args = get_config(options.config)
     # update config with CLI args
-    args.update({k:v for k,v in vars(options).items() if v is not None})
+    args.update({k: v for k, v in vars(options).items() if v is not None})
 
     try:
         logging.getLogger().setLevel(args.LOG_LEVEL)
@@ -290,9 +286,15 @@ def main(argv=None):
     else:
         session = boto3.Session()
     if args.AWS_REGION:
-        s3 = session.client("s3", config=botocore.client.Config(max_pool_connections=50), region_name=args.AWS_REGION)
+        s3 = session.client(
+            "s3",
+            config=botocore.client.Config(max_pool_connections=50),
+            region_name=args.AWS_REGION,
+        )
     else:
-        s3 = session.client("s3", config=botocore.client.Config(max_pool_connections=50))
+        s3 = session.client(
+            "s3", config=botocore.client.Config(max_pool_connections=50)
+        )
 
     files = sync_s3_local(session, args.LOCAL_PATH, args.BUCKET, args.PREFIX)
     files, folders = list_folders(s3, bucket=args.BUCKET, prefix=args.PREFIX)

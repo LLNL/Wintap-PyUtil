@@ -1,13 +1,16 @@
-from dynaconf import inspect_settings, settings, Dynaconf, Validator, ValidationError
 import logging
 import os
 
-WINTAP_CONFIG_FILE = 'wintappy_settings.toml'
+from dynaconf import Dynaconf, ValidationError, Validator, inspect_settings, settings
+
+WINTAP_CONFIG_FILE = "wintappy_settings.toml"
+
 
 def _get_config_path(config_path: str = "") -> str:
     if config_path:
         return f"{config_path}{os.sep}{WINTAP_CONFIG_FILE}"
     return WINTAP_CONFIG_FILE
+
 
 def get_config(config_path: str = "") -> Dynaconf:
     # setup config params
@@ -20,11 +23,16 @@ def get_config(config_path: str = "") -> Dynaconf:
             Validator("BUCKET", is_type_of=str),
             Validator("DATASET", is_type_of=str, default=os.getcwd()),
             Validator("LOCAL_PATH", is_type_of=str, default=os.getcwd()),
-            Validator("LOG_LEVEL", is_type_of=str, is_in=["INFO", "WARN", "ERROR", "DEBUG"], default="INFO"),
+            Validator(
+                "LOG_LEVEL",
+                is_type_of=str,
+                is_in=["INFO", "WARN", "ERROR", "DEBUG"],
+                default="INFO",
+            ),
             Validator("PREFIX", is_type_of=str),
             Validator("START", is_type_of=str, default=""),
             Validator("END", is_type_of=str, default=""),
-        ]
+        ],
     )
     # validate the configs
     try:
@@ -33,6 +41,7 @@ def get_config(config_path: str = "") -> Dynaconf:
         logging.error(e.details)
         raise e
     return config
+
 
 def print_config(config: Dynaconf) -> None:
     # print out overall config
