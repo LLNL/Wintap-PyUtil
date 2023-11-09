@@ -316,9 +316,6 @@ def main(argv=None) -> None:
 
     # Top level is event types
     event_types = folders
-
-    # Top level is event types
-    event_types = folders
     start_date, end_date = get_date_range(
         args.START, args.END, date_format="%Y%m%d %H", data_set_path=args.LOCAL_PATH
     )

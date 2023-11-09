@@ -219,8 +219,8 @@ def create_views(con, event_map):
             cursor.execute(sql)
         except duckdb.duckdb.IOException as e:
             logging.error(f"SQL Failed: {sql}", e)
-            logging.error("If the error is too many files open, try this on OSX:")
-            logging.error("ulimit -Sn 524288; ulimit -Hn 10485760")
+            logging.error('If the error is too many files open, try this on OSX:')
+            logging.error('ulimit -Sn 524288; ulimit -Hn 10485760')
             raise e
         finally:
             cursor.close()
