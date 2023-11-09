@@ -2,6 +2,7 @@ import heapq
 import logging
 import os
 from datetime import datetime, timedelta
+from typing import Tuple
 
 DEFAULT_DATE_RANGE_PATH = f"raw_sensor{os.sep}raw_process{os.sep}"
 
@@ -24,7 +25,7 @@ def get_date_range(
     end_date: str,
     date_format: str = "%Y%m%d",
     data_set_path: str = os.getcwd(),
-) -> (datetime, datetime):
+) -> Tuple[datetime, datetime]:
     start = None
     end = None
     if end_date:

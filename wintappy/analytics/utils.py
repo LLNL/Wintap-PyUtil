@@ -111,7 +111,7 @@ def run_against_day(
             )
         except CatalogException as err:
             # Don't include the stacktrace to keep the output succinct.
-            logging.error(f"{analytic.analytic_id}: {e.args}", stack_info=False)
+            logging.error(f"{analytic.analytic_id}: {err.args}", stack_info=False)
     return
 
 
