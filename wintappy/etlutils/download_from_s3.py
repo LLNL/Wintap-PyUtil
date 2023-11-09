@@ -319,7 +319,7 @@ def main(argv=None) -> None:
 
     # Top level is event types
     event_types = folders
-    start_date, end_date = get_date_range(args.START, args.END, "%Y%m%d %H")
+    start_date, end_date = get_date_range(args.START, args.END, date_format="%Y%m%d %H", data_set_path=args.LOCAL_PATH)
 
     logging.debug(f"start_date={start_date}; end_date={end_date}")
     for event_type in event_types:
