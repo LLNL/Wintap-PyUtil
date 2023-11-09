@@ -4,11 +4,11 @@ import re
 from collections import defaultdict
 from datetime import datetime
 from glob import glob
+from importlib.resources import files as resource_files
 
 import duckdb
 import pyarrow.parquet as pq
 from duckdb import CatalogException
-from importlib_resources import files
 from pyarrow.lib import ArrowInvalid
 
 
@@ -18,7 +18,7 @@ def init_db(dataset=None, agg_level="rolling", database=":memory:", lookups=""):
     """
     con = duckdb.connect(database=database)
     # TODO fix reference to SQL scripts
-    run_sql_no_args(con, files("wintappy.datautils").joinpath("initdb.sql"))
+    run_sql_no_args(con, resource_files("wintappy.datautils").joinpath("initdb.sql"))
     if not dataset == None:
         globs = get_glob_paths_for_dataset(dataset, agg_level, lookups=lookups)
         create_views(con, globs)
@@ -43,23 +43,25 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None, looku
         if include == None or fn.startswith(include)
     ]
     # optionally add lookup directory
-    if lookups != "":
+    if lookups is not None and lookups != "":
         for lookup in os.listdir(lookups):
             event_types.append(os.path.join(lookups, lookup))
     globs = defaultdict(set)
     for cur_event in event_types:
-        event_type = cur_event.split("/")[-1]
+        event_type = cur_event.split(os.sep)[-1]
         if os.path.isdir(cur_event):
             for dirpath, dirnames, filenames in os.walk(cur_event):
                 if not dirnames:
                     if dirpath == cur_event:
                         # No dir globs needed
-                        globs[event_type].add(f"{cur_event}/*.parquet")
+                        globs[event_type].add(f"{cur_event}{os.sep}*.parquet")
                     else:
                         # Remove the pre-fix, including event_type. Convert that to a glob.
                         subdir = dirpath.replace(cur_event, "")
-                        glob = "/".join(["*"] * subdir.count(os.path.sep))
-                        globs[event_type].add(f"{cur_event}/{glob}/*.parquet")
+                        glob = os.sep.join(["*"] * subdir.count(os.path.sep))
+                        globs[event_type].add(
+                            os.path.join(cur_event, glob, "*.parquet")
+                        )
                         logging.debug(
                             f"{event_type} {subdir} {glob} has 0 subdirectories and {len(filenames)} files"
                         )
@@ -117,7 +119,9 @@ def get_globs_for(dataset, daypk):
     globs = {}
     for event_type, pathspec in globs_all.items():
         # Add in the daypk filter
-        pathspec = pathspec.replace("/*/", f"/dayPK={daypk}/", 1)
+        pathspec = pathspec.replace(
+            f"{os.sep}*{os.sep}", f"{os.sep}dayPK={daypk}{os.sep}", 1
+        )
         num_files = len(glob(pathspec))
         if num_files == 0:
             logging.info(f"Not found: {pathspec}  Skipping")
@@ -309,10 +313,10 @@ def write_parquet(con, datasetpath, db_objects, daypk=None):
         logging.info(f"Writing {object_name}")
         try:
             if daypk == None:
-                pathspec = f"{datasetpath}/stdview"
+                pathspec = f"{datasetpath}{os.sep}stdview"
                 filename = f"{object_name}.parquet"
             else:
-                pathspec = f"{datasetpath}/rolling/{object_name}/dayPK={daypk}"
+                pathspec = f"{datasetpath}{os.sep}rolling{os.sep}{object_name}{os.sep}dayPK={daypk}"
                 filename = f"{object_name}-{daypk}.parquet"
             if not os.path.exists(pathspec):
                 os.makedirs(pathspec)
@@ -320,7 +324,7 @@ def write_parquet(con, datasetpath, db_objects, daypk=None):
             else:
                 logging.debug(f"folder already exists: {pathspec}")
             # TODO Add test for file existence
-            sql = f"COPY {object_name} TO '{pathspec}/{filename}' (FORMAT 'parquet')"
+            sql = f"COPY {object_name} TO '{pathspec}{os.sep}{filename}' (FORMAT 'parquet')"
             con.execute(sql)
         except duckdb.IOException as e:
             logging.exception(f"Failed to write: {object_name}")

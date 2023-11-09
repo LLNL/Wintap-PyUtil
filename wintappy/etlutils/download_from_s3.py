@@ -310,7 +310,7 @@ def main():
 
     start_date = datetime.strptime(args.start, "%Y%m%d %H")
     end_date = datetime.strptime(args.end, "%Y%m%d %H")
-
+    logging.debug(f"start_date={start_date}; end_date={end_date}")
     for event_type in event_types:
         logging.info(event_type.get("Prefix"))
         # Within an event type, iterate over date range by hour
@@ -318,6 +318,8 @@ def main():
         for single_date in hour_range(start_date, end_date):
             daypk = single_date.strftime("%Y%m%d")
             hourpk = single_date.strftime("%H")
+            logging.debug(f"daypk={daypk}; hourpk={hourpk}")
+
             prefix = (
                 f"{event_type.get('Prefix')}uploadedDPK={daypk}/uploadedHPK={hourpk}/"
             )
@@ -348,8 +350,10 @@ def main():
                 )
             else:
                 logging.debug(f"  {prefix} not in S3, skipping")
-        logging.info(f"   Downloading {len(files_md)}...")
-        download_files_threaded(args.bucket, s3, files_md)
+
+        if len(files_md) > 0:
+            logging.info(f"   Downloading {len(files_md)}...")
+            download_files_threaded(args.bucket, s3, files_md)
 
 
 if __name__ == "__main__":
