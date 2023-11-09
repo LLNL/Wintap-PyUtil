@@ -323,7 +323,7 @@ def main(argv=None) -> None:
         args.START, args.END, date_format="%Y%m%d %H", data_set_path=args.LOCAL_PATH
     )
 
-    logging.debug(f"start_date={start_date}; end_date={end_date}")
+    logging.info(f"Using time range: {start_date} -> {end_date}")
     for event_type in event_types:
         logging.info(event_type.get("Prefix"))
         # Within an event type, iterate over date range by hour
