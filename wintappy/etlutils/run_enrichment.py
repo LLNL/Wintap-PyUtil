@@ -13,6 +13,7 @@ from wintappy.database.constants import (
     ANALYTICS_RESULTS_TABLE,
     ANALYTICS_TABLE,
     LOOKUPS_DIR,
+    MITRE_DIR,
     TACTICS_TABLE,
     TECHNIQUES_TABLE,
 )
@@ -36,7 +37,7 @@ def add_enrichment_tables(
                 )
     # write out the tables
     manager.wintap_duckdb.write_table(
-        ANALYTICS_TABLE, location=f"{enrichment_location}/{LOOKUPS_DIR}"
+        ANALYTICS_TABLE, location=f"{enrichment_location}/{LOOKUPS_DIR}/{MITRE_DIR}"
     )
     # clear out results table that we just wrote out to the fs
     manager.wintap_duckdb.clear_table(ANALYTICS_TABLE)
@@ -79,7 +80,7 @@ def add_enrichment_tables(
         )
         # finally, write out the tables
         manager.wintap_duckdb.write_table(
-            table_name, location=f"{enrichment_location}/{LOOKUPS_DIR}"
+            table_name, location=f"{enrichment_location}/{LOOKUPS_DIR}/{MITRE_DIR}"
         )
     return
 
