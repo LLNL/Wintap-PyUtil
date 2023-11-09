@@ -1,5 +1,5 @@
-import logging
 import heapq
+import logging
 import os
 from datetime import datetime, timedelta
 
@@ -20,7 +20,10 @@ def daterange(start_date: datetime, end_date: datetime):
 
 
 def get_date_range(
-    start_date: str, end_date: str, date_format: str = "%Y%m%d", data_set_path: str = os.getcwd()
+    start_date: str,
+    end_date: str,
+    date_format: str = "%Y%m%d",
+    data_set_path: str = os.getcwd(),
 ) -> (datetime, datetime):
     start = None
     end = None
@@ -62,6 +65,6 @@ def latest_processed_datetime(data_set_path) -> datetime:
 
 def pk_sort(pk):
     if "=" in pk:
-        _, value = pk.split('=')
+        _, value = pk.split("=")
         return value
     return pk
