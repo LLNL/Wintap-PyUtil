@@ -168,7 +168,7 @@ def loadSqlStatements(file):
             curKey = line.strip().split()[-1]
             curStatement = line
         elif line.lower().startswith("update "):
-            # Add line number to be sure its unique
+            # Add line number to be sure its unique as there can be multiple UPDATEs per table
             curKey = f"{line.strip()}-{count}"
             curStatement = line
         else:
@@ -189,10 +189,18 @@ def generate_view_sql(event_map, start=None, end=None):
     # View Template
     stmts = []
     for event_type, pathspec in event_map.items():
-        view_sql = f"""
-        create or replace view {event_type} as
-        select * from parquet_scan('{pathspec}',hive_partitioning=1)
-        """
+        # Hack! Found that dups are in the raw tables, so remove them here using the GROUP BY ALL.
+        if "raw_" in event_type:
+            # Raw files *may* have differing schemas, so enable union'ing of all schemas.
+            view_sql = f"""
+            create or replace view {event_type} as
+            select *, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
+            """
+        else:
+            view_sql = f"""
+            create or replace view {event_type} as
+            select * from parquet_scan('{pathspec}',hive_partitioning=1)
+            """
         if start != None and end != None:
             stmt += f"where dayPK between {start} and {end}"
         if start != None and end == None:
@@ -207,8 +215,15 @@ def create_views(con, event_map):
     stmts = generate_view_sql(event_map)
     for sql in stmts:
         cursor = con.cursor()
-        cursor.execute(sql)
-        cursor.close()
+        try:
+            cursor.execute(sql)
+        except duckdb.duckdb.IOException as e:
+            logging.error(f"SQL Failed: {sql}", e)
+            logging.error('If the error is too many files open, try this on OSX:')
+            logging.error('ulimit -Sn 524288; ulimit -Hn 10485760')
+            raise e
+        finally:
+            cursor.close()
 
 
 def create_raw_views(con, raw_data, start=None, end=None):
@@ -267,7 +282,7 @@ def create_empty_process_stop(con):
 def run_sql_no_args(con, sqlfile):
     """
     Execute all SQL statements in the file without binding any parameters.
-    Format should SQL delimited with semi-colons. Comments are allowed SQL
+    Format should be SQL statements (DDL) delimited with semi-colons. Comments are allowed SQL
     style:
        -- for single line
        /*

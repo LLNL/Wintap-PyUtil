@@ -59,8 +59,7 @@ SELECT hostname,
            WHEN privategateway='' THEN NULL
            ELSE privategateway
        END private_gateway,
-       int_to_ip(cast(ipaddr
-AS bigint)) ip_addr_no,
+       int_to_ip(cast(ipaddr AS bigint)) ip_addr_no,
        CASE
            WHEN mac='' THEN NULL
            ELSE mac
@@ -124,7 +123,7 @@ SELECT p.pidhash pid_hash, -- osfamily will eventually come back as a partition 
              END) file_sha2,
        count(DISTINCT p.filesha2) num_file_sha2,
        min(CASE
-               WHEN p.activitytype IN ('START', 'POLLED') THEN win32_to_epoch(p.EventTime)
+               WHEN upper(p.activitytype) IN ('START', 'REFRESH') THEN win32_to_epoch(p.EventTime)
                ELSE NULL
            END) process_started_seconds,
        to_timestamp_micros(process_started_seconds) process_started,
@@ -176,8 +175,7 @@ LEFT OUTER JOIN
           max(tokenelevationtype) token_elevation_type,
           max(exitcode) exit_code,
           count(*) num_process_stop
-   FROM raw_process_stop --	WHERE dayPk=20221227
-
+   FROM raw_process_stop
    GROUP BY pidhash) s ON p.pid_hash = s.pidhash
 ;
 
@@ -467,8 +465,8 @@ SELECT computername hostname,
  min(imagesize) min_image_size,
  max(imagesize) max_image_size,
  count(DISTINCT imagesize) num_image_size,
- sum(if(activitytype='Load', 1, 0)) num_load,
- sum(if(activitytype='Unload', 1, 0)) num_unload,
+ sum(if(upper(activitytype)='LOAD', 1, 0)) num_load,
+ sum(if(upper(activitytype)='UNLOAD', 1, 0)) num_unload,
  to_timestamp_micros(win32_to_epoch(min(eventtime))) first_seen,
  to_timestamp_micros(win32_to_epoch(max(eventtime))) last_seen
 FROM raw_imageload

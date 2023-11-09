@@ -115,7 +115,7 @@ def init_db(con, bucket_size="30 minutes"):
     # Create a macro (function) that will create the time bins.
     # To do: derive the intertotal_size based on the dataset time range and the desired target number of data points. The data points size directly affects performance of the chart. Too fine-grained isn't generally useful.
     con.execute(
-        f"create or replace macro tb(wts) as time_bucket(interval '{bucket_size}', to_timestamp_micros(win32_to_epoch(wts)))"
+        f"create or replace macro tb(wts) as time_bucket(interval '{bucket_size}', cast(to_timestamp_micros(win32_to_epoch(wts)) as timestamp))"
     )
     create_event_summary_view(con)
 
