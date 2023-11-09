@@ -18,8 +18,8 @@ def get_config(config_path: str = "") -> Dynaconf:
         envvar_prefix="WINTAPPY",
         settings_files=[_get_config_path(config_path)],
         validators=[
-            Validator("AWS_PROFILE", is_type_of=str),
-            Validator("AWS_REGION", is_type_of=str),
+            Validator("AWS_PROFILE", is_type_of=str, default=""),
+            Validator("AWS_REGION", is_type_of=str, default=""),
             Validator("BUCKET", is_type_of=str),
             Validator("DATASET", is_type_of=str, default=os.getcwd()),
             Validator("LOCAL_PATH", is_type_of=str, default=os.getcwd()),

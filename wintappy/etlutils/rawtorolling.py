@@ -37,7 +37,6 @@ def main(argv=None) -> None:
     parser.add_argument(
         "-l",
         "--log-level",
-        default="INFO",
         help="Logging Level: INFO, WARN, ERROR, DEBUG",
     )
     options, _ = parser.parse_known_args(argv)

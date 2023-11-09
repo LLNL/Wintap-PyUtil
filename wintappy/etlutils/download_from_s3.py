@@ -22,13 +22,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from functools import partial
-from typing import NamedTuple
 
 import boto3
 import botocore
 import tqdm
 
-from wintappy.config import get_config
+from wintappy.config import get_config, print_config
 from wintappy.etlutils.utils import configure_basic_logging, get_date_range
 
 # Maximum number of open HTTP(s) connections
@@ -213,7 +212,6 @@ def parse_filename(filename):
     return hostname, data_capture_epoch
 
 
-
 def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
     """
     Parse metadata from S3. This will be used for generating the correct path to write to.
@@ -270,20 +268,19 @@ def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
     return files_metadata
 
 
-def main(argv=None):
+def main(argv=None) -> None:
     configure_basic_logging()
     parser = argparse.ArgumentParser(
         prog="downloadFromS3.py", description="Download Wintap files from S3"
     )
     parser.add_argument("--profile", help="AWS profile to use")
     parser.add_argument("-b", "--bucket", help="The S3 bucket")
+    parser.add_argument("-c", "--config", help="Path to config file")
     parser.add_argument("-p", "--prefix", help="S3 prefix within the bucket")
     parser.add_argument("-s", "--start", help="Start date (YYYYMMDD HH)")
     parser.add_argument("-e", "--end", help="End date (YYYYMMDD HH)")
     parser.add_argument("-l", "--localpath", help="Local path to write files")
-    parser.add_argument(
-        "--log-level", default="INFO", help="Logging Level: INFO, WARN, ERROR, DEBUG"
-    )
+    parser.add_argument("--log-level", help="Logging Level: INFO, WARN, ERROR, DEBUG")
     options, _ = parser.parse_known_args(argv)
 
     # setup config based on env variables and config file
@@ -296,6 +293,8 @@ def main(argv=None):
     except ValueError:
         logging.error("Invalid log level: {}".format(args.LOG_LEVEL))
         sys.exit(1)
+
+    print_config(args)
 
     if args.AWS_PROFILE:
         session = boto3.Session(profile_name=args.AWS_PROFILE)
@@ -312,8 +311,11 @@ def main(argv=None):
             "s3", config=botocore.client.Config(max_pool_connections=50)
         )
 
-    files = sync_s3_local(session, args.LOCAL_PATH, args.BUCKET, args.PREFIX)
-    files, folders = list_folders(s3, bucket=args.BUCKET, prefix=args.PREFIX)
+    top_level_prefix = args.PREFIX if args.PREFIX.endswith("/") else f"{args.PREFIX}/"
+    files, folders = list_folders(s3, bucket=args.BUCKET, prefix=top_level_prefix)
+
+    # Top level is event types
+    event_types = folders
 
     # Top level is event types
     event_types = folders
@@ -330,25 +332,25 @@ def main(argv=None):
             logging.debug(f"daypk={daypk}; hourpk={hourpk}")
 
             prefix = (
-                f"{event_type.get('Prefix')}uploadedDPK={daypk}/uploadedHPK={hourpk}/"
+                f"{event_type.get('Prefix')}/uploadedDPK={daypk}/uploadedHPK={hourpk}/"
             )
             # Optimization: many event types are sparsely populated, so enumerate the dayPK/hourPK structure, then just get files from the ones that exist.
             files_tmp, existing_S3_paths = list_folders(
                 s3,
-                bucket=args.bucket,
+                bucket=args.BUCKET,
                 prefix=f"{event_type.get('Prefix')}uploadedDPK={daypk}/",
             )
             # list_folders returns a JSON list. Extract the paths as a simple string list
             existing_S3_paths = [x.get("Prefix") for x in existing_S3_paths]
             if prefix in existing_S3_paths:
-                files, folders = list_files(s3, bucket=args.bucket, prefix=prefix)
+                files, folders = list_files(s3, bucket=args.BUCKET, prefix=prefix)
                 if len(files) > 0 or len(folders) > 0:
                     logging.debug(f"  {prefix}")
                     logging.debug(f"    Files: {len(files)}  Folders: {len(folders)}")
                     files_md.extend(
                         parse_s3_metadata(
                             files,
-                            args.localpath,
+                            args.LOCAL_PATH,
                             daypk,
                             hourpk,
                             event_type.get("Prefix").split("/")[2],
@@ -362,7 +364,7 @@ def main(argv=None):
 
         if len(files_md) > 0:
             logging.info(f"   Downloading {len(files_md)}...")
-            download_files_threaded(args.bucket, s3, files_md)
+            download_files_threaded(args.BUCKET, s3, files_md)
 
 
 if __name__ == "__main__":

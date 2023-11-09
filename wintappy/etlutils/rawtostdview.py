@@ -3,36 +3,40 @@ import logging
 import sys
 from importlib.resources import files as resource_files
 
+from wintappy.config import get_config
 from wintappy.datautils import rawutil as ru
+from wintappy.etlutils.utils import configure_basic_logging
 
 
-def main():
+def main(argv=None):
+    configure_basic_logging()
     parser = argparse.ArgumentParser(
         prog="rawtostdview.py",
         description="Convert raw Wintap data into standard form, no partitioning",
     )
+    parser.add_argument("-c", "--config", help="Path to config file")
     parser.add_argument("-d", "--dataset", help="Path to the dataset dir to process")
     parser.add_argument("-s", "--start", help="Start date (YYYYMMDD)")
     parser.add_argument("-e", "--end", help="End date (YYYYMMDD)")
     parser.add_argument(
         "-l",
         "--log-level",
-        default="INFO",
         help="Logging Level: INFO, WARN, ERROR, DEBUG",
     )
-    args = parser.parse_args()
+    options, _ = parser.parse_known_args(argv)
+
+    # setup config based on env variables and config file
+    args = get_config(options.config)
+    # update config with CLI args
+    args.update({k: v for k, v in vars(options).items() if v is not None})
 
     try:
-        logging.basicConfig(
-            level=args.log_level,
-            format="%(asctime)s %(message)s",
-            datefmt="%m/%d/%Y %I:%M:%S %p",
-        )
+        logging.getLogger().setLevel(args.LOG_LEVEL)
     except ValueError:
-        logging.error(f"Invalid log level: {args.log_level}")
+        logging.error(f"Invalid log level: {args.LOG_LEVEL}")
         sys.exit(1)
 
-    cur_dataset = args.dataset
+    cur_dataset = args.DATASET
 
     con = ru.init_db()
     globs = ru.get_glob_paths_for_dataset(cur_dataset, subdir="rolling", include="raw_")
@@ -44,4 +48,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(argv=None)
