@@ -123,7 +123,7 @@ def init_db(con, bucket_size="30 minutes"):
 def duckdb_table_metadata(con):
     # Ignore objects ending in _v1 as they are likely complex view and can be expensive to count.
     tablesDF = con.execute(
-        "select table_name from information_schema.tables where table_name not like '%_v1' order by all"
+        "select table_name from information_schema.tables where table_name not like '%_v1' and table_name IN ( select table_name from information_schema.columns WHERE column_name = 'dayPK' ) order by all"
     ).df()
     tables = tablesDF["table_name"].tolist()
     template = """
