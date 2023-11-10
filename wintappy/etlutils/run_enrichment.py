@@ -8,15 +8,17 @@ import fsspec
 
 from wintappy.analytics.constants import TACTIC_STIX_TYPE, TECHNIQUE_STIX_TYPE
 from wintappy.analytics.utils import load_attack_metadata, run_against_day
+from wintappy.config import get_config, print_config
 from wintappy.database.constants import (
     ANALYTICS_RESULTS_TABLE,
     ANALYTICS_TABLE,
     LOOKUPS_DIR,
+    MITRE_DIR,
     TACTICS_TABLE,
     TECHNIQUES_TABLE,
 )
 from wintappy.etlutils.transformer_manager import TransformerManager
-from wintappy.etlutils.utils import daterange
+from wintappy.etlutils.utils import configure_basic_logging, daterange, get_date_range
 
 
 def add_enrichment_tables(
@@ -35,7 +37,7 @@ def add_enrichment_tables(
                 )
     # write out the tables
     manager.wintap_duckdb.write_table(
-        ANALYTICS_TABLE, location=f"{enrichment_location}/{LOOKUPS_DIR}"
+        ANALYTICS_TABLE, location=f"{enrichment_location}/{LOOKUPS_DIR}/{MITRE_DIR}"
     )
     # clear out results table that we just wrote out to the fs
     manager.wintap_duckdb.clear_table(ANALYTICS_TABLE)
@@ -78,7 +80,7 @@ def add_enrichment_tables(
         )
         # finally, write out the tables
         manager.wintap_duckdb.write_table(
-            table_name, location=f"{enrichment_location}/{LOOKUPS_DIR}"
+            table_name, location=f"{enrichment_location}/{LOOKUPS_DIR}/{MITRE_DIR}"
         )
     return
 
@@ -104,51 +106,49 @@ def process_range(
     return
 
 
-def main():
+def main(argv=None):
+    configure_basic_logging()
     parser = argparse.ArgumentParser(
         prog="run_enrichment.py",
         description="Run enrichements against wintap data, write out results partitioned by day",
     )
-    parser.add_argument(
-        "-d", "--dataset", help="Path to the dataset dir to process", required=True
-    )
-    parser.add_argument("-s", "--start", help="Start date (YYYYMMDD)", required=True)
-    parser.add_argument("-e", "--end", help="End date (YYYYMMDD)", required=True)
+    parser.add_argument("-c", "--config", help="Path to config file")
+    parser.add_argument("-d", "--dataset", help="Path to the dataset dir to process")
+    parser.add_argument("-s", "--start", help="Start date (YYYYMMDD)")
+    parser.add_argument("-e", "--end", help="End date (YYYYMMDD)")
     parser.add_argument(
         "-E",
         "--populate-enrichment-tables",
         help="Add enrichment tables to the specified path",
-        required=False,
+        default="",
     )
     parser.add_argument(
         "-l",
         "--log-level",
-        default="INFO",
         help="Logging Level: INFO, WARN, ERROR, DEBUG",
     )
-    args = parser.parse_args()
+    options, _ = parser.parse_known_args(argv)
 
+    # setup config based on env variables and config file
+    args = get_config(options.config)
+    # update config with CLI args
+    args.update({k: v for k, v in vars(options).items() if v is not None})
     try:
-        logging.getLogger().setLevel(args.log_level)
-        logging.getLogger().handlers[0].setFormatter(
-            logging.Formatter("%(asctime)s %(message)s", datefmt="%m/%d/%Y %I:%M:%S %p")
-        )
+        logging.getLogger().setLevel(args.LOG_LEVEL)
     except ValueError:
-        logging.error(f"Invalid log level: {args.log_level}")
+        logging.error(f"Invalid log level: {args.LOG_LEVEL}")
         sys.exit(1)
+    print_config(args)
 
-    cur_dataset = args.dataset
+    manager = TransformerManager(current_dataset=args.DATASET)
 
-    manager = TransformerManager(current_dataset=cur_dataset)
-
-    start_date = datetime.strptime(args.start, "%Y%m%d")
-    end_date = datetime.strptime(args.end, "%Y%m%d")
+    start_date, end_date = get_date_range(args.START, args.END)
 
     process_range(manager, start_date, end_date)
 
-    if args.populate_enrichment_tables:
-        add_enrichment_tables(manager, args.populate_enrichment_tables)
+    if args.POPULATE_ENRICHMENT_TABLES:
+        add_enrichment_tables(manager, args.POPULATE_ENRICHMENT_TABLES)
 
 
 if __name__ == "__main__":
-    main()
+    main(argv=None)

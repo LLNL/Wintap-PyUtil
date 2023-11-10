@@ -1,0 +1,24 @@
+# This is an example wintappy_settings.toml file, which can be used to specify
+# commandline args that are used with the various commandline tools. Rename this file
+# to wintappy_settings.toml, uncomment and configure your options
+
+# the aws profile to use for aws commands
+# aws_profile = "default"
+
+# the aws region to use, if you want to override the environment
+# aws_region = "us-west-2"
+
+# bucket that contains the bucket data
+# bucket = "my-example-bucket"
+
+# local path to the dataset you are working with
+# dataset = "sample_data"
+
+# specify the local path where s3 data should be placed during download
+# local_path = "path_to_copy_to_from_s3"
+
+# change the log level, can be one of: ["INFO", "WARN", "ERROR", "DEBUG"]
+# log_level = "DEBUG"
+
+# prefix specifies the top level prefix in s3 that contains ALL the wintap data
+# prefix = "v3/raw_sensor"

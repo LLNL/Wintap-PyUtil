@@ -4,6 +4,7 @@ install_requires = [
     "altair",
     "boto3",
     "duckdb",
+    "dynaconf",
     "fsspec",
     "gitpython",
     "humanfriendly",

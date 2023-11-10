@@ -64,3 +64,6 @@ wintappy/examples/*.db
 # Dev Tools
 .mypy_cache/
 .pytest_cache/
+
+# Ignore dynaconf secret files
+.secrets.*

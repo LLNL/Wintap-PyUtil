@@ -6,6 +6,7 @@ verify_ssl = true
 [dev-packages]
 black = {version = "*", extras = ["jupyter"]}
 isort = "*"
+ipykernel = "*"
 mypy = "*"
 nbstripout = "*"
 pytest = "*"
@@ -16,6 +17,7 @@ types-pyyaml = "*"
 altair = "*"
 boto3 = "*"
 duckdb = "*"
+dynaconf = "*"
 fsspec = "*"
 humanfriendly = "*"
 importlib_resources = "*"

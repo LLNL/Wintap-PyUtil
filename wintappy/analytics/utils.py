@@ -4,8 +4,8 @@ import shutil
 import tempfile
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from duckdb import CatalogException
 
+import fsspec
 import git
 import yaml
 from duckdb import CatalogException
@@ -16,9 +16,12 @@ from ..database.constants import ANALYTICS_RESULTS_TABLE
 from ..database.wintap_duckdb import WintapDuckDB
 from .constants import (
     ANALYTICS_DIR,
-    ATTACK_STIX_REPO_URL,
-    CAR_REPO_URL,
+    ATTACK_STIX_REPO_NAME,
+    ATTACK_STIX_REPO_OWNER,
+    CAR_REPO_NAME,
+    CAR_REPO_OWNER,
     COVERAGE,
+    ENTERPRISE_DIRECTORY,
     ID,
     LATEST_ENTERPRISE_DEFINITION,
 )
@@ -62,13 +65,14 @@ def load_car_analtyic_metadata() -> Dict[str, Dict[str, Any]]:
     # list to hold analytic data
     analytics = {}
     # create temporary dir
-    tmp_dir = tempfile.mkdtemp()
+    tmp_dir = f"{tempfile.mkdtemp()}{os.sep}{ANALYTICS_DIR}"
     # clone car data into the temporary dir
-    git.Repo.clone_from(CAR_REPO_URL, tmp_dir, branch="master", depth=1)
+    fs = fsspec.filesystem("github", org=CAR_REPO_OWNER, repo=CAR_REPO_NAME)
+    fs.get(fs.ls(ANALYTICS_DIR), tmp_dir)
     # load yaml files into list of dictionaries
-    for f in os.scandir(f"{tmp_dir}/{ANALYTICS_DIR}"):
+    for f in os.scandir(tmp_dir):
         if f.is_file() and f.name.endswith("yaml"):
-            with open(f.path, "r") as single:
+            with open(f.path, "r", encoding="utf-8") as single:
                 try:
                     raw_yaml = yaml.safe_load(single)
                     analytics[raw_yaml[ID]] = raw_yaml
@@ -114,12 +118,14 @@ def run_against_day(
 ## MITRE ATT&CK utils
 def load_attack_metadata() -> MitreAttackData:
     # create temporary dir
-    tmp_dir = tempfile.mkdtemp()
+    tmp_dir = f"{tempfile.mkdtemp()}{os.sep}{ENTERPRISE_DIRECTORY}"
     # clone attack data into the temporary dir
-    git.Repo.clone_from(ATTACK_STIX_REPO_URL, tmp_dir, branch="master", depth=1)
-    path = f"{tmp_dir}/{LATEST_ENTERPRISE_DEFINITION}"
+    fs = fsspec.filesystem(
+        "github", org=ATTACK_STIX_REPO_OWNER, repo=ATTACK_STIX_REPO_NAME
+    )
+    fs.get(fs.ls(ENTERPRISE_DIRECTORY), tmp_dir)
     # load matrix stiix data
-    data = MitreAttackData(path)
+    data = MitreAttackData(f"{tmp_dir}{os.sep}{LATEST_ENTERPRISE_DEFINITION}")
     # remove temporary dir
     shutil.rmtree(tmp_dir)
     return data
