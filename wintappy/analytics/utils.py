@@ -61,7 +61,7 @@ def download_one_file(fs: Any, target: str, filename: str) -> None:
     fs.get(filename, f"{target}{os.sep}{filename}")
 
 
-def get_files(fs: Any, target: str, filenames: List[str], retry_attempt: int = 0):
+def get_files(fs: Any, target: str, filenames: List[str], retry_attempt: int = 0) -> None:
     """
     Get files from fsspec filesystem into the provided target path.
     Multi-threaded, TQDM progress output.

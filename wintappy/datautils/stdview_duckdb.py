@@ -120,33 +120,43 @@ def init_db(con, bucket_size="30 minutes"):
     create_event_summary_view(con)
 
 
-def duckdb_table_metadata(con):
+def duckdb_table_metadata(con, include_paritioned_data=True):
     # Ignore objects ending in _v1 as they are likely complex view and can be expensive to count.
+    in_clause = "IN" if include_paritioned_data else "NOT IN"
     tablesDF = con.execute(
-        "select table_name from information_schema.tables where table_name not like '%_v1' and table_name IN ( select table_name from information_schema.columns WHERE column_name = 'dayPK' ) order by all"
+        f"select table_name from information_schema.tables where table_name not like '%_v1' and table_name {in_clause} ( select table_name from information_schema.columns WHERE column_name = 'dayPK' ) order by all"
     ).df()
     tables = tablesDF["table_name"].tolist()
-    template = """
-    {%- for table in tables %}
-    SELECT '{{table}}' as Table_Name, min(daypk) Min_DayPK, max(daypk) Max_DayPK, count(*) as Num_Rows
-    FROM {{table}}
-    {% if not loop.last %}UNION{% endif %}
-    {%- endfor %}
-    ORDER BY table_name
-    """
+    if include_paritioned_data:
+        template = """
+        {%- for table in tables %}
+        SELECT '{{table}}' as Table_Name, min(daypk) Min_DayPK, max(daypk) Max_DayPK, count(*) as Num_Rows
+        FROM {{table}}
+        {% if not loop.last %}UNION{% endif %}
+        {%- endfor %}
+        ORDER BY table_name
+        """
+    else:
+        template = """
+        {%- for table in tables %}
+        SELECT '{{table}}' as Table_Name, count(*) as Num_Rows
+        FROM {{table}}
+        {% if not loop.last %}UNION{% endif %}
+        {%- endfor %}
+        ORDER BY table_name
+        """
 
     sql = Template(template).render(tables=tables)
     logging.debug(f"Generated sql: {sql}")
     return con.execute(sql).df()
 
 
-def table_summary(con, dataset, agg_level="rolling"):
+def table_summary(con, dataset, lookups="", agg_level="rolling", include_paritioned_data=True):
     """
     Get the list of tables defined in duckdb, then add sizes for the associated parquet files.
     """
-    tablesDF = duckdb_table_metadata(con)
-
-    globs = ru.get_glob_paths_for_dataset(dataset, agg_level)
+    tablesDF = duckdb_table_metadata(con, include_paritioned_data)
+    globs = ru.get_glob_paths_for_dataset(dataset, agg_level, lookups=lookups)
     for event, glob in globs.items():
         cur_size = cur_files = 0
         for file in iglob(glob):
