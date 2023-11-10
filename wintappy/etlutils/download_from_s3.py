@@ -331,7 +331,9 @@ def main(argv=None) -> None:
             logging.debug(f"daypk={daypk}; hourpk={hourpk}")
 
             # Note: 'Prefix' has a trailing slash already.
-            prefix = f"{event_type.get('Prefix')}uploadedDPK={daypk}/uploadedHPK={hourpk}/"
+            prefix = (
+                f"{event_type.get('Prefix')}uploadedDPK={daypk}/uploadedHPK={hourpk}/"
+            )
 
             # Optimization: many event types are sparsely populated, so enumerate the dayPK/hourPK structure, then just get files from the ones that exist.
             files_tmp, existing_S3_paths = list_folders(

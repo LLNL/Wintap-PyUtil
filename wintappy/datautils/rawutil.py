@@ -45,7 +45,7 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None, looku
     # optionally add lookup directory
     for path, _, files in os.walk(lookups):
         for name in files:
-            if name.endswith('.parquet'):
+            if name.endswith(".parquet"):
                 event_types.append(os.path.join(path, name))
     globs = defaultdict(set)
     for cur_event in event_types:
