@@ -1,0 +1,7 @@
+Raw to rolling processing uses views on the immutable raw files to write to tables in the rolling path. As this MITRE processing is an enrichment based on the rolling data, it should be run after the rolling data processing for a day is complete and will write to new table(s). Subsequent analytic consumers will use views as the data is considered immutable once created. Caveat: any late arriving sensor data or updates to the enrichment data sources (MITRE) should "trigger" a rebuild of the rolling data.
+
+Views versus tables in rawutil.init_db(): the "raw" path is treated as read-only, with the exception of adding more files from sensors. All raw data from sensors is treated as immutable. 
+
+The "rolling" path is the raw data transformed/aggregated/enriched into a standard base data model that analysts can use as a starting point. Rolling is partitioned by day, with the intent that once a full day of raw has been collected, all processing can occur to produce that days "cooked" result.  
+
+SQL style note: the "AS [column name]" clause is only required when you're changing the column name. Is this something SQLFluff was complaining about? Either way is fine, but easier to leave it off when there are many columns.

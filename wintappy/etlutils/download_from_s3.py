@@ -322,7 +322,7 @@ def main(argv=None) -> None:
 
     logging.info(f"Using time range: {start_date} -> {end_date}")
     for event_type in event_types:
-        logging.info(event_type.get("Prefix"))
+        logging.info(f'S3 EventType Prefix: {event_type.get("Prefix")}')
         # Within an event type, iterate over date range by hour
         files_md = []
         for single_date in hour_range(start_date, end_date):
@@ -330,9 +330,9 @@ def main(argv=None) -> None:
             hourpk = single_date.strftime("%H")
             logging.debug(f"daypk={daypk}; hourpk={hourpk}")
 
-            prefix = (
-                f"{event_type.get('Prefix')}/uploadedDPK={daypk}/uploadedHPK={hourpk}/"
-            )
+            # Note: 'Prefix' has a trailing slash already.
+            prefix = f"{event_type.get('Prefix')}uploadedDPK={daypk}/uploadedHPK={hourpk}/"
+
             # Optimization: many event types are sparsely populated, so enumerate the dayPK/hourPK structure, then just get files from the ones that exist.
             files_tmp, existing_S3_paths = list_folders(
                 s3,
