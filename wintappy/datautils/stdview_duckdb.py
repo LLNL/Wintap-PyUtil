@@ -151,7 +151,9 @@ def duckdb_table_metadata(con, include_paritioned_data=True):
     return con.execute(sql).df()
 
 
-def table_summary(con, dataset, lookups="", agg_level="rolling", include_paritioned_data=True):
+def table_summary(
+    con, dataset, lookups="", agg_level="rolling", include_paritioned_data=True
+):
     """
     Get the list of tables defined in duckdb, then add sizes for the associated parquet files.
     """
