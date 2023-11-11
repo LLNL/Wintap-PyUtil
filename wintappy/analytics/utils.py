@@ -2,11 +2,12 @@ import logging
 import os
 import shutil
 import tempfile
-from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 from typing import Any, Dict, List, Optional
 
 import fsspec
-import git
+import tqdm
 import yaml
 from duckdb import CatalogException
 from jinja2 import Environment
@@ -28,6 +29,10 @@ from .constants import (
 from .query_analytic import MITRE_CAR_TYPE, MitreAttackCoverage, QueryAnalytic
 
 MITRE_CAR_PATH = "mitre_car"
+# Maximum fsspec.get threads
+MAX_WORKERS = 32
+# Maximum number of retries for failed fsspec.get
+MAX_RETRIES = 3
 
 
 def convert_analytic_to_sql_filename(raw_id: str) -> str:
@@ -43,6 +48,54 @@ def convert_id_to_filename(raw_id: str, filetype: str) -> str:
 
 
 ## Analytics Helpers
+
+
+def download_one_file(fs: Any, target: str, filename: str) -> None:
+    """
+    Get a single file from fsspec filesystem
+    Args:
+        fs (Any): filesystem instance
+        filename (str): filename to download
+        tmp_dir (str): target directory to copy to
+    """
+    fs.get(filename, f"{target}{os.sep}{filename}")
+
+
+def get_files(
+    fs: Any, target: str, filenames: List[str], retry_attempt: int = 0
+) -> None:
+    """
+    Get files from fsspec filesystem into the provided target path.
+    Multi-threaded, TQDM progress output.
+    """
+
+    # The fs client and target is shared between threads
+    func = partial(download_one_file, fs, target)
+
+    # List for storing possible failed gets
+    failed_downloads = []
+
+    with tqdm.tqdm(desc="Getting files from filesystem", total=len(filenames)) as pbar:
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            # Using a dict for preserving the file for each future, to store it as a failure if we need that
+            futures = {
+                executor.submit(func, filename): filename for filename in filenames
+            }
+            for future in as_completed(futures):
+                if future.exception():
+                    failed_downloads.append(futures[future])
+                    logging.error(future.exception())
+                pbar.update(1)
+    if len(failed_downloads) > 0:
+        if retry_attempt < MAX_RETRIES:
+            logging.warning(
+                f"  {len(failed_downloads)} downloads have failed. Retrying."
+            )
+            get_files(fs, target, failed_downloads, retry_attempt + 1)
+        else:
+            logging.warning(
+                f"  {len(failed_downloads)} files have failed. Writing to CSV."
+            )
 
 
 def load_single(analytic_id: str) -> Optional[QueryAnalytic]:
@@ -68,7 +121,7 @@ def load_car_analtyic_metadata() -> Dict[str, Dict[str, Any]]:
     tmp_dir = f"{tempfile.mkdtemp()}{os.sep}{ANALYTICS_DIR}"
     # clone car data into the temporary dir
     fs = fsspec.filesystem("github", org=CAR_REPO_OWNER, repo=CAR_REPO_NAME)
-    fs.get(fs.ls(ANALYTICS_DIR), tmp_dir)
+    get_files(fs, tmp_dir, fs.ls(ANALYTICS_DIR))
     # load yaml files into list of dictionaries
     for f in os.scandir(tmp_dir):
         if f.is_file() and f.name.endswith("yaml"):
@@ -118,14 +171,16 @@ def run_against_day(
 ## MITRE ATT&CK utils
 def load_attack_metadata() -> MitreAttackData:
     # create temporary dir
-    tmp_dir = f"{tempfile.mkdtemp()}{os.sep}{ENTERPRISE_DIRECTORY}"
+    tmp_dir = f"{tempfile.mkdtemp()}"
     # clone attack data into the temporary dir
     fs = fsspec.filesystem(
         "github", org=ATTACK_STIX_REPO_OWNER, repo=ATTACK_STIX_REPO_NAME
     )
-    fs.get(fs.ls(ENTERPRISE_DIRECTORY), tmp_dir)
+    get_files(fs, tmp_dir, fs.ls(ENTERPRISE_DIRECTORY))
     # load matrix stiix data
-    data = MitreAttackData(f"{tmp_dir}{os.sep}{LATEST_ENTERPRISE_DEFINITION}")
+    data = MitreAttackData(
+        f"{tmp_dir}{os.sep}{ENTERPRISE_DIRECTORY}{os.sep}{LATEST_ENTERPRISE_DEFINITION}"
+    )
     # remove temporary dir
     shutil.rmtree(tmp_dir)
     return data
