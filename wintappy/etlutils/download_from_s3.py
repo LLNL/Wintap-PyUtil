@@ -222,6 +222,16 @@ def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
         new_event_type = event_type
     else:
         new_event_type = "raw_" + event_type
+
+    # Modify some event names to what SQL expects
+    # To Do: Fix this in Wintap
+    if new_event_type=='raw_file':
+        new_event_type='raw_process_file'
+    if new_event_type=='raw_registry':
+        new_event_type='raw_process_registry'
+    if new_event_type=='raw_processstop':
+        new_event_type='raw_process_stop'
+         
     files_metadata = []
     back_dated = {}
     for file in files:
@@ -330,10 +340,8 @@ def main(argv=None) -> None:
             hourpk = single_date.strftime("%H")
             logging.debug(f"daypk={daypk}; hourpk={hourpk}")
 
-            # Note: 'Prefix' has a trailing slash already.
-            prefix = (
-                f"{event_type.get('Prefix')}uploadedDPK={daypk}/uploadedHPK={hourpk}/"
-            )
+            # Note: 'Prefix' includes a trailing slash.
+            prefix = f"{event_type.get('Prefix')}uploadedDPK={daypk}/uploadedHPK={hourpk}/"
 
             # Optimization: many event types are sparsely populated, so enumerate the dayPK/hourPK structure, then just get files from the ones that exist.
             files_tmp, existing_S3_paths = list_folders(
