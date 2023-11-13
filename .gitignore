@@ -65,5 +65,18 @@ wintappy/examples/*.db
 .mypy_cache/
 .pytest_cache/
 
+# Emacs files
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
 # Ignore dynaconf secret files
 .secrets.*
+
+# Local config file
+wintappy_settings.toml
