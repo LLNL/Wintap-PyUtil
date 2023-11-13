@@ -187,6 +187,7 @@ AS
 SELECT 'windows' os_family,
                  hostname hostname,
                  pidhash pid_hash,
+                 processname process_name,
                  connid conn_id,
                  protocol protocol, -- Calculate a time range for grouping. Starting with 1 minute.
  -- Can't use the UDF in a view, so here's the direct version:
@@ -317,6 +318,7 @@ AS
 SELECT os_family,
        hostname,
        pid_hash,
+       process_name,
        conn_id,
        protocol,
        local_ip_addr,
@@ -359,6 +361,7 @@ CREATE TABLE IF NOT EXISTS process_net_summary
 AS
 SELECT os_family,
        pid_hash,
+       process_name,
        hostname,
        count(DISTINCT conn_id) conn_id_count,
        sum(total_events) net_total_events,
@@ -410,6 +413,7 @@ CREATE TABLE IF NOT EXISTS process_file
 AS
 SELECT hostname hostname,
        pidhash pid_hash, -- generate FileID
+       processname process_name,
  md5(concat_ws('||', hostname, file_path)) file_id,
  file_hash file_hash,
  file_path filename,
@@ -432,6 +436,7 @@ CREATE TABLE IF NOT EXISTS process_registry
 AS
 SELECT hosthame hostname,
        pidhash pid_hash,
+       processname process_name,
        reg_path reg_path,
        reg_value reg_value,
        activitytype activity_type,
@@ -453,6 +458,7 @@ CREATE TABLE IF NOT EXISTS process_image_load
 AS
 SELECT computername hostname,
        pidhash pid_hash,
+        processname process_name,
        md5(concat_ws('||', computername, lower(filename))) file_id,
        lower(filename) filename,
        max(buildtime) build_time,
