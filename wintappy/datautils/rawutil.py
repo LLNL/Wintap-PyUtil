@@ -191,9 +191,10 @@ def generate_view_sql(event_map, start=None, end=None):
     # View Template
     stmts = []
     for event_type, pathspec in event_map.items():
-        # Hack! Found that dups are in the raw tables, so remove them here using the GROUP BY ALL.
-        if "raw_" in event_type:
+        if "raw_" in event_type and '/raw_sensor/' in pathspec:
             # Raw files *may* have differing schemas, so enable union'ing of all schemas.
+            # FIX in Wintap(?): Found that exact dups are in the raw tables, so remove them here using the GROUP BY ALL.
+            # Only implement duplicate fix on 'raw_sensor' path. RAW tables in 'rolling' are already fixed.
             view_sql = f"""
             create or replace view {event_type} as
             select *, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
