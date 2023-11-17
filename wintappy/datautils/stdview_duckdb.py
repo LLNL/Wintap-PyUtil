@@ -97,7 +97,7 @@ def create_event_summary_view(con):
     AS
     {%- for esm in esms %}
     SELECT '{{esm.label}}' as Event,
-    {{esm.host_col}} as Hostname,
+    upper({{esm.host_col}}) as Hostname,
     {{esm.ts_func}} bin_date,
     {{esm.num_event_func}} NumRows
     FROM {{esm.table}}
@@ -132,7 +132,7 @@ def duckdb_table_metadata(con, include_paritioned_data=True):
         {%- for table in tables %}
         SELECT '{{table}}' as Table_Name, min(daypk) Min_DayPK, max(daypk) Max_DayPK, count(*) as Num_Rows
         FROM {{table}}
-        {% if not loop.last %}UNION{% endif %}
+        {% if not loop.last %}UNION ALL{% endif %}
         {%- endfor %}
         ORDER BY table_name
         """
@@ -141,14 +141,17 @@ def duckdb_table_metadata(con, include_paritioned_data=True):
         {%- for table in tables %}
         SELECT '{{table}}' as Table_Name, count(*) as Num_Rows
         FROM {{table}}
-        {% if not loop.last %}UNION{% endif %}
+        {% if not loop.last %}UNION ALL{% endif %}
         {%- endfor %}
         ORDER BY table_name
         """
 
-    sql = Template(template).render(tables=tables)
-    logging.debug(f"Generated sql: {sql}")
-    return con.execute(sql).df()
+    if not tablesDF.empty:
+        sql = Template(template).render(tables=tables)
+        logging.debug(f"Generated sql: {sql}")
+        return con.execute(sql).df()
+    else:
+        return tablesDF
 
 
 def table_summary(
@@ -158,14 +161,15 @@ def table_summary(
     Get the list of tables defined in duckdb, then add sizes for the associated parquet files.
     """
     tablesDF = duckdb_table_metadata(con, include_paritioned_data)
-    globs = ru.get_glob_paths_for_dataset(dataset, agg_level, lookups=lookups)
-    for event, glob in globs.items():
-        cur_size = cur_files = 0
-        for file in iglob(glob):
-            cur_size += os.path.getsize(file)
-            cur_files += 1
-        tablesDF.loc[tablesDF.Table_Name == event, "Size"] = format_size(cur_size)
-        tablesDF.loc[tablesDF.Table_Name == event, "Files"] = cur_files
+    if not tablesDF.empty:
+        globs = ru.get_glob_paths_for_dataset(dataset, agg_level, lookups=lookups)
+        for event, glob in globs.items():
+            cur_size = cur_files = 0
+            for file in iglob(glob):
+                cur_size += os.path.getsize(file)
+                cur_files += 1
+            tablesDF.loc[tablesDF.Table_Name == event, "Size"] = format_size(cur_size)
+            tablesDF.loc[tablesDF.Table_Name == event, "Files"] = cur_files
     return tablesDF
 
 
@@ -194,7 +198,7 @@ def fetch_summary_data(con):
     return eventDF
 
 
-def display_event_chart(eventDF):
+def display_event_chart(eventDF,width=1200,height=600):
     # Set jupyter options
     pd.set_option("display.max_columns", None)
     pd.set_option("display.max_colwidth", None)
@@ -202,23 +206,21 @@ def display_event_chart(eventDF):
     # Set altair options
     alt.data_transformers.disable_max_rows()
 
-    allEvents = eventDF
-
     # Create a compound key for the Y. Can't seem to specify it in the altair syntax
-    allEvents["Hostname+Event"] = allEvents["Hostname"] + ": " + allEvents["Event"]
+    allEvents = eventDF.assign(Hostname_Event=lambda x: x.Hostname+": "+x.Event)
 
     eventsChart = (
         alt.Chart(allEvents)
         .mark_circle()
         .encode(
             x="BinDT",
-            y="Hostname+Event",
+            y="Hostname_Event",
             # size=alt.Size('NumRowsRobust:N', scale=None),
             # size=20,
             color="Event",
             tooltip=["Hostname:N", "Event:N", "NumRows:Q", "BinDT"],
         )
-        .properties(width=1200, height=600, title="Raw Events over Time")
+        .properties(width=width, height=height, title="Raw Events over Time")
         .interactive()
     )
     display(eventsChart)
