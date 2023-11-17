@@ -198,7 +198,7 @@ def fetch_summary_data(con):
     return eventDF
 
 
-def display_event_chart(eventDF,width=1200,height=600):
+def display_event_chart(eventDF, width=1200, height=600):
     # Set jupyter options
     pd.set_option("display.max_columns", None)
     pd.set_option("display.max_colwidth", None)
@@ -207,7 +207,7 @@ def display_event_chart(eventDF,width=1200,height=600):
     alt.data_transformers.disable_max_rows()
 
     # Create a compound key for the Y. Can't seem to specify it in the altair syntax
-    allEvents = eventDF.assign(Hostname_Event=lambda x: x.Hostname+": "+x.Event)
+    allEvents = eventDF.assign(Hostname_Event=lambda x: x.Hostname + ": " + x.Event)
 
     eventsChart = (
         alt.Chart(allEvents)
