@@ -204,18 +204,19 @@ def generate_view_sql(event_map, start=None, end=None):
             create or replace view {event_type} as
             select * from parquet_scan('{pathspec}',hive_partitioning=1)
             """
-        if start != None and end != None:
-            stmt += f"where dayPK between {start} and {end}"
-        if start != None and end == None:
-            stmt += f"where dayPK = {start}"
+            # Apply start/end filtering for rawtostdview. Only uses the combined raw_ types in the rolling path.
+            if start != None and end != None:
+                view_sql += f"where dayPK between {start} and {end}"
+            if start != None and end == None:
+                view_sql += f"where dayPK = {start}"
         stmts.append(view_sql)
         logging.debug(f"View for {event_type} using {pathspec}")
         logging.debug(view_sql)
     return stmts
 
 
-def create_views(con, event_map):
-    stmts = generate_view_sql(event_map)
+def create_views(con, event_map, start=None, end=None):
+    stmts = generate_view_sql(event_map, start, end)
     for sql in stmts:
         cursor = con.cursor()
         try:
@@ -233,7 +234,7 @@ def create_raw_views(con, raw_data, start=None, end=None):
     """
     Create views in the db for each of the event_types.
     """
-    create_views(con, raw_data)
+    create_views(con, raw_data, start, end)
 
     # For now, processing REQUIREs that RAW_PROCESS_STOP exist even if its empty. Create an empty table if needed.
     create_empty_process_stop(con)
@@ -321,17 +322,17 @@ def get_db_objects(con, exclude=None):
     return tables
 
 
-def write_parquet(con, datasetpath, db_objects, daypk=None):
+def write_parquet(con, datasetpath, db_objects, daypk=None,agg_level="stdview"):
     """
     Write tables/views from duckdb instance to parquet.
     If daypk is provided, write to corresponding path in rolling.
-    Otherwise, write to stdview.
+    Otherwise, write to agg_level.
     """
     for object_name in db_objects:
         logging.info(f"Writing {object_name}")
         try:
             if daypk == None:
-                pathspec = f"{datasetpath}{os.sep}stdview"
+                pathspec = f"{datasetpath}{os.sep}{agg_level}"
                 filename = f"{object_name}.parquet"
             else:
                 pathspec = f"{datasetpath}{os.sep}rolling{os.sep}{object_name}{os.sep}dayPK={daypk}"
