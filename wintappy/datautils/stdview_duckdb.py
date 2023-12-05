@@ -124,7 +124,7 @@ def duckdb_table_metadata(con, include_paritioned_data=True):
     # Ignore objects ending in _v1 as they are likely complex view and can be expensive to count.
     in_clause = "IN" if include_paritioned_data else "NOT IN"
     tablesDF = con.execute(
-        f"select table_name from information_schema.tables where table_name not like '%_v1' and table_name {in_clause} ( select table_name from information_schema.columns WHERE column_name = 'dayPK' ) order by all"
+        "select table_name from information_schema.tables where table_name not like '%_v1' and table_name IN ( select table_name from information_schema.columns WHERE column_name = 'dayPK' ) order by all"
     ).df()
     tables = tablesDF["table_name"].tolist()
     if include_paritioned_data:

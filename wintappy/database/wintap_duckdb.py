@@ -57,6 +57,13 @@ class WintapDuckDB:
                 CREATE_ANALYTICS_RESULTS_TEMPLATE
             ).render()
         )
+        # shim in for sigma 
+        self.query(f"DROP VIEW IF EXISTS sigma_labels")
+        self.query(
+            self._jinja_environment.get_template(
+                "create_sigma_results.sql"
+            ).render()
+        )
         # Create table for analytics metadata
         self.query(f"DROP VIEW IF EXISTS {ANALYTICS_TABLE}")
         self.query(
@@ -155,6 +162,7 @@ class WintapDuckDB:
     def insert_analytics_table(
         self,
         analytic_id: str,
+        description: str,
         technique_id: str,
         technique_stix_type: str,
         tactic_id: str,
@@ -162,6 +170,7 @@ class WintapDuckDB:
     ) -> None:
         sql = self._jinja_environment.get_template(INSERT_ANALYTICS_TEMPLATE).render(
             analytic_id=analytic_id,
+            description=description,
             technique_id=technique_id,
             technique_stix_type=technique_stix_type,
             tactic_id=tactic_id,
