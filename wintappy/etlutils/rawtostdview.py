@@ -44,7 +44,12 @@ def main(argv=None):
     ru.run_sql_no_args(
         con, resource_files("wintappy.datautils").joinpath("rawtostdview.sql")
     )
-    ru.write_parquet(con, cur_dataset, ru.get_db_objects(con, exclude=["raw_", "tmp"]), agg_level=f"stdview-{args.START}-{args.END}")
+    ru.write_parquet(
+        con,
+        cur_dataset,
+        ru.get_db_objects(con, exclude=["raw_", "tmp"]),
+        agg_level=f"stdview-{args.START}-{args.END}",
+    )
 
 
 if __name__ == "__main__":

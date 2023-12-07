@@ -322,7 +322,7 @@ def get_db_objects(con, exclude=None):
     return tables
 
 
-def write_parquet(con, datasetpath, db_objects, daypk=None,agg_level="stdview"):
+def write_parquet(con, datasetpath, db_objects, daypk=None, agg_level="stdview"):
     """
     Write tables/views from duckdb instance to parquet.
     If daypk is provided, write to corresponding path in rolling.
