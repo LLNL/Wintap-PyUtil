@@ -106,6 +106,7 @@ def load_single(analytic_id: str) -> Optional[QueryAnalytic]:
 def load_all(env: Environment) -> Dict[str, QueryAnalytic]:
     analytics: Dict[str, QueryAnalytic] = {}
     metadata = load_car_analtyic_metadata()
+    logging.debug(f"templates({len(env.list_templates())}): {env.list_templates()}")
     for template in env.list_templates():
         if template.endswith(".sql"):
             analytic_id = template.removesuffix(".sql")
@@ -118,12 +119,12 @@ def load_car_analtyic_metadata() -> Dict[str, Dict[str, Any]]:
     # list to hold analytic data
     analytics = {}
     # create temporary dir
-    tmp_dir = f"{tempfile.mkdtemp()}{os.sep}{ANALYTICS_DIR}"
+    tmp_dir = f"{tempfile.mkdtemp()}"
     # clone car data into the temporary dir
     fs = fsspec.filesystem("github", org=CAR_REPO_OWNER, repo=CAR_REPO_NAME)
     get_files(fs, tmp_dir, fs.ls(ANALYTICS_DIR))
     # load yaml files into list of dictionaries
-    for f in os.scandir(tmp_dir):
+    for f in os.scandir(f"{tmp_dir}{os.sep}{ANALYTICS_DIR}"):
         if f.is_file() and f.name.endswith("yaml"):
             with open(f.path, "r", encoding="utf-8") as single:
                 try:

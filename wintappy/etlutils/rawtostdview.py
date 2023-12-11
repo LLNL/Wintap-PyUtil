@@ -40,11 +40,16 @@ def main(argv=None):
 
     con = ru.init_db()
     globs = ru.get_glob_paths_for_dataset(cur_dataset, subdir="rolling", include="raw_")
-    ru.create_raw_views(con, globs)
+    ru.create_raw_views(con, globs, args.START, args.END)
     ru.run_sql_no_args(
         con, resource_files("wintappy.datautils").joinpath("rawtostdview.sql")
     )
-    ru.write_parquet(con, cur_dataset, ru.get_db_objects(con, exclude=["raw_", "tmp"]))
+    ru.write_parquet(
+        con,
+        cur_dataset,
+        ru.get_db_objects(con, exclude=["raw_", "tmp"]),
+        agg_level=f"stdview-{args.START}-{args.END}",
+    )
 
 
 if __name__ == "__main__":
