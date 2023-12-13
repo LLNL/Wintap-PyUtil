@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 from pandas import DataFrame
 
 MITRE_CAR_TYPE = "MITRE_CAR"
+SIMGA_TYPE = "SIGMA"
 
 
 @dataclass
@@ -19,8 +20,8 @@ class MitreAttackCoverage:
 class QueryAnalytic(ABC):
     analytic_id: str
     analytic_template: str
-    query_type: str
     metadata: Dict[str, Any]
+    coverage: List[MitreAttackCoverage]
 
     def get_tactics(self) -> List[str]:
         """Helper function to quickly return all tactics in coverage"""
@@ -36,6 +37,11 @@ class QueryAnalytic(ABC):
             techniques.append(c.technique)
         return techniques
 
+    @property
+    @abstractmethod
+    def query_type(self) -> str:
+        pass
+
     @abstractmethod
     def table_item(self) -> Dict[str, Any]:
         pass
@@ -47,12 +53,12 @@ class QueryAnalytic(ABC):
 
 @dataclass
 class CARAnalytic(QueryAnalytic):
-    coverage: List[MitreAttackCoverage]
+    query_type = MITRE_CAR_TYPE
 
     def table_item(self) -> Dict[str, Any]:
         data = self.metadata
-        data.pop("implementations")
-        data.pop("unit_tests")
+        data.pop("implementations", None)
+        data.pop("unit_tests", None)
         return data
 
     def coverage_table_items(self) -> List[Dict[str, Any]]:
@@ -72,4 +78,10 @@ class CARAnalytic(QueryAnalytic):
 
 @dataclass
 class SigmaAnalytic(QueryAnalytic):
-    pass
+    query_type = SIMGA_TYPE
+
+    def table_item(self) -> Dict[str, Any]:
+        return {}
+
+    def coverage_table_items(self) -> List[Dict[str, Any]]:
+        return [{}]

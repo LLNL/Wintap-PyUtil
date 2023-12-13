@@ -26,7 +26,7 @@ from .constants import (
     ID,
     LATEST_ENTERPRISE_DEFINITION,
 )
-from .query_analytic import MITRE_CAR_TYPE, CARAnalytic, MitreAttackCoverage
+from .query_analytic import CARAnalytic, MitreAttackCoverage
 
 MITRE_CAR_PATH = "mitre_car"
 # Maximum fsspec.get threads
@@ -145,7 +145,6 @@ def format_car_analytic(analytic_id: str, metadata: Dict[str, Any]) -> CARAnalyt
     return CARAnalytic(
         analytic_id=analytic_id,
         analytic_template=f"{analytic_id}.sql",
-        query_type=MITRE_CAR_TYPE,
         metadata=metadata.get(analytic_id, {}),
         coverage=coverage,
     )

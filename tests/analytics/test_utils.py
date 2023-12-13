@@ -1,4 +1,3 @@
-import os
 from typing import Any, Dict
 from unittest import mock
 
@@ -36,7 +35,6 @@ class TestSqlUtils:
         self.test_query_analytic = CARAnalytic(
             analytic_id=self.test_id,
             analytic_template=f"{self.test_id}.sql",
-            query_type=MITRE_CAR_TYPE,
             coverage=[
                 MitreAttackCoverage(
                     coverage="Moderate",
@@ -60,7 +58,6 @@ class TestSqlUtils:
         expected = CARAnalytic(
             analytic_id="my-test-id",
             analytic_template="my-test-id.sql",
-            query_type=MITRE_CAR_TYPE,
             metadata={},
             coverage=[],
         )
@@ -86,7 +83,6 @@ class TestSqlUtils:
         expected_output = CARAnalytic(
             analytic_id="my-test-id",
             analytic_template="my-test-id.sql",
-            query_type="MITRE_CAR",
             metadata={"id": "my-test-id"},
             coverage=[],
         )
