@@ -106,6 +106,7 @@ def load_single(analytic_id: str) -> Optional[CARAnalytic]:
 def load_all(env: Environment) -> Dict[str, CARAnalytic]:
     analytics: Dict[str, CARAnalytic] = {}
     metadata = load_car_analtyic_metadata()
+    logging.debug(f"templates({len(env.list_templates())}): {env.list_templates()}")
     for template in env.list_templates():
         if template.endswith(".sql"):
             analytic_id = template.removesuffix(".sql")

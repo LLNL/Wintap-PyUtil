@@ -47,7 +47,7 @@ SELECT
  count(DISTINCT collectors) num_collectors,
  count(*) num_rows
 FROM raw_host
-GROUP BY 1
+GROUP BY ALL
 ;
 
 
@@ -131,7 +131,7 @@ SELECT p.pidhash pid_hash, -- osfamily will eventually come back as a partition 
        to_timestamp_micros(win32_to_epoch(max(p.eventtime))) last_seen,
        count(*) num_start_events
 FROM raw_process p
-GROUP BY p.pidhash
+GROUP BY ALL
 ;
 
 --== Update process_path
@@ -176,7 +176,7 @@ LEFT OUTER JOIN
           max(exitcode) exit_code,
           count(*) num_process_stop
    FROM raw_process_stop
-   GROUP BY pidhash) s ON p.pid_hash = s.pidhash
+   GROUP BY ALL) s ON p.pid_hash = s.pidhash
 ;
 
 
@@ -400,9 +400,7 @@ SELECT os_family,
  avg(total_events) avg_packets,
  sum(sq_size) sq_size
 FROM process_net_conn
-GROUP BY 1,
-         2,
-         3
+GROUP BY ALL
 ;
 
 -- Summarize file activity to PID_HASH+FILE_HASH
@@ -538,10 +536,7 @@ AS file_first_seen,
        NULL
 AS file_last_seen
 FROM process_image_load
-GROUP BY 1,
-         2,
-         3,
-         4
+GROUP BY ALL
 UNION
 SELECT file_id,
        hostname,
@@ -563,9 +558,7 @@ AS dll_last_seen,
        min(first_seen) file_first_seen,
        max(last_seen) file_last_seen
 FROM process_file
-GROUP BY 1,
-         2,
-         3
+GROUP BY ALL
 ;
 
 
@@ -584,9 +577,7 @@ SELECT file_id,
        min(file_first_seen) file_first_seen,
        max(file_last_seen) file_last_seen
 FROM files_tmp_v1
-GROUP BY 1,
-         2,
-         3
+GROUP BY ALL
 ;
 
 -- Create a set of files using just the filename.
@@ -599,7 +590,7 @@ SELECT filename,
        sum(dll_num_rows) dll_num_rows,
        sum(file_num_rows) file_num_rows
 FROM files
-GROUP BY 1
+GROUP BY ALL
 ;
 
 -- Generate Process Trees. There *should* be 1 graph per unique NTOSKRNL.EXE process.
