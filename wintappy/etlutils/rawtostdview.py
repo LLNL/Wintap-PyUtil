@@ -45,10 +45,14 @@ def main(argv=None):
 
     con = ru.init_db()
     globs = ru.get_glob_paths_for_dataset(cur_dataset, subdir="rolling", include="raw_")
+    globs.update(ru.get_glob_paths_for_dataset(cur_dataset, subdir="rolling", include="sigma_labels",lookups=f'{cur_dataset}/../lookups'))
+    globs.update(ru.get_glob_paths_for_dataset(cur_dataset, subdir="rolling", include="mitre_labels"))
     ru.create_raw_views(con, globs, args.START, args.END)
     for sqlfile in ["rawtostdview.sql", "process_summary.sql"]:
         ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(sqlfile))
+    # With the base tables in place, summarize and join in the labels and analytics.
     create_networkx_view(con, cur_dataset)
+    logging.debug(con.execute('show tables').fetchall())
     ru.run_sql_no_args(
         con, resource_files("wintappy.datautils").joinpath("label_summary.sql")
     )
