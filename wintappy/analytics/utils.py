@@ -13,7 +13,7 @@ from duckdb import CatalogException
 from jinja2 import Environment
 from mitreattack.stix20 import MitreAttackData
 
-from ..database.constants import ANALYTICS_RESULTS_TABLE
+from ..database.constants import CAR_ANALYTICS_RESULTS_TABLE
 from ..database.wintap_duckdb import WintapDuckDB
 from .constants import (
     ANALYTICS_DIR,
@@ -26,7 +26,7 @@ from .constants import (
     ID,
     LATEST_ENTERPRISE_DEFINITION,
 )
-from .query_analytic import MITRE_CAR_TYPE, MitreAttackCoverage, QueryAnalytic
+from .query_analytic import CARAnalytic, MitreAttackCoverage
 
 MITRE_CAR_PATH = "mitre_car"
 # Maximum fsspec.get threads
@@ -98,13 +98,13 @@ def get_files(
             )
 
 
-def load_single(analytic_id: str) -> Optional[QueryAnalytic]:
+def load_single(analytic_id: str) -> Optional[CARAnalytic]:
     metadata = load_car_analtyic_metadata()
     return format_car_analytic(analytic_id, metadata)
 
 
-def load_all(env: Environment) -> Dict[str, QueryAnalytic]:
-    analytics: Dict[str, QueryAnalytic] = {}
+def load_all(env: Environment) -> Dict[str, CARAnalytic]:
+    analytics: Dict[str, CARAnalytic] = {}
     metadata = load_car_analtyic_metadata()
     logging.debug(f"templates({len(env.list_templates())}): {env.list_templates()}")
     for template in env.list_templates():
@@ -137,22 +137,21 @@ def load_car_analtyic_metadata() -> Dict[str, Dict[str, Any]]:
     return analytics
 
 
-def format_car_analytic(analytic_id: str, metadata: Dict[str, Any]) -> QueryAnalytic:
+def format_car_analytic(analytic_id: str, metadata: Dict[str, Any]) -> CARAnalytic:
     # format coverage as expected
     coverage = []
     for entry in metadata.get(analytic_id, {}).get(COVERAGE, []):
         coverage.append(MitreAttackCoverage(**entry))
-    return QueryAnalytic(
+    return CARAnalytic(
         analytic_id=analytic_id,
         analytic_template=f"{analytic_id}.sql",
-        query_type=MITRE_CAR_TYPE,
         metadata=metadata.get(analytic_id, {}),
         coverage=coverage,
     )
 
 
 def run_against_day(
-    daypk: int, env: Environment, db: WintapDuckDB, analytics: List[QueryAnalytic]
+    daypk: int, env: Environment, db: WintapDuckDB, analytics: List[CARAnalytic]
 ) -> None:
     """Runs a single or all CAR analytics against data for a single daypk."""
     for analytic in analytics:
@@ -161,7 +160,7 @@ def run_against_day(
         )
         try:
             db.query(
-                f"INSERT INTO {ANALYTICS_RESULTS_TABLE} SELECT pid_hash, '{analytic.analytic_id}', first_seen, 'pid_hash' FROM ( {query_str} )"
+                f"INSERT INTO {CAR_ANALYTICS_RESULTS_TABLE} SELECT pid_hash, '{analytic.analytic_id}', first_seen, 'pid_hash' FROM ( {query_str} )"
             )
         except CatalogException as err:
             # Don't include the stacktrace to keep the output succinct.

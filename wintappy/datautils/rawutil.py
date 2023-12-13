@@ -43,11 +43,10 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None, looku
         if include == None or fn.startswith(include)
     ]
     # optionally add lookup directory
-    if lookups is not None and lookups != "":
-        for path, _, files in os.walk(lookups):
-            for name in files:
-                if name.endswith(".parquet"):
-                    event_types.append(os.path.join(path, name))
+    for path, _, files in os.walk(lookups):
+        for name in files:
+            if name.endswith(".parquet") or name.endswith(".csv"):
+                event_types.append(os.path.join(path, name))
     globs = defaultdict(set)
     for cur_event in event_types:
         event_type = cur_event.split(os.sep)[-1]
@@ -70,6 +69,10 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None, looku
         else:
             # Treat as a simple, single file.
             if event_type.lower().endswith("parquet"):
+                event = re.split(r"\.", event_type)[0]
+                logging.info(f"{datetime.now()} Found {event} file: {event_type}")
+                globs[event].add(cur_event)
+            elif event_type.lower().endswith("csv"):
                 event = re.split(r"\.", event_type)[0]
                 logging.info(f"{datetime.now()} Found {event} file: {event_type}")
                 globs[event].add(cur_event)
@@ -198,6 +201,11 @@ def generate_view_sql(event_map, start=None, end=None):
             view_sql = f"""
             create or replace view {event_type} as
             select *, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
+            """
+        elif pathspec.endswith(".csv"):
+            view_sql = f"""
+            create or replace view {event_type} as
+            select * from read_csv('{pathspec}', AUTO_DETECT=TRUE)
             """
         else:
             view_sql = f"""

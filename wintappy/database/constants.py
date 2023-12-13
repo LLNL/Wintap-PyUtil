@@ -1,6 +1,7 @@
 # constants
-ANALYTICS_TABLE = "mitre_car"
-ANALYTICS_RESULTS_TABLE = "mitre_labels"
+CAR_ANALYTICS_TABLE = "mitre_car"
+CAR_ANALYTIC_COVERAGE = "mitre_car_coverage"
+CAR_ANALYTICS_RESULTS_TABLE = "mitre_labels"
 TACTICS_TABLE = "mitre_tactics"
 TECHNIQUES_TABLE = "mitre_techniques"
 TEMPLATE_DIR = "./templates"

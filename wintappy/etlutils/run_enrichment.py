@@ -1,4 +1,5 @@
 import argparse
+import dataclasses
 import json
 import logging
 import sys
@@ -10,9 +11,9 @@ from wintappy.analytics.constants import TACTIC_STIX_TYPE, TECHNIQUE_STIX_TYPE
 from wintappy.analytics.utils import load_attack_metadata, run_against_day
 from wintappy.config import get_config, print_config
 from wintappy.database.constants import (
-    ANALYTICS_RESULTS_TABLE,
-    ANALYTICS_TABLE,
-    LOOKUPS_DIR,
+    CAR_ANALYTIC_COVERAGE,
+    CAR_ANALYTICS_RESULTS_TABLE,
+    CAR_ANALYTICS_TABLE,
     MITRE_DIR,
     TACTICS_TABLE,
     TECHNIQUES_TABLE,
@@ -24,27 +25,20 @@ from wintappy.etlutils.utils import configure_basic_logging, daterange, get_date
 def add_enrichment_tables(
     manager: TransformerManager, enrichment_location: str
 ) -> None:
-    # first, load analytics metadata
-    for analytic_id in manager.analytics:
-        for entry in manager.analytics[analytic_id].coverage:
-            for t in entry.tactics:
-                manager.wintap_duckdb.insert_analytics_table(
-                    analytic_id=analytic_id,
-                    technique_id=entry.technique,
-                    technique_stix_type=TECHNIQUE_STIX_TYPE,
-                    tactic_id=t,
-                    tactic_stix_type=TACTIC_STIX_TYPE,
-                )
-    # write out the tables
-    manager.wintap_duckdb.write_table(
-        ANALYTICS_TABLE, location=f"{enrichment_location}/{LOOKUPS_DIR}/{MITRE_DIR}"
-    )
-    # clear out results table that we just wrote out to the fs
-    manager.wintap_duckdb.clear_table(ANALYTICS_TABLE)
-
-    # Next, load tactic and technique metadata
+    # setup metadata tables
     mitre_attack_data = load_attack_metadata()
     metadata_tables = {
+        CAR_ANALYTICS_TABLE: list(
+            map(
+                lambda x: x.table_item(),
+                manager.analytics.values(),
+            )
+        ),
+        CAR_ANALYTIC_COVERAGE: [
+            item
+            for obj in manager.analytics.values()
+            for item in obj.coverage_table_items()
+        ],
         TECHNIQUES_TABLE: list(
             map(
                 lambda x: json.loads(x.serialize()),
@@ -67,20 +61,26 @@ def add_enrichment_tables(
             file.write(json.dumps(table_data))
         # Register the memory filesystem and create the table
         manager.wintap_duckdb.register_filesystem(fsspec.filesystem("memory"))
-        manager.wintap_duckdb.query(
-            f"CREATE TABLE IF NOT EXISTS {table_name_internal} AS SELECT * FROM read_json_auto('memory://{table_name_internal}.json')"
-        )
-        # Insert the data into the table
-        manager.wintap_duckdb.query(
-            f"INSERT INTO {table_name_internal} SELECT * FROM read_json_auto('memory://{table_name_internal}.json')"
-        )
-        # Now we need to unnest the data
-        manager.wintap_duckdb.query(
-            f"CREATE OR REPLACE VIEW {table_name} as select unnest(external_references).external_id as external_id, * from {table_name_internal}"
-        )
+        if table_name in [TECHNIQUES_TABLE, TACTICS_TABLE]:
+            manager.wintap_duckdb.query(
+                f"CREATE TABLE IF NOT EXISTS {table_name_internal} AS SELECT * FROM read_json_auto('memory://{table_name_internal}.json')"
+            )
+            # Insert the data into the table
+            manager.wintap_duckdb.query(
+                f"INSERT INTO {table_name_internal} SELECT * FROM read_json_auto('memory://{table_name_internal}.json')"
+            )
+            # Now we need to unnest the data
+            manager.wintap_duckdb.query(
+                f"CREATE OR REPLACE VIEW {table_name} as select unnest(external_references).external_id as external_id, * from {table_name_internal}"
+            )
+        else:
+            manager.wintap_duckdb.query(f"DROP TABLE IF EXISTS {table_name}")
+            manager.wintap_duckdb.query(
+                f"CREATE TABLE IF NOT EXISTS {table_name} AS SELECT * FROM read_json_auto('memory://{table_name_internal}.json')"
+            )
         # finally, write out the tables
         manager.wintap_duckdb.write_table(
-            table_name, location=f"{enrichment_location}/{LOOKUPS_DIR}/{MITRE_DIR}"
+            table_name, location=f"{enrichment_location}/{MITRE_DIR}"
         )
     return
 
@@ -99,10 +99,10 @@ def process_range(
         )
         # write results out to the fs for this day
         manager.wintap_duckdb.write_table(
-            ANALYTICS_RESULTS_TABLE, daypk, location=manager.dataset_path
+            CAR_ANALYTICS_RESULTS_TABLE, daypk, location=manager.dataset_path
         )
         # clear out results table that we just wrote out to the fs
-        manager.wintap_duckdb.clear_table(ANALYTICS_RESULTS_TABLE)
+        manager.wintap_duckdb.clear_table(CAR_ANALYTICS_RESULTS_TABLE)
     return
 
 
