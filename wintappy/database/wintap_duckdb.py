@@ -10,8 +10,8 @@ from jinja2 import Environment, FileSystemLoader
 from pandas import DataFrame
 
 from .constants import (
-    ANALYTICS_RESULTS_TABLE,
-    ANALYTICS_TABLE,
+    CAR_ANALYTICS_RESULTS_TABLE,
+    CAR_ANALYTICS_TABLE,
     CREATE_ANALYTICS_RESULTS_TEMPLATE,
     CREATE_ANALYTICS_TEMPLATE,
     INSERT_ANALYTICS_RESULTS_TEMPLATE,
@@ -46,26 +46,24 @@ class WintapDuckDB:
 
     def _setup_tables(self) -> None:
         """Create extra tables that store analytics results"""
-        if self._is_table_or_view(ANALYTICS_RESULTS_TABLE):
+        if self._is_table_or_view(CAR_ANALYTICS_RESULTS_TABLE):
             if self._load_analytics:
                 return
         # Because we are generating analytics, we should drop any existing views
         # of our data, else we will run into errors
-        self.query(f"DROP VIEW IF EXISTS {ANALYTICS_RESULTS_TABLE}")
+        self.query(f"DROP VIEW IF EXISTS {CAR_ANALYTICS_RESULTS_TABLE}")
         self.query(
             self._jinja_environment.get_template(
                 CREATE_ANALYTICS_RESULTS_TEMPLATE
             ).render()
         )
-        # shim in for sigma 
+        # shim in for sigma
         self.query(f"DROP VIEW IF EXISTS sigma_labels")
         self.query(
-            self._jinja_environment.get_template(
-                "create_sigma_results.sql"
-            ).render()
+            self._jinja_environment.get_template("create_sigma_results.sql").render()
         )
         # Create table for analytics metadata
-        self.query(f"DROP VIEW IF EXISTS {ANALYTICS_TABLE}")
+        self.query(f"DROP VIEW IF EXISTS {CAR_ANALYTICS_TABLE}")
         self.query(
             self._jinja_environment.get_template(CREATE_ANALYTICS_TEMPLATE).render()
         )
@@ -155,26 +153,6 @@ class WintapDuckDB:
             time=int(event_time.strftime("%s")),
             # for now, we will simply support pid_hash as entity types
             entity_type=entity_type,
-        )
-        logging.debug(f"generated insert analtyic: {sql}")
-        self._connection.execute(sql)
-
-    def insert_analytics_table(
-        self,
-        analytic_id: str,
-        description: str,
-        technique_id: str,
-        technique_stix_type: str,
-        tactic_id: str,
-        tactic_stix_type: str,
-    ) -> None:
-        sql = self._jinja_environment.get_template(INSERT_ANALYTICS_TEMPLATE).render(
-            analytic_id=analytic_id,
-            description=description,
-            technique_id=technique_id,
-            technique_stix_type=technique_stix_type,
-            tactic_id=tactic_id,
-            tactic_stix_type=tactic_stix_type,
         )
         logging.debug(f"generated insert analtyic: {sql}")
         self._connection.execute(sql)
