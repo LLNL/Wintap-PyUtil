@@ -7,9 +7,11 @@ from wintappy.config import get_config
 from wintappy.datautils import rawutil as ru
 from wintappy.etlutils.utils import configure_basic_logging
 
+
 def create_networkx_view(con, dataset):
     sql = f"create or replace view labels_networkx as select * from read_json_auto('{dataset}/labels/networkx/*.json', filename=true)"
     con.execute(sql)
+
 
 def main(argv=None):
     configure_basic_logging()
@@ -44,11 +46,9 @@ def main(argv=None):
     con = ru.init_db()
     globs = ru.get_glob_paths_for_dataset(cur_dataset, subdir="rolling", include="raw_")
     ru.create_raw_views(con, globs, args.START, args.END)
-    for sqlfile in ['rawtostdview.sql', 'process_summary.sql']:
-        ru.run_sql_no_args(
-            con, resource_files("wintappy.datautils").joinpath(sqlfile)
-        )
-    create_networkx_view(con,cur_dataset)
+    for sqlfile in ["rawtostdview.sql", "process_summary.sql"]:
+        ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(sqlfile))
+    create_networkx_view(con, cur_dataset)
     ru.run_sql_no_args(
         con, resource_files("wintappy.datautils").joinpath("label_summary.sql")
     )
