@@ -212,11 +212,12 @@ def generate_view_sql(event_map, start=None, end=None):
             create or replace view {event_type} as
             select * from parquet_scan('{pathspec}',hive_partitioning=1)
             """
-            # Apply start/end filtering for rawtostdview. Only uses the combined raw_ types in the rolling path.
-            if start != None and end != None:
-                view_sql += f"where dayPK between {start} and {end}"
-            if start != None and end == None:
-                view_sql += f"where dayPK = {start}"
+            # Apply start/end filtering for rolling tables only.
+            if "/rolling/" in pathspec:
+                if start != None and end != None:
+                    view_sql += f"where dayPK between {start} and {end}"
+                if start != None and end == None:
+                    view_sql += f"where dayPK = {start}"
         stmts.append(view_sql)
         logging.debug(f"View for {event_type} using {pathspec}")
         logging.debug(view_sql)
