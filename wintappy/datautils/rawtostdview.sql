@@ -354,55 +354,6 @@ FROM process_conn_incr
 GROUP BY ALL
 ;
 
-
-CREATE TABLE IF NOT EXISTS process_net_summary
-AS
-SELECT os_family,
-       pid_hash,
-       process_name,
-       hostname,
-       count(DISTINCT conn_id) conn_id_count,
-       sum(total_events) net_total_events,
-       sum(total_size) net_total_size,
-       sum(num_raw_rows) num_raw_rows,
-       sum(tcp_accept_count) tcp_accept_count,
-       sum(tcp_connect_count) tcp_connect_count,
-       sum(tcp_disconnect_count) tcp_disconnect_count,
-       sum(tcp_reconnect_count) tcp_reconnect_count,
-       sum(tcp_recv_count) tcp_recv_count,
-       sum(tcp_recv_size) tcp_recv_size,
-       sum(tcp_retransmit_count) tcp_retransmit_count,
-       sum(tcp_send_count) tcp_send_count,
-       sum(tcp_send_size) tcp_send_size,
-       sum(tcp_tcpcopy_count) tcp_tcpcopy_count,
-       sum(tcp_tcpcopy_size) tcp_tcpcopy_size,
-       sum(udp_recv_count) udp_recv_count,
-       sum(udp_recv_size) udp_recv_size,
-       sum(udp_send_count) udp_send_count,
-       sum(udp_send_size) udp_send_size,
-       min(first_seen) first_seen,
-       max(last_seen) last_seen, -- Communication Metrics TCP/UDP. Do we need packet counts also?
- sum(ifnull(tcp_recv_size, 0)+ifnull(udp_recv_size, 0)) net_recv_size,
- sum(ifnull(tcp_send_size, 0)+ifnull(udp_send_size, 0)) net_send_size,
- sum((ifnull(tcp_recv_size, 0)+ifnull(udp_recv_size, 0))+(ifnull(tcp_send_size, 0)+ifnull(udp_send_size, 0))) net_rs_total,
- (sum(ifnull(tcp_send_size, 0)+ifnull(udp_send_size, 0))/ sum((ifnull(tcp_recv_size, 0)+ifnull(udp_recv_size, 0))+ (ifnull(tcp_send_size, 0)+ifnull(udp_send_size, 0)))) net_send_vs_recv, -- Communication Metrics TCP
- -- Do we need tcp_total_size? Need to check other TCP event numbers and see if it really makes sense.
- sum(ifnull(tcp_recv_size, 0)+ifnull(tcp_send_size, 0)) tcp_rs_total,
- (sum(ifnull(tcp_send_size, 0))/ sum((ifnull(tcp_recv_size, 0))+(ifnull(tcp_send_size, 0)))) tcp_send_vs_recv, -- Communication Metrics UDP
- -- For UDP, we definitely don't need both udp_total_size and udp_rs_total as there are only SEND/RECV types.
- sum(ifnull(udp_recv_size, 0)+ifnull(udp_send_size, 0)) udp_rs_total,
- (sum(ifnull(udp_send_size, 0))/ sum((ifnull(udp_recv_size, 0))+(ifnull(udp_send_size, 0)))) udp_send_vs_recv, -- Summary Statistics
- min(total_size) min_bytes,
- max(total_size) max_bytes,
- avg(total_size) avg_bytes,
- min(total_events) min_packets,
- max(total_events) max_packets,
- avg(total_events) avg_packets,
- sum(sq_size) sq_size
-FROM process_net_conn
-GROUP BY ALL
-;
-
 -- Summarize file activity to PID_HASH+FILE_HASH
 
 CREATE TABLE IF NOT EXISTS process_file
