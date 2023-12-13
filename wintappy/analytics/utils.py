@@ -13,7 +13,7 @@ from duckdb import CatalogException
 from jinja2 import Environment
 from mitreattack.stix20 import MitreAttackData
 
-from ..database.constants import ANALYTICS_RESULTS_TABLE
+from ..database.constants import CAR_ANALYTICS_RESULTS_TABLE
 from ..database.wintap_duckdb import WintapDuckDB
 from .constants import (
     ANALYTICS_DIR,
@@ -26,7 +26,7 @@ from .constants import (
     ID,
     LATEST_ENTERPRISE_DEFINITION,
 )
-from .query_analytic import MITRE_CAR_TYPE, MitreAttackCoverage, QueryAnalytic
+from .query_analytic import MITRE_CAR_TYPE, CARAnalytic, MitreAttackCoverage
 
 MITRE_CAR_PATH = "mitre_car"
 # Maximum fsspec.get threads
@@ -98,13 +98,13 @@ def get_files(
             )
 
 
-def load_single(analytic_id: str) -> Optional[QueryAnalytic]:
+def load_single(analytic_id: str) -> Optional[CARAnalytic]:
     metadata = load_car_analtyic_metadata()
     return format_car_analytic(analytic_id, metadata)
 
 
-def load_all(env: Environment) -> Dict[str, QueryAnalytic]:
-    analytics: Dict[str, QueryAnalytic] = {}
+def load_all(env: Environment) -> Dict[str, CARAnalytic]:
+    analytics: Dict[str, CARAnalytic] = {}
     metadata = load_car_analtyic_metadata()
     for template in env.list_templates():
         if template.endswith(".sql"):
@@ -118,12 +118,12 @@ def load_car_analtyic_metadata() -> Dict[str, Dict[str, Any]]:
     # list to hold analytic data
     analytics = {}
     # create temporary dir
-    tmp_dir = f"{tempfile.mkdtemp()}{os.sep}{ANALYTICS_DIR}"
+    tmp_dir = f"{tempfile.mkdtemp()}"
     # clone car data into the temporary dir
     fs = fsspec.filesystem("github", org=CAR_REPO_OWNER, repo=CAR_REPO_NAME)
     get_files(fs, tmp_dir, fs.ls(ANALYTICS_DIR))
     # load yaml files into list of dictionaries
-    for f in os.scandir(tmp_dir):
+    for f in os.scandir(f"{tmp_dir}{os.sep}{ANALYTICS_DIR}"):
         if f.is_file() and f.name.endswith("yaml"):
             with open(f.path, "r", encoding="utf-8") as single:
                 try:
@@ -136,12 +136,12 @@ def load_car_analtyic_metadata() -> Dict[str, Dict[str, Any]]:
     return analytics
 
 
-def format_car_analytic(analytic_id: str, metadata: Dict[str, Any]) -> QueryAnalytic:
+def format_car_analytic(analytic_id: str, metadata: Dict[str, Any]) -> CARAnalytic:
     # format coverage as expected
     coverage = []
     for entry in metadata.get(analytic_id, {}).get(COVERAGE, []):
         coverage.append(MitreAttackCoverage(**entry))
-    return QueryAnalytic(
+    return CARAnalytic(
         analytic_id=analytic_id,
         analytic_template=f"{analytic_id}.sql",
         query_type=MITRE_CAR_TYPE,
@@ -151,7 +151,7 @@ def format_car_analytic(analytic_id: str, metadata: Dict[str, Any]) -> QueryAnal
 
 
 def run_against_day(
-    daypk: int, env: Environment, db: WintapDuckDB, analytics: List[QueryAnalytic]
+    daypk: int, env: Environment, db: WintapDuckDB, analytics: List[CARAnalytic]
 ) -> None:
     """Runs a single or all CAR analytics against data for a single daypk."""
     for analytic in analytics:
@@ -160,7 +160,7 @@ def run_against_day(
         )
         try:
             db.query(
-                f"INSERT INTO {ANALYTICS_RESULTS_TABLE} SELECT pid_hash, '{analytic.analytic_id}', first_seen, 'pid_hash' FROM ( {query_str} )"
+                f"INSERT INTO {CAR_ANALYTICS_RESULTS_TABLE} SELECT pid_hash, '{analytic.analytic_id}', first_seen, 'pid_hash' FROM ( {query_str} )"
             )
         except CatalogException as err:
             # Don't include the stacktrace to keep the output succinct.

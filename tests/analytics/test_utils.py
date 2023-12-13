@@ -5,7 +5,7 @@ from unittest import mock
 from wintappy.analytics.query_analytic import (
     MITRE_CAR_TYPE,
     MitreAttackCoverage,
-    QueryAnalytic,
+    CARAnalytic,
 )
 from wintappy.analytics.utils import (
     convert_id_to_filename,
@@ -33,7 +33,7 @@ class TestSqlUtils:
     }
 
     def setup_class(self):
-        self.test_query_analytic = QueryAnalytic(
+        self.test_query_analytic = CARAnalytic(
             analytic_id=self.test_id,
             analytic_template=f"{self.test_id}.sql",
             query_type=MITRE_CAR_TYPE,
@@ -57,7 +57,7 @@ class TestSqlUtils:
         assert "CAR-12345.sql" == convert_id_to_filename(analytic_name, "sql")
 
     def test_load_sql_query(self) -> None:
-        expected = QueryAnalytic(
+        expected = CARAnalytic(
             analytic_id="my-test-id",
             analytic_template="my-test-id.sql",
             query_type=MITRE_CAR_TYPE,
@@ -83,7 +83,7 @@ class TestSqlUtils:
 
     def test_format_car_analytic_no_coverage(self) -> None:
         my_metadata: Dict[str, Any] = {"my-test-id": {"id": "my-test-id"}}
-        expected_output = QueryAnalytic(
+        expected_output = CARAnalytic(
             analytic_id="my-test-id",
             analytic_template="my-test-id.sql",
             query_type="MITRE_CAR",

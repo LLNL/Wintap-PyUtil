@@ -45,7 +45,7 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None, looku
     # optionally add lookup directory
     for path, _, files in os.walk(lookups):
         for name in files:
-            if name.endswith(".parquet") or name.endswith('.csv'):
+            if name.endswith(".parquet") or name.endswith(".csv"):
                 event_types.append(os.path.join(path, name))
     globs = defaultdict(set)
     for cur_event in event_types:
@@ -201,7 +201,7 @@ def generate_view_sql(event_map, start=None, end=None):
             create or replace view {event_type} as
             select *, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
             """
-        elif pathspec.endswith('.csv'):
+        elif pathspec.endswith(".csv"):
             view_sql = f"""
             create or replace view {event_type} as
             select * from read_csv('{pathspec}', AUTO_DETECT=TRUE)
