@@ -206,5 +206,3 @@ LEFT OUTER JOIN process_file_summary f ON
 LEFT OUTER JOIN PROCESS_IMAGE_LOAD_SUMMARY i ON
 	(p.pid_hash = i.pid_hash)
 ;
-
-summarize process_summary
