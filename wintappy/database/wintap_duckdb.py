@@ -11,11 +11,8 @@ from pandas import DataFrame
 
 from .constants import (
     CAR_ANALYTICS_RESULTS_TABLE,
-    CAR_ANALYTICS_TABLE,
     CREATE_ANALYTICS_RESULTS_TEMPLATE,
-    CREATE_ANALYTICS_TEMPLATE,
     INSERT_ANALYTICS_RESULTS_TEMPLATE,
-    INSERT_ANALYTICS_TEMPLATE,
     PID_HASH,
     TEMPLATE_DIR,
 )
@@ -61,11 +58,6 @@ class WintapDuckDB:
         self.query(f"DROP VIEW IF EXISTS sigma_labels")
         self.query(
             self._jinja_environment.get_template("create_sigma_results.sql").render()
-        )
-        # Create table for analytics metadata
-        self.query(f"DROP VIEW IF EXISTS {CAR_ANALYTICS_TABLE}")
-        self.query(
-            self._jinja_environment.get_template(CREATE_ANALYTICS_TEMPLATE).render()
         )
 
     def _is_table_or_view(self, table_name: str):
