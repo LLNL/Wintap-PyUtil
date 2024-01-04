@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -5,7 +6,6 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from typing import Any, Dict, List, Optional
-import json
 
 import fsspec
 import tqdm
@@ -202,15 +202,15 @@ def get_formatted_groups(mitre_attack_data) -> list(Dict[str, Any]):
     for id, techniques in groups_using_techniques.items():
         for technique in techniques:
             for entry in technique["object"]["external_references"]:
-                if entry.source_name == 'mitre-attack':
+                if entry.source_name == "mitre-attack":
                     technique_id = entry.external_id
                 if technique_id:
-                    techniques = groups[id].get('technqiues', False)
+                    techniques = groups[id].get("technqiues", False)
                     if techniques:
                         if technique_id not in techniques:
-                            groups[id]['techniques'].append(technique_id) 
+                            groups[id]["techniques"].append(technique_id)
                     else:
-                        groups[id]['techniques'] = [technique_id]
+                        groups[id]["techniques"] = [technique_id]
                     # we no longer need to loop through external references
                     break
     return list(groups.values())
