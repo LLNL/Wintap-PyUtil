@@ -5,6 +5,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from typing import Any, Dict, List, Optional
+import json
 
 import fsspec
 import tqdm
@@ -184,3 +185,32 @@ def load_attack_metadata() -> MitreAttackData:
     # remove temporary dir
     shutil.rmtree(tmp_dir)
     return data
+
+
+def get_formatted_groups(mitre_attack_data) -> list(Dict[str, Any]):
+    raw_groups = mitre_attack_data.get_groups(remove_revoked_deprecated=True)
+    groups = {}
+    # make it easier to work with the group data
+    for entry in raw_groups:
+        groups[entry["id"]] = json.loads(entry.serialize())
+        for ref in entry["external_references"]:
+            if ref.source_name == "mitre-attack":
+                groups[entry["id"]]["external_id"] = ref.external_id
+                break
+    # get all groups that have used techniques
+    groups_using_techniques = mitre_attack_data.get_all_techniques_used_by_all_groups()
+    for id, techniques in groups_using_techniques.items():
+        for technique in techniques:
+            for entry in technique["object"]["external_references"]:
+                if entry.source_name == 'mitre-attack':
+                    technique_id = entry.external_id
+                if technique_id:
+                    techniques = groups[id].get('technqiues', False)
+                    if techniques:
+                        if technique_id not in techniques:
+                            groups[id]['techniques'].append(technique_id) 
+                    else:
+                        groups[id]['techniques'] = [technique_id]
+                    # we no longer need to loop through external references
+                    break
+    return list(groups.values())

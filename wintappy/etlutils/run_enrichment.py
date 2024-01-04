@@ -7,13 +7,17 @@ from datetime import datetime
 
 import fsspec
 
-from wintappy.analytics.constants import TACTIC_STIX_TYPE, TECHNIQUE_STIX_TYPE
-from wintappy.analytics.utils import load_attack_metadata, run_against_day
+from wintappy.analytics.utils import (
+    get_formatted_groups,
+    load_attack_metadata,
+    run_against_day,
+)
 from wintappy.config import get_config, print_config
 from wintappy.database.constants import (
     CAR_ANALYTIC_COVERAGE,
     CAR_ANALYTICS_RESULTS_TABLE,
     CAR_ANALYTICS_TABLE,
+    GROUPS_TABLE,
     MITRE_DIR,
     TACTICS_TABLE,
     TECHNIQUES_TABLE,
@@ -51,6 +55,7 @@ def add_enrichment_tables(
                 mitre_attack_data.get_tactics(remove_revoked_deprecated=True),
             )
         ),
+        GROUPS_TABLE: get_formatted_groups(mitre_attack_data=mitre_attack_data),
     }
     # Create a memory filesystem and write the dictionary data to it
     for table_name, table_data in metadata_tables.items():
