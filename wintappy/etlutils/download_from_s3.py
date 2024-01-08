@@ -27,7 +27,7 @@ import boto3
 import botocore
 import tqdm
 
-from wintappy.config import get_config, print_config
+from wintappy.config import get_configs, print_config
 from wintappy.etlutils.utils import configure_basic_logging, get_date_range
 
 # Maximum number of open HTTP(s) connections
@@ -212,7 +212,7 @@ def parse_filename(filename):
     return hostname, data_capture_epoch
 
 
-def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
+def parse_s3_metadata(files, dataset, uploadedDPK, uploadedHPK, event_type):
     """
     Parse metadata from S3. This will be used for generating the correct path to write to.
     TODO: Write this data also to a parquet file for metadata analytics.
@@ -252,7 +252,7 @@ def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
                 )
 
             # Define fully-qualified local name
-            local_file_path = f"{local_path}/raw_sensor/{new_event_type}/dayPK={datadpk}/hourPK={datahpk}"
+            local_file_path = f"{dataset}/raw_sensor/{new_event_type}/dayPK={datadpk}/hourPK={datahpk}"
 
             s3File = S3File(
                 file.get("Key"),
@@ -281,29 +281,18 @@ def parse_s3_metadata(files, local_path, uploadedDPK, uploadedHPK, event_type):
 def main(argv=None) -> None:
     configure_basic_logging()
     parser = argparse.ArgumentParser(
-        prog="downloadFromS3.py", description="Download Wintap files from S3"
+        prog="download_from_S3.py", description="Download Wintap files from S3"
     )
     parser.add_argument("--profile", help="AWS profile to use")
     parser.add_argument("-b", "--bucket", help="The S3 bucket")
-    parser.add_argument("-c", "--config", help="Path to config file")
     parser.add_argument("-p", "--prefix", help="S3 prefix within the bucket")
     parser.add_argument("-s", "--start", help="Start date (YYYYMMDD HH)")
     parser.add_argument("-e", "--end", help="End date (YYYYMMDD HH)")
-    parser.add_argument("-l", "--localpath", help="Local path to write files")
-    parser.add_argument("--log-level", help="Logging Level: INFO, WARN, ERROR, DEBUG")
-    options, _ = parser.parse_known_args(argv)
 
     # setup config based on env variables and config file
-    args = get_config(options.config)
-    # update config with CLI args
-    args.update({k: v for k, v in vars(options).items() if v is not None})
+    args = get_configs(parser, argv)
 
-    try:
-        logging.getLogger().setLevel(args.LOG_LEVEL)
-    except ValueError:
-        logging.error("Invalid log level: {}".format(args.LOG_LEVEL))
-        sys.exit(1)
-
+    # Move into get_configs?
     print_config(args)
 
     if args.AWS_PROFILE:
@@ -327,7 +316,7 @@ def main(argv=None) -> None:
     # Top level is event types
     event_types = folders
     start_date, end_date = get_date_range(
-        args.START, args.END, date_format="%Y%m%d %H", data_set_path=args.LOCAL_PATH
+        args.START, args.END, date_format="%Y%m%d %H", data_set_path=args.DATASET
     )
 
     logging.info(f"Using time range: {start_date} -> {end_date}")
@@ -361,7 +350,7 @@ def main(argv=None) -> None:
                     files_md.extend(
                         parse_s3_metadata(
                             files,
-                            args.LOCAL_PATH,
+                            args.DATASET,
                             daypk,
                             hourpk,
                             event_type.get("Prefix").split("/")[2],
