@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-from pprint import pprint
 
 from wintappy.config import get_configs
 from wintappy.datautils import rawutil as ru
@@ -36,9 +35,9 @@ def main(argv=None):
         os.makedirs(dbpath)
         logging.debug(f"created folder: {dbpath} ")
 
-    print(f"Writing helperdb to: {dbpath}{os.sep}{dbname}")
+    logging.info(f"Writing helperdb to: {dbpath}{os.sep}{dbname}")
     # Always start with rolling
-    print("\n  Creating rolling views...\n")
+    logging.info("\n  Creating rolling views...\n")
 
     # Fix lookups! very fragile here...
     helperdb = ru.init_db(
@@ -50,7 +49,7 @@ def main(argv=None):
     # Layer in the requested agglevel if it ISN'T rolling
     if args.AGGLEVEL.lower() != "rolling":
         # Create everything in stdview-Start-End, this will replace any views defined in rolling that got recreated, such as HOST, PROCESS, etc.
-        print(f"\n  Creating {args.AGGLEVEL} views...\n")
+        logging.info(f"\n  Creating {args.AGGLEVEL} views...\n")
         globs = ru.get_glob_paths_for_dataset(args.DATASET, subdir=args.AGGLEVEL)
         ru.create_views(helperdb, globs)
     helperdb.close()

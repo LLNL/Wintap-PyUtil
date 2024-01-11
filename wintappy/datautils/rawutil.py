@@ -172,8 +172,8 @@ def loadSqlStatements(file):
             # For tables and views, use the object name
             curKey = line.strip().split()[-1]
             curStatement = line
-        elif line.lower().startswith("update "):
-            # Add line number to be sure its unique as there can be multiple UPDATEs per table
+        elif line.split(" ", 1)[0].lower() in ["alter", "update", "insert", "delete"]:
+            # Add line number to be sure its unique as there can be multiple of these per table
             curKey = f"{line.strip()}-{count}"
             curStatement = line
         else:
@@ -309,6 +309,7 @@ def run_sql_no_args(con, sqlfile):
             con.execute(etl_sql[key])
         except CatalogException as e:
             logging.info(f"No raw data for {key}")
+            logging.debug(f"Error: {e}\nSQL: {etl_sql[key]}")
         except Exception as e:
             logging.info(f"  Failed: {e}")
             logging.info(type(e))

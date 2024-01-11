@@ -1,13 +1,9 @@
 import argparse
 from importlib.resources import files as resource_files
 
-from wintappy.config import get_configs, print_config
+from wintappy.config import get_configs
 from wintappy.datautils import rawutil as ru
 from wintappy.etlutils.utils import configure_basic_logging
-
-# def create_networkx_view(con, dataset):
-#    sql = f"create or replace view labels_networkx as select * from read_json_auto('{dataset}/labels/networkx/*.json', filename=true)"
-#    con.execute(sql)
 
 
 def main(argv=None):
@@ -20,14 +16,11 @@ def main(argv=None):
     parser.add_argument("-e", "--end", help="End date (YYYYMMDD)")
 
     args = get_configs(parser, argv)
-    print_config(args)
 
     con = ru.init_db()
     globs = ru.get_glob_paths_for_dataset(
         args.DATASET, subdir="rolling", include="raw_"
     )
-    #    globs.update(ru.get_glob_paths_for_dataset(cur_dataset, subdir="rolling", include="sigma_labels",lookups=f'{cur_dataset}/../lookups'))
-    #    globs.update(ru.get_glob_paths_for_dataset(cur_dataset, subdir="rolling", include="mitre_labels"))
     ru.create_raw_views(con, globs, args.START, args.END)
     for sqlfile in ["rawtostdview.sql", "process_path.sql", "process_summary.sql"]:
         ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(sqlfile))

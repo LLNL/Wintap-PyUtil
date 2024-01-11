@@ -7,6 +7,8 @@ from wintappy.datautils import rawutil as ru
 from wintappy.datautils import summary_util as su
 from wintappy.etlutils.utils import configure_basic_logging
 
+save_db_objects = ["sigma_labels_summary", "process_summary_sigma"]
+
 
 def main(argv=None):
     configure_basic_logging()
@@ -20,18 +22,19 @@ def main(argv=None):
     args = get_configs(parser, argv)
 
     con = ru.init_db()
-
     # Create a views for the NETWORKX and PROCESS table. Evolve this into creating views for "dependent" table types.
-    su.create_networkx_view(con, args.DATASET)
+    if su.create_sigma_labels_view(con, args.DATASET, args.AGGLEVEL):
+        save_db_objects.append("sigma_labels")
     su.create_process_view(con, args.DATASET, args.AGGLEVEL)
+    su.create_sigma_lookups(con, args.DATASET)
     logging.debug(con.execute("show tables").fetchall())
-    for sqlfile in ["label_summary.sql"]:
+    for sqlfile in ["sigma_summary.sql"]:
         ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(sqlfile))
     logging.debug(con.execute("show tables").fetchall())
     ru.write_parquet(
         con,
         args.DATASET,
-        ru.get_db_objects(con, exclude=["raw_", "tmp"]),
+        save_db_objects,
         agg_level=f"{args.AGGLEVEL}",
     )
 

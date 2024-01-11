@@ -1,7 +1,7 @@
 import argparse
 from importlib.resources import files as resource_files
 
-from wintappy.config import get_configs, print_config
+from wintappy.config import get_configs
 from wintappy.datautils import rawutil as ru
 from wintappy.etlutils.utils import configure_basic_logging, daterange, get_date_range
 
@@ -33,7 +33,6 @@ def main(argv=None) -> None:
     parser.add_argument("-e", "--end", help="End date (YYYYMMDD)")
 
     args = get_configs(parser, argv)
-    print_config(args)
 
     start_date, end_date = get_date_range(
         args.START, args.END, data_set_path=args.DATASET

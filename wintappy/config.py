@@ -15,7 +15,7 @@ def _get_config_path(config_path: str = "") -> str:
     return WINTAP_CONFIG_FILE
 
 
-def get_config(config_path: str = "") -> Dynaconf:
+def _get_config(config_path: str = "") -> Dynaconf:
     # setup config params
     config = Dynaconf(
         envvar_prefix="WINTAPPY",
@@ -45,6 +45,7 @@ def get_config(config_path: str = "") -> Dynaconf:
     except ValidationError as e:
         logging.error(e.details)
         raise e
+    print_config(config)
     return config
 
 
@@ -77,12 +78,12 @@ def arg_parser(parser):
     return parser
 
 
-def get_configs(parser, argv):
+def get_configs(parser, argv) -> Dynaconf:
     parser = arg_parser(parser)
     options, _ = parser.parse_known_args(argv)
 
     # setup config based on env variables and config file
-    args = get_config(options.config)
+    args = _get_config(options.config)
     # update config with CLI args
     args.update({k: v for k, v in vars(options).items() if v is not None})
     validate_args(args)

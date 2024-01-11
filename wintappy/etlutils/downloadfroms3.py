@@ -27,7 +27,7 @@ import boto3
 import botocore
 import tqdm
 
-from wintappy.config import get_configs, print_config
+from wintappy.config import get_configs
 from wintappy.etlutils.utils import configure_basic_logging, get_date_range
 
 # Maximum number of open HTTP(s) connections
@@ -281,7 +281,7 @@ def parse_s3_metadata(files, dataset, uploadedDPK, uploadedHPK, event_type):
 def main(argv=None) -> None:
     configure_basic_logging()
     parser = argparse.ArgumentParser(
-        prog="download_from_S3.py", description="Download Wintap files from S3"
+        prog="downloadfromS3.py", description="Download Wintap files from S3"
     )
     parser.add_argument("--profile", help="AWS profile to use")
     parser.add_argument("-b", "--bucket", help="The S3 bucket")
@@ -291,9 +291,6 @@ def main(argv=None) -> None:
 
     # setup config based on env variables and config file
     args = get_configs(parser, argv)
-
-    # Move into get_configs?
-    print_config(args)
 
     if args.AWS_PROFILE:
         session = boto3.Session(profile_name=args.AWS_PROFILE)

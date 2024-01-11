@@ -9,7 +9,7 @@ import fsspec
 
 from wintappy.analytics.constants import TACTIC_STIX_TYPE, TECHNIQUE_STIX_TYPE
 from wintappy.analytics.utils import load_attack_metadata, run_against_day
-from wintappy.config import get_config, print_config
+from wintappy.config import get_configs
 from wintappy.database.constants import (
     CAR_ANALYTIC_COVERAGE,
     CAR_ANALYTICS_RESULTS_TABLE,
@@ -112,8 +112,6 @@ def main(argv=None):
         prog="run_enrichment.py",
         description="Run enrichements against wintap data, write out results partitioned by day",
     )
-    parser.add_argument("-c", "--config", help="Path to config file")
-    parser.add_argument("-d", "--dataset", help="Path to the dataset dir to process")
     parser.add_argument("-s", "--start", help="Start date (YYYYMMDD)")
     parser.add_argument("-e", "--end", help="End date (YYYYMMDD)")
     parser.add_argument(
@@ -122,23 +120,7 @@ def main(argv=None):
         help="Add enrichment tables to the specified path",
         default="",
     )
-    parser.add_argument(
-        "-l",
-        "--log-level",
-        help="Logging Level: INFO, WARN, ERROR, DEBUG",
-    )
-    options, _ = parser.parse_known_args(argv)
-
-    # setup config based on env variables and config file
-    args = get_config(options.config)
-    # update config with CLI args
-    args.update({k: v for k, v in vars(options).items() if v is not None})
-    try:
-        logging.getLogger().setLevel(args.LOG_LEVEL)
-    except ValueError:
-        logging.error(f"Invalid log level: {args.LOG_LEVEL}")
-        sys.exit(1)
-    print_config(args)
+    args = get_configs(parser, argv)
 
     manager = TransformerManager(current_dataset=args.DATASET)
 
