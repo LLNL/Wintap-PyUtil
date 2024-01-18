@@ -8,5 +8,7 @@ WHERE
     parent.pid_hash = child.parent_pid_hash
     AND child.process_name IN ('spoolsv.exe', 'conhost.exe')
     AND parent.process_name = 'cmd.exe'
+    {% if search_day_pk is defined and search_day_pk != None %}
     AND parent.daypk = {{ search_day_pk|default(20230501, true) }}
     AND child.daypk = {{ search_day_pk|default(20230501, true) }}
+    {% endif %}

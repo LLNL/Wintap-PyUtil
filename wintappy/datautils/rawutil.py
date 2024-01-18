@@ -214,13 +214,14 @@ def generate_view_sql(event_map, start=None, end=None):
             """
             # Apply start/end filtering for rolling tables only.
             if "/rolling/" in pathspec:
-                if start != None and end != None:
+                if start and end:
                     view_sql += f"where dayPK between {start} and {end}"
-                if start != None and end == None:
+                if start is not None and end is None:
                     view_sql += f"where dayPK = {start}"
-        stmts.append(view_sql)
-        logging.debug(f"View for {event_type} using {pathspec}")
-        logging.debug(view_sql)
+        if view_sql:
+            stmts.append(view_sql)
+            logging.debug(f"View for {event_type} using {pathspec}")
+            logging.debug(view_sql)
     return stmts
 
 

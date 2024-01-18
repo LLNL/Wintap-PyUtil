@@ -25,6 +25,7 @@ def get_date_range(
     end_date: str,
     date_format: str = "%Y%m%d",
     data_set_path: str = os.getcwd(),
+    agg_level: str = "",
 ) -> Tuple[datetime, datetime]:
     start = None
     end = None
@@ -33,6 +34,8 @@ def get_date_range(
     if start_date:
         start = datetime.strptime(start_date, date_format)
     if start and end:
+        return start, end
+    if agg_level and agg_level != "rolling":
         return start, end
     start = latest_processed_datetime(data_set_path)
     end = datetime.utcnow()

@@ -13,8 +13,10 @@ WHERE
             parent.pid_hash = child.parent_pid_hash
             AND parent.process_name != 'explorer.exe'
             AND child.process_name = 'cmd.exe'
-            AND parent.daypk = {{ limit_search_days( search_day_pk ) }}
-            AND child.daypk = {{ limit_search_days( search_day_pk ) }}
+            {% if search_day_pk is defined and search_day_pk != None %}
+            AND parent.daypk = {{ search_day_pk|default(20230501, true) }}
+            AND child.daypk = {{ search_day_pk|default(20230501, true) }}
+            {% endif %}
     )
     AND p.process_name = 'reg.exe'
-    AND p.daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

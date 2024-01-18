@@ -8,4 +8,4 @@ WHERE
     process_name IN ('MSBuild.exe', 'msbuild.exe', 'msxsl.exe')
     AND process_path NOT LIKE '%Microsoft Visual Studio%'
     AND process_path NOT LIKE '%microsoft visual studio%'
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

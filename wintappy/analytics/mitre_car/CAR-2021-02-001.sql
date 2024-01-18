@@ -23,5 +23,7 @@ WHERE
         'systeminfo.exe',
         'ipconfig.exe'
     )
-    AND child.daypk = {{ search_day_pk|default(20230501, true) }}
+{% if search_day_pk is defined and search_day_pk != None %}
     AND parent.daypk = {{ search_day_pk|default(20230501, true) }}
+    AND child.daypk = {{ search_day_pk|default(20230501, true) }}
+{% endif %}

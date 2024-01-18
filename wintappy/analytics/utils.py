@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 import fsspec
 import tqdm
 import yaml
-from duckdb import CatalogException
+from duckdb import CatalogException, ParserException
 from jinja2 import Environment
 from mitreattack.stix20 import MitreAttackData
 
@@ -151,7 +151,10 @@ def format_car_analytic(analytic_id: str, metadata: Dict[str, Any]) -> CARAnalyt
 
 
 def run_against_day(
-    daypk: int, env: Environment, db: WintapDuckDB, analytics: List[CARAnalytic]
+    env: Environment,
+    db: WintapDuckDB,
+    analytics: List[CARAnalytic],
+    daypk: Optional[int] = None,
 ) -> None:
     """Runs a single or all CAR analytics against data for a single daypk."""
     for analytic in analytics:
@@ -162,9 +165,16 @@ def run_against_day(
             db.query(
                 f"INSERT INTO {CAR_ANALYTICS_RESULTS_TABLE} SELECT pid_hash, '{analytic.analytic_id}', first_seen, 'pid_hash' FROM ( {query_str} )"
             )
-        except CatalogException as err:
+        except (CatalogException, ParserException) as err:
             # Don't include the stacktrace to keep the output succinct.
             logging.error(f"{analytic.analytic_id}: {err.args}", stack_info=False)
+            logging.error(
+                f"INSERT INTO {CAR_ANALYTICS_RESULTS_TABLE} SELECT pid_hash, '{analytic.analytic_id}', first_seen, 'pid_hash' FROM ( {query_str} )"
+            )
+    # write results out to the fs
+    db.write_table(CAR_ANALYTICS_RESULTS_TABLE, daypk, location=db._dataset_path)
+    # clear out results table that we just wrote out to the fs
+    db.clear_table(CAR_ANALYTICS_RESULTS_TABLE)
     return
 
 

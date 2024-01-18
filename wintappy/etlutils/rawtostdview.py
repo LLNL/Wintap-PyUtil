@@ -21,6 +21,7 @@ def main(argv=None):
     globs = ru.get_glob_paths_for_dataset(
         args.DATASET, subdir="rolling", include="raw_"
     )
+
     ru.create_raw_views(con, globs, args.START, args.END)
     for sqlfile in ["rawtostdview.sql", "process_path.sql", "process_summary.sql"]:
         ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(sqlfile))

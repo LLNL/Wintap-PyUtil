@@ -45,5 +45,7 @@ WHERE
             AND parent.process_name NOT IN ('dwm.exe', 'winlogon.exe')
         )
     )
+    {% if search_day_pk is defined and search_day_pk != None %}
     AND parent.daypk = {{ search_day_pk|default(20230501, true) }}
     AND child.daypk = {{ search_day_pk|default(20230501, true) }}
+    {% endif %}

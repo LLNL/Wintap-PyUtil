@@ -16,4 +16,4 @@ WHERE
         args LIKE '%WinDefend'
         OR args LIKE '%wintap'
     )
-    AND daypk = {{ search_day_pk|default(20230501, true) }}
+    {{ search_day_pk|default(20230501, true) }}
