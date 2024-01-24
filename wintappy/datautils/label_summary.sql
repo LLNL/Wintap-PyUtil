@@ -43,12 +43,3 @@ from labels_graph_nodes
 where node_type ='FiveTupleConn'
 group by ALL 
 ;
-
--- Create PROCESS_LABEL_SUMMARY with NetworkX labels added.
-create or replace view process_label_summary
-as
-select ps.*,
-  gps.* exclude (pid_hash)
-from process_summary ps
-left outer join labels_graph_process_summary gps on ps.pid_hash=gps.pid_hash 
-;
