@@ -1,4 +1,5 @@
 import argparse
+import logging
 from importlib.resources import files as resource_files
 
 from wintappy.config import get_configs
