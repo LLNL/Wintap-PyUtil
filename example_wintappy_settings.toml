@@ -14,9 +14,6 @@
 # local path to the dataset you are working with
 # dataset = "sample_data"
 
-# specify the local path where s3 data should be placed during download
-# local_path = "path_to_copy_to_from_s3"
-
 # change the log level, can be one of: ["INFO", "WARN", "ERROR", "DEBUG"]
 # log_level = "DEBUG"
 

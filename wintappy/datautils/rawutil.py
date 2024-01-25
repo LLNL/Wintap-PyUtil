@@ -57,7 +57,7 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None, looku
                         # No dir globs needed
                         globs[event_type].add(f"{cur_event}{os.sep}*.parquet")
                     else:
-                        # Remove the pre-fix, including event_type. Convert that to a glob.
+                        # Remove the prefix, including event_type. Convert that to a glob.
                         subdir = dirpath.replace(cur_event, "")
                         glob = os.sep.join(["*"] * subdir.count(os.path.sep))
                         globs[event_type].add(
@@ -70,11 +70,11 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None, looku
             # Treat as a simple, single file.
             if event_type.lower().endswith("parquet"):
                 event = re.split(r"\.", event_type)[0]
-                logging.info(f"{datetime.now()} Found {event} file: {event_type}")
+                logging.info(f"Found {event} file: {event_type}")
                 globs[event].add(cur_event)
             elif event_type.lower().endswith("csv"):
                 event = re.split(r"\.", event_type)[0]
-                logging.info(f"{datetime.now()} Found {event} file: {event_type}")
+                logging.info(f"Found {event} file: {event_type}")
                 globs[event].add(cur_event)
     return validate_globs(globs)
 
@@ -172,8 +172,8 @@ def loadSqlStatements(file):
             # For tables and views, use the object name
             curKey = line.strip().split()[-1]
             curStatement = line
-        elif line.lower().startswith("update "):
-            # Add line number to be sure its unique as there can be multiple UPDATEs per table
+        elif line.split(" ", 1)[0].lower() in ["alter", "update", "insert", "delete"]:
+            # Add line number to be sure its unique as there can be multiple of these per table
             curKey = f"{line.strip()}-{count}"
             curStatement = line
         else:
@@ -212,11 +212,12 @@ def generate_view_sql(event_map, start=None, end=None):
             create or replace view {event_type} as
             select * from parquet_scan('{pathspec}',hive_partitioning=1)
             """
-            # Apply start/end filtering for rawtostdview. Only uses the combined raw_ types in the rolling path.
-            if start != None and end != None:
-                view_sql += f"where dayPK between {start} and {end}"
-            if start != None and end == None:
-                view_sql += f"where dayPK = {start}"
+            # Apply start/end filtering for rolling tables only.
+            if "/rolling/" in pathspec:
+                if start != None and end != None:
+                    view_sql += f"where dayPK between {start} and {end}"
+                if start != None and end == None:
+                    view_sql += f"where dayPK = {start}"
         stmts.append(view_sql)
         logging.debug(f"View for {event_type} using {pathspec}")
         logging.debug(view_sql)
@@ -243,9 +244,6 @@ def create_raw_views(con, raw_data, start=None, end=None):
     Create views in the db for each of the event_types.
     """
     create_views(con, raw_data, start, end)
-
-    # For now, processing REQUIREs that RAW_PROCESS_STOP exist even if its empty. Create an empty table if needed.
-    create_empty_process_stop(con)
 
 
 def create_empty_process_stop(con):
@@ -308,6 +306,7 @@ def run_sql_no_args(con, sqlfile):
             con.execute(etl_sql[key])
         except CatalogException as e:
             logging.info(f"No raw data for {key}")
+            logging.debug(f"Error: {e}\nSQL: {etl_sql[key]}")
         except Exception as e:
             logging.info(f"  Failed: {e}")
             logging.info(type(e))
