@@ -40,7 +40,7 @@ def main(argv=None) -> None:
         args.START, args.END, data_set_path=args.DATASET
     )
 
-    print(f"Processing {start_date} to {end_date}")
+    logging.info(f"Processing {start_date} to {end_date}")
     process_range(args.DATASET, start_date, end_date)
 
 
