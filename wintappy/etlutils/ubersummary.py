@@ -103,6 +103,8 @@ def main(argv=None):
         agg_level=f"{args.AGGLEVEL}",
     )
 
+    logging.info("Complete")
+
 
 if __name__ == "__main__":
     main(argv=None)
