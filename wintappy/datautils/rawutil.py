@@ -17,6 +17,10 @@ def init_db(dataset=None, agg_level="rolling", database=":memory:", lookups=""):
     Initialize an in memory db instance and configure with our custom sql.
     """
     con = duckdb.connect(database=database)
+    # Set a temp file path when using memory as it will allow for larger than memory databases.
+#    if database.lower()==':memory:':
+#        logging.info("Setting temp dir")
+#        con.execute("SET temp_directory = '/tmp' ")
     # TODO fix reference to SQL scripts
     run_sql_no_args(con, resource_files("wintappy.datautils").joinpath("initdb.sql"))
     if not dataset == None:
@@ -216,6 +220,9 @@ def generate_view_sql(event_map, start=None, end=None):
             if "/rolling/" in pathspec:
                 if start != None and end != None:
                     view_sql += f"where dayPK between {start} and {end}"
+                    if event_type in ['raw_process','raw_imageload']:
+                        view_sql += " and pidhash like '0%'"
+                        logging.info("Added LIKE pidhash...")
                 if start != None and end == None:
                     view_sql += f"where dayPK = {start}"
         stmts.append(view_sql)
@@ -350,7 +357,7 @@ def write_parquet(con, datasetpath, db_objects, daypk=None, agg_level="stdview")
             else:
                 logging.debug(f"folder already exists: {pathspec}")
             # TODO Add test for file existence
-            sql = f"COPY {object_name} TO '{pathspec}{os.sep}{filename}' (FORMAT 'parquet')"
+            sql = f"COPY {object_name} TO '{pathspec}{os.sep}{filename}' (FORMAT 'parquet', per_thread_output True)"
             con.execute(sql)
         except duckdb.IOException as e:
             logging.exception(f"Failed to write: {object_name}")
