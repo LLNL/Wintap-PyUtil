@@ -1,4 +1,5 @@
 import argparse
+import logging
 from importlib.resources import files as resource_files
 
 from wintappy.config import get_configs
@@ -26,7 +27,7 @@ def main(argv=None):
     # For now, processing REQUIREs that RAW_PROCESS_STOP exist even if its empty. Create an empty table if needed.
     ru.create_empty_process_stop(con)
 
-    for sqlfile in ["rawtostdview.sql", "process_path.sql", "process_summary.sql"]:
+    for sqlfile in ["rawtostdview.sql", "process_summary.sql"]:
         ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(sqlfile))
     ru.write_parquet(
         con,
