@@ -16,7 +16,7 @@ def process_range(cur_dataset, start_date, end_date):
         ru.create_raw_views(con, globs)
         # For now, processing REQUIREs that RAW_PROCESS_STOP exist even if its empty. Create an empty table if needed.
         ru.create_empty_process_stop(con)
-        for sqlfile in ["rawtostdview.sql", "process_path.sql"]:
+        for sqlfile in ["rawtostdview.sql"]:
             ru.run_sql_no_args(
                 con, resource_files("wintappy.datautils").joinpath(sqlfile)
             )
