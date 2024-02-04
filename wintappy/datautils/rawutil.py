@@ -220,9 +220,6 @@ def generate_view_sql(event_map, start=None, end=None):
             if "/rolling/" in pathspec:
                 if start != None and end != None:
                     view_sql += f"where dayPK between {start} and {end}"
-                    if event_type in ['raw_process','raw_imageload']:
-                        view_sql += " and pidhash like '0%'"
-                        logging.info("Added LIKE pidhash...")
                 if start != None and end == None:
                     view_sql += f"where dayPK = {start}"
         stmts.append(view_sql)
