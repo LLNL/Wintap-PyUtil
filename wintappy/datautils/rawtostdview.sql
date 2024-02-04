@@ -4,7 +4,8 @@
  *
  */
 
-/* TODO: Change first() to mode(), which returns the most frequent value */
+/* TODO: Change first() to mode(), which returns the most frequent value.
+   Update: maybe not: mode requires state and is much slower and more memory intensive on large sets. */
 
 CREATE TABLE IF NOT EXISTS host
 AS
@@ -128,7 +129,7 @@ SELECT
     count(DISTINCT p.filesha2) num_file_sha2,
     min(CASE
         WHEN
-            upper(p.activitytype) IN ('START', 'REFRESH')
+            upper(p.activitytype) IN ('START', 'REFRESH','POLLED')
             THEN win32_to_epoch(cast(p.eventtime as bigint))
         ELSE NULL
     END) process_started_seconds,
@@ -198,9 +199,9 @@ CREATE TABLE IF NOT EXISTS process_conn_incr
 AS
 SELECT
     'windows' os_family,
-    hostname hostname,
-    pidhash pid_hash,
-    processname process_name,
+    pci.hostname hostname,
+    pci.pidhash pid_hash,
+    p.process_name,
     connid conn_id,
     -- Calculate a time range for grouping. Starting with 1 minute.
     protocol protocol,
@@ -329,9 +330,10 @@ SELECT
     sum(CASE
         WHEN ipevent = 'UdpIp/Send' THEN packetsizesquared
     END) sq_udp_send_size,
-    to_timestamp_micros(win32_to_epoch(min(cast(firstseenms as bigint)))) first_seen,
-    to_timestamp_micros(win32_to_epoch(max(cast(lastseenms as bigint)))) last_seen
-FROM raw_process_conn_incr
+    to_timestamp_micros(win32_to_epoch(min(cast(pci.firstseenms as bigint)))) first_seen,
+    to_timestamp_micros(win32_to_epoch(max(cast(pci.lastseenms as bigint)))) last_seen
+FROM raw_process_conn_incr pci
+left outer join process p on pci.pidhash=p.pid_hash
 GROUP BY ALL
 ;
 
@@ -385,21 +387,22 @@ GROUP BY ALL
 CREATE TABLE IF NOT EXISTS process_file
 AS
 SELECT
-    hostname hostname,
+    pf.hostname hostname,
     pidhash pid_hash, -- generate FileID
-    processname process_name,
-    md5(concat_ws('||', hostname, file_path)) file_id,
+    p.process_name,
+    md5(concat_ws('||', pf.hostname, pf.file_path)) file_id,
     file_hash file_hash,
     file_path filename,
     activitytype activity_type,
     sum(bytesrequested) bytes_requested,
-    sum(eventcount) event_count,
+    sum(pf.eventcount) event_count,
     count(*) num_raw_rows,
-    to_timestamp_micros(win32_to_epoch(min(cast(firstseen as bigint)))) first_seen,
-    to_timestamp_micros(win32_to_epoch(max(cast(lastseen as bigint)))) last_seen,
-    to_timestamp(min(cast(eventtime as bigint))) min_event,
-    to_timestamp(max(cast(eventtime as bigint))) max_event
-FROM raw_process_file
+    to_timestamp_micros(win32_to_epoch(min(cast(pf.firstseen as bigint)))) first_seen,
+    to_timestamp_micros(win32_to_epoch(max(cast(pf.lastseen as bigint)))) last_seen,
+    to_timestamp(min(cast(pf.eventtime as bigint))) min_event,
+    to_timestamp(max(cast(pf.eventtime as bigint))) max_event
+FROM raw_process_file pf
+left outer join process p on pf.pidhash=p.pid_hash
 GROUP BY ALL
 ;
 
@@ -409,22 +412,23 @@ GROUP BY ALL
 CREATE TABLE IF NOT EXISTS process_registry
 AS
 SELECT
-    hosthame hostname,
-    pidhash pid_hash,
-    processname process_name,
+    pr.hosthame hostname,
+    pr.pidhash pid_hash,
+    p.process_name,
     reg_path reg_path,
     reg_value reg_value,
     activitytype activity_type,
     reg_data reg_data,
-    sum(eventcount) event_count,
+    sum(pr.eventcount) event_count,
     --  win32_to_epoch(min(FirstSeenMs)) first_seen_seconds,
     count(*) num_raw_rows,
     --win32_to_epoch(max(lastseenms)) last_seen_seconds
-    to_timestamp_micros(win32_to_epoch(min(cast(firstseenms as bigint)))) first_seen,
-    to_timestamp_micros(win32_to_epoch(max(cast(lastseenms as bigint)))) last_seen,
-    to_timestamp(min(cast(eventtime as bigint))) min_event,
-    to_timestamp(max(cast(eventtime as bigint))) max_event
-FROM raw_process_registry
+    to_timestamp_micros(win32_to_epoch(min(cast(pr.firstseenms as bigint)))) first_seen,
+    to_timestamp_micros(win32_to_epoch(max(cast(pr.lastseenms as bigint)))) last_seen,
+    to_timestamp(min(cast(pr.eventtime as bigint))) min_event,
+    to_timestamp(max(cast(pr.eventtime as bigint))) max_event
+FROM raw_process_registry pr
+left outer join process p on pr.pidhash=p.pid_hash
 GROUP BY ALL
 ;
 
@@ -433,13 +437,13 @@ GROUP BY ALL
 CREATE TABLE IF NOT EXISTS process_image_load
 AS
 SELECT
-    computername hostname,
-    pidhash pid_hash,
-    processname process_name,
-    md5(concat_ws('||', computername, lower(filename))) file_id,
-    mode(md5) file_md5,
+    pi.computername hostname,
+    pi.pidhash pid_hash,
+    p.process_name,
+    md5(concat_ws('||', computername, lower(pi.filename))) file_id,
+    first(md5) file_md5,
     count(DISTINCT md5) num_file_md5,
-    lower(filename) filename,
+    lower(pi.filename) filename,
     max(buildtime) build_time,
     count(DISTINCT buildtime) num_uniq_build_times,
     max(imagechecksum) checksum,
@@ -453,9 +457,10 @@ SELECT
     count(DISTINCT imagesize) num_image_size,
     sum(if(upper(activitytype) = 'LOAD', 1, 0)) num_load,
     sum(if(upper(activitytype) = 'UNLOAD', 1, 0)) num_unload,
-    to_timestamp_micros(win32_to_epoch(min(cast(eventtime as bigint)))) first_seen,
-    to_timestamp_micros(win32_to_epoch(max(cast(eventtime as bigint)))) last_seen
-FROM raw_imageload
+    to_timestamp_micros(win32_to_epoch(min(cast(pi.eventtime as bigint)))) first_seen,
+    to_timestamp_micros(win32_to_epoch(max(cast(pi.eventtime as bigint)))) last_seen
+FROM raw_imageload pi
+left outer join process p on pi.pidhash=p.pid_hash
 GROUP BY ALL
 ;
 
