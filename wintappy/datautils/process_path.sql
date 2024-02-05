@@ -1,7 +1,7 @@
 -- Considering now that the term "tree" is a misnomer: these are really "paths to root"
 -- Had the concept of having a "tree_id", but what would that actually be? 
 
-create table process_paths
+create table process_path
 as
 select * from (
     with recursive cte_process_tree (
@@ -54,11 +54,13 @@ select * from (
             p.pid_hash = pt.parent_pid_hash
             and pt.parent_pid_hash != pt.pid_hash
             and not list_contains(pt.ptree_list, p.pid_hash)
+            -- optimization?
+            and p.hostname=pt.hostname
     )
-
     select
         *,
         max(level) over (partition by pid_hash) as max_level
     from cte_process_tree
 )
-where max_level = level;
+where max_level = level
+;
