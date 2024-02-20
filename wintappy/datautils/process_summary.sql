@@ -122,7 +122,8 @@ as
 SELECT
 	-- Process
 	p.*,
-	p.PROCESS_TERM-p.PROCESS_STARTED duration_seconds,
+	-- TODO: There is a chance the resulting INTERVAL is negative, which is not supported in parquet. So, convert to a double.
+	 millisecond(p.PROCESS_TERM-p.PROCESS_STARTED)/1000 duration_seconds,
 	-- Registry
 	r.total_activity_types reg_totals,
 	r.reads reg_reads,

@@ -1,4 +1,5 @@
 import argparse
+import logging
 from importlib.resources import files as resource_files
 
 from wintappy.config import get_configs
@@ -13,6 +14,8 @@ def process_range(cur_dataset, start_date, end_date):
         globs = ru.get_globs_for(cur_dataset, daypk)
         # No need to pass dayPK as the globs already include it.
         ru.create_raw_views(con, globs)
+        # For now, processing REQUIREs that RAW_PROCESS_STOP exist even if its empty. Create an empty table if needed.
+        ru.create_empty_process_stop(con)
         for sqlfile in ["rawtostdview.sql", "process_path.sql"]:
             ru.run_sql_no_args(
                 con, resource_files("wintappy.datautils").joinpath(sqlfile)
@@ -38,7 +41,7 @@ def main(argv=None) -> None:
         args.START, args.END, data_set_path=args.DATASET
     )
 
-    print(f"Processing {start_date} to {end_date}")
+    logging.info(f"Processing {start_date} to {end_date}")
     process_range(args.DATASET, start_date, end_date)
 
 

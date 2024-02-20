@@ -70,11 +70,11 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None, looku
             # Treat as a simple, single file.
             if event_type.lower().endswith("parquet"):
                 event = re.split(r"\.", event_type)[0]
-                logging.info(f"{datetime.now()} Found {event} file: {event_type}")
+                logging.info(f"Found {event} file: {event_type}")
                 globs[event].add(cur_event)
             elif event_type.lower().endswith("csv"):
                 event = re.split(r"\.", event_type)[0]
-                logging.info(f"{datetime.now()} Found {event} file: {event_type}")
+                logging.info(f"Found {event} file: {event_type}")
                 globs[event].add(cur_event)
     return validate_globs(globs)
 
@@ -245,9 +245,6 @@ def create_raw_views(con, raw_data, start=None, end=None):
     Create views in the db for each of the event_types.
     """
     create_views(con, raw_data, start, end)
-
-    # For now, processing REQUIREs that RAW_PROCESS_STOP exist even if its empty. Create an empty table if needed.
-    create_empty_process_stop(con)
 
 
 def create_empty_process_stop(con):
