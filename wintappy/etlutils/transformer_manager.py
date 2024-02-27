@@ -16,12 +16,12 @@ class TransformerManager:
     jinja_environment: Environment
     wintap_duckdb: WintapDuckDB
 
-    def __init__(self, current_dataset: str, view: str = ""):
+    def __init__(self, current_dataset: str, agg_level: str = ""):
         self.dataset_path = current_dataset
         con = None
-        if view:
-            con = ru.init_db(self.dataset_path, agg_level=view)
-            path = f"{self.dataset_path}/{view}"
+        if agg_level:
+            con = ru.init_db(self.dataset_path, agg_level=agg_level)
+            path = f"{self.dataset_path}/{agg_level}"
         else:
             con = ru.init_db(self.dataset_path)
             path = self.dataset_path

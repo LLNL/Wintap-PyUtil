@@ -37,7 +37,7 @@ def _get_config(config_path: str = "") -> Dynaconf:
             Validator("END", is_type_of=str, default=""),
             Validator("PATH", is_type_of=str, default=""),
             Validator("NAME", is_type_of=str, default=""),
-            Validator("VIEW", is_type_of=str, default=""),
+            Validator("AGGLEVEL", is_type_of=str, default=""),
         ],
     )
     # validate the configs

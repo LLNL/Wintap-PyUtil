@@ -128,7 +128,7 @@ def main(argv=None):
     )
     args = get_configs(parser, argv)
 
-    manager = TransformerManager(current_dataset=args.DATASET, view=args.AGGLEVEL)
+    manager = TransformerManager(current_dataset=args.DATASET, agg_level==args.AGGLEVEL)
 
     if args.START and args.END:
         start_date, end_date = get_date_range(args.START, args.END, args.AGGLEVEL)
