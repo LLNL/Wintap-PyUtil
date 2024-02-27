@@ -9,14 +9,14 @@ from wintappy.etlutils.utils import configure_basic_logging
 
 save_db_objects = []
 
+
 def get_hosts(con):
-    rows=con.execute("select distinct hostname from process order by all")
+    rows = con.execute("select distinct hostname from process order by all")
     return rows
 
+
 def run_one(con, script):
-    ru.run_sql_no_args(
-        con, resource_files("wintappy.datautils").joinpath(script)
-    )
+    ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(script))
 
 
 def main(argv=None):
@@ -37,7 +37,6 @@ def main(argv=None):
     su.create_process_view(con, args.DATASET, args.AGGLEVEL)
 
     logging.info(f"Creating Process Path")
-
 
     run_one(con, "process_path.sql")
     save_db_objects.extend(["process_path"])
