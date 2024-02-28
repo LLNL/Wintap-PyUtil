@@ -17,6 +17,7 @@ def init_db(dataset=None, agg_level="rolling", database=":memory:", lookups=""):
     Initialize an in memory db instance and configure with our custom sql.
     """
     con = duckdb.connect(database=database)
+    con.execute("SET temp_directory = '/tmp/duckdb/'")
     # TODO fix reference to SQL scripts
     run_sql_no_args(con, resource_files("wintappy.datautils").joinpath("initdb.sql"))
     if not dataset == None:

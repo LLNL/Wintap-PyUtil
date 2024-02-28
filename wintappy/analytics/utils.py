@@ -162,6 +162,7 @@ def run_against_day(
             {"search_day_pk": daypk}
         )
         try:
+            logging.debug(f"query string: {query_str}")
             db.query(
                 f"INSERT INTO {CAR_ANALYTICS_RESULTS_TABLE} SELECT pid_hash, '{analytic.analytic_id}', first_seen, 'pid_hash' FROM ( {query_str} )"
             )
