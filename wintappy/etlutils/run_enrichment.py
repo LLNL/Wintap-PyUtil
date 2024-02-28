@@ -130,10 +130,10 @@ def main(argv=None):
 
     manager = TransformerManager(current_dataset=args.DATASET, agg_level=args.AGGLEVEL)
 
-    if args.START and args.END:
-        start_date, end_date = get_date_range(
-            args.START, args.END, agg_level=args.AGGLEVEL
-        )
+    start_date, end_date = get_date_range(
+        args.START, args.END, agg_level=args.AGGLEVEL
+    )
+    if start_date and end_date:
         process_range(manager, start_date, end_date)
     else:
         process_table(manager)
