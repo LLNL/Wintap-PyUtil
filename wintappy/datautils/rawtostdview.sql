@@ -437,7 +437,7 @@ SELECT
     pidhash pid_hash,
     processname process_name,
     md5(concat_ws('||', computername, lower(filename))) file_id,
-    mode(md5) file_md5,
+    first(md5) file_md5,
     count(DISTINCT md5) num_file_md5,
     lower(filename) filename,
     max(buildtime) build_time,
