@@ -1,8 +1,8 @@
 import logging
 import os
 import re
+import tempfile
 from collections import defaultdict
-from datetime import datetime
 from glob import glob
 from importlib.resources import files as resource_files
 
@@ -17,7 +17,8 @@ def init_db(dataset=None, agg_level="rolling", database=":memory:", lookups=""):
     Initialize an in memory db instance and configure with our custom sql.
     """
     con = duckdb.connect(database=database)
-    con.execute("SET temp_directory = '/tmp/duckdb/'")
+    # set caching dir to a temp directory location
+    con.execute(f"SET temp_directory = '{tempfile.mkdtemp()}'")
     # TODO fix reference to SQL scripts
     run_sql_no_args(con, resource_files("wintappy.datautils").joinpath("initdb.sql"))
     if not dataset == None:
