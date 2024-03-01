@@ -1,4 +1,3 @@
-[default]
 # This is an example wintappy_settings.toml file, which can be used to specify
 # commandline args that are used with the various commandline tools. Rename this file
 # to wintappy_settings.toml, uncomment and configure your options
@@ -10,7 +9,7 @@
 # aws_region = "us-west-2"
 
 # bucket that contains the bucket data
-# bucket = "my-example-bucket"
+# aws_s3_bucket = "my-example-bucket"
 
 # local path to the dataset you are working with
 # dataset = "sample_data"
@@ -19,6 +18,6 @@
 # log_level = "DEBUG"
 
 # prefix specifies the top level prefix in s3 that contains ALL the wintap data
-# prefix = "v3/raw_sensor"
+# aws_s3_prefix = "v3/raw_sensor"
 
 [testing]

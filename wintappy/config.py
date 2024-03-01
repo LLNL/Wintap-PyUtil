@@ -48,9 +48,7 @@ class EnvironmentConfig:
             help="Path to the dataset dir to process",
             required=required,
         )
-        self.dynaconf_validators.append(
-            Validator("DATASET", is_type_of=str, default=os.getcwd())
-        )
+        self.dynaconf_validators.append(Validator("DATASET", is_type_of=str))
 
     def add_start(
         self, required: bool = False, time_format: Optional[str] = "YYYYMMDD"
@@ -88,7 +86,7 @@ class EnvironmentConfig:
         # setup config params
         config = Dynaconf(
             envvar_prefix="WINTAPPY",
-            settings_files=[_get_config_path()],
+            settings_files=[WINTAP_CONFIG_FILE],
             validators=self.dynaconf_validators,
         )
         # validate the configs
@@ -131,9 +129,3 @@ class EnvironmentConfig:
                 print(f"Dataset: {args.DATASET} has agglevels:")
                 for dir in os.listdir(args.DATASET):
                     print(f"  {dir}")
-
-
-def _get_config_path(config_path: Optional[str] = "") -> str:
-    if config_path:
-        return f"{config_path}{os.sep}{WINTAP_CONFIG_FILE}"
-    return WINTAP_CONFIG_FILE

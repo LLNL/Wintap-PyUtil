@@ -1,13 +1,9 @@
 import argparse
-import os
 import pytest
 
 from wintappy.config import EnvironmentConfig
 
 class TestEnvironmentConfig:
-
-    def setup_class(self):
-        os.environ['ENV_FOR_DYNACONF'] = 'testing'
     
     def _get_parser(self):
         return argparse.ArgumentParser(
