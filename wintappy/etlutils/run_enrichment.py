@@ -9,7 +9,7 @@ import fsspec
 
 from wintappy.analytics.constants import TACTIC_STIX_TYPE, TECHNIQUE_STIX_TYPE
 from wintappy.analytics.utils import load_attack_metadata, run_against_day
-from wintappy.config import get_configs
+from wintappy.config import EnvironmentConfig
 from wintappy.database.constants import (
     CAR_ANALYTIC_COVERAGE,
     CAR_ANALYTICS_RESULTS_TABLE,
@@ -118,15 +118,18 @@ def main(argv=None):
         prog="run_enrichment.py",
         description="Run enrichements against wintap data, write out results partitioned by day",
     )
-    parser.add_argument("-s", "--start", help="Start date (YYYYMMDD)")
-    parser.add_argument("-e", "--end", help="End date (YYYYMMDD)")
+    # option that is specific to this cli tool
     parser.add_argument(
         "-E",
         "--populate-enrichment-tables",
         help="Add enrichment tables to the specified path",
         default="",
     )
-    args = get_configs(parser, argv)
+    env_config = EnvironmentConfig(parser)
+    env_config.add_start(required=False)
+    env_config.add_end(required=False)
+    env_config.add_aggregation_level(required=False)
+    args = env_config.get_options(argv)
 
     manager = TransformerManager(current_dataset=args.DATASET, agg_level=args.AGGLEVEL)
 

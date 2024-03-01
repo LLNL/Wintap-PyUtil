@@ -1,7 +1,7 @@
 import argparse
 from importlib.resources import files as resource_files
 
-from wintappy.config import get_configs
+from wintappy.config import EnvironmentConfig
 from wintappy.datautils import rawutil as ru
 from wintappy.etlutils.utils import configure_basic_logging
 
@@ -12,10 +12,12 @@ def main(argv=None):
         prog="rawtostdview.py",
         description="Convert raw Wintap data into standard form, no partitioning",
     )
-    parser.add_argument("-s", "--start", help="Start date (YYYYMMDD)")
-    parser.add_argument("-e", "--end", help="End date (YYYYMMDD)")
-
-    args = get_configs(parser, argv)
+    env_config = EnvironmentConfig(parser)
+    env_config.add_start(required=False)
+    env_config.add_end(required=False)
+    env_config.add_dataset_path(required=True)
+    env_config.add_aggregation_level(required=False)
+    args = env_config.get_options(argv)
 
     # Note: default uses an memory database. For debugging, add 'database="debug.db"' for a file-based db in the current dir
     con = ru.init_db()

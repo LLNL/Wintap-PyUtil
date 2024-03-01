@@ -53,12 +53,21 @@ class TestSqlUtils:
         analytic_name = "car_12345"
         assert "CAR-12345.sql" == convert_id_to_filename(analytic_name, "sql")
 
-    def test_load_sql_query(self) -> None:
+    @mock.patch("wintappy.analytics.utils.load_car_analtyic_metadata")
+    def test_load_sql_query(self, mock_analytic_metadata: mock.MagicMock) -> None:
+        mock_analytic_metadata.return_value = self.test_metadata
         expected = CARAnalytic(
             analytic_id="my-test-id",
             analytic_template="my-test-id.sql",
-            metadata={},
-            coverage=[],
+            metadata=self.test_metadata['my-test-id'],
+            coverage=[
+                MitreAttackCoverage(
+                    coverage="Moderate",
+                    tactics=["my-ta-1", "my-ta-2"],
+                    technique="technique1",
+                    subtechniques=None,
+                )
+            ],
         )
         assert expected == load_single(self.test_id)
 
