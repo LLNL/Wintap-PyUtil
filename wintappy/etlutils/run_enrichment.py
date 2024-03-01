@@ -129,6 +129,7 @@ def main(argv=None):
     env_config.add_start(required=False)
     env_config.add_end(required=False)
     env_config.add_aggregation_level(required=False)
+    env_config.add_dataset_path(required=True)
     args = env_config.get_options(argv)
 
     manager = TransformerManager(current_dataset=args.DATASET, agg_level=args.AGGLEVEL)
