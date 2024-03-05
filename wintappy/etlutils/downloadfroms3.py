@@ -27,7 +27,7 @@ import boto3
 import botocore
 import tqdm
 
-from wintappy.config import get_configs
+from wintappy.config import EnvironmentConfig
 from wintappy.etlutils.utils import configure_basic_logging, get_date_range
 
 # Maximum number of open HTTP(s) connections
@@ -283,14 +283,13 @@ def main(argv=None) -> None:
     parser = argparse.ArgumentParser(
         prog="downloadfromS3.py", description="Download Wintap files from S3"
     )
-    parser.add_argument("--profile", help="AWS profile to use")
-    parser.add_argument("-b", "--bucket", help="The S3 bucket")
-    parser.add_argument("-p", "--prefix", help="S3 prefix within the bucket")
-    parser.add_argument("-s", "--start", help="Start date (YYYYMMDD HH)")
-    parser.add_argument("-e", "--end", help="End date (YYYYMMDD HH)")
+    env_config = EnvironmentConfig(parser)
+    env_config.add_aws_settings(required=True)
+    env_config.add_start(required=True)
+    env_config.add_end(required=True)
 
     # setup config based on env variables and config file
-    args = get_configs(parser, argv)
+    args = env_config.get_options(argv)
 
     if args.AWS_PROFILE:
         session = boto3.Session(profile_name=args.AWS_PROFILE)
@@ -307,8 +306,14 @@ def main(argv=None) -> None:
             "s3", config=botocore.client.Config(max_pool_connections=50)
         )
 
-    top_level_prefix = args.PREFIX if args.PREFIX.endswith("/") else f"{args.PREFIX}/"
-    files, folders = list_folders(s3, bucket=args.BUCKET, prefix=top_level_prefix)
+    top_level_prefix = (
+        args.AWS_S3_PREFIX
+        if args.AWS_S3_PREFIX.endswith("/")
+        else f"{args.AWS_S3_PREFIX}/"
+    )
+    files, folders = list_folders(
+        s3, bucket=args.AWS_S3_BUCKET, prefix=top_level_prefix
+    )
 
     # Top level is event types
     event_types = folders
@@ -334,13 +339,15 @@ def main(argv=None) -> None:
             # Optimization: many event types are sparsely populated, so enumerate the dayPK/hourPK structure, then just get files from the ones that exist.
             files_tmp, existing_S3_paths = list_folders(
                 s3,
-                bucket=args.BUCKET,
+                bucket=args.AWS_S3_BUCKET,
                 prefix=f"{event_type.get('Prefix')}uploadedDPK={daypk}/",
             )
             # list_folders returns a JSON list. Extract the paths as a simple string list
             existing_S3_paths = [x.get("Prefix") for x in existing_S3_paths]
             if prefix in existing_S3_paths:
-                files, folders = list_files(s3, bucket=args.BUCKET, prefix=prefix)
+                files, folders = list_files(
+                    s3, bucket=args.AWS_S3_BUCKET, prefix=prefix
+                )
                 if len(files) > 0 or len(folders) > 0:
                     logging.debug(f"  {prefix}")
                     logging.debug(f"    Files: {len(files)}  Folders: {len(folders)}")
@@ -361,7 +368,7 @@ def main(argv=None) -> None:
 
         if len(files_md) > 0:
             logging.info(f"   Downloading {len(files_md)}...")
-            download_files_threaded(args.BUCKET, s3, files_md)
+            download_files_threaded(args.AWS_S3_BUCKET, s3, files_md)
 
 
 if __name__ == "__main__":

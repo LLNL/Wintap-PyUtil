@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 
-from wintappy.config import get_configs
+from wintappy.config import EnvironmentConfig
 from wintappy.datautils import rawutil as ru
 from wintappy.etlutils.utils import configure_basic_logging
 
@@ -26,7 +26,10 @@ def main(argv=None):
         "--path",
         help="Path for the duckdb created. Defaults to [dataset]/[dbhelper]/[agglevel].duckdb",
     )
-    args = get_configs(parser, argv)
+    env_config = EnvironmentConfig(parser)
+    env_config.add_aggregation_level(required=True)
+    env_config.add_dataset_path(required=True)
+    args = env_config.get_options(argv)
 
     # Set path and name for helperdb file.
     dbname = args.NAME if args.NAME else args.AGGLEVEL + ".db"
