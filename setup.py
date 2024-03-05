@@ -10,7 +10,7 @@ install_requires = [
     "humanfriendly",
     "importlib_resources",
     "ipyfilechooser",
-    "jinja2==3.0.3",
+    "jinja2",
     "jinjasql",
     "lxml",
     "magic_duckdb",
