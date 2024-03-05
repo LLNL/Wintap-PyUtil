@@ -13,4 +13,4 @@ WHERE
         OR args LIKE '%get-localgroup%'
         OR args LIKE '%get-ADPrincipalGroupMembership%'
     )
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

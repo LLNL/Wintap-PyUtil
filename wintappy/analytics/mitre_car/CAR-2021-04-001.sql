@@ -10,4 +10,4 @@ WHERE
     AND process_path NOT LIKE 'c:\windows\system32\%.exe'
     AND process_path NOT LIKE 'systemroot\system32\%.exe'
     AND process_path NOT LIKE '%systemroot%\system32\%.exe'
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

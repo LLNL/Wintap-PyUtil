@@ -7,4 +7,4 @@ FROM process
 WHERE
     process_name = 'bcdedit.exe'
     AND args LIKE '%recoveryenabled%'
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

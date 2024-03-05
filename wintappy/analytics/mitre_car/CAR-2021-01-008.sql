@@ -9,4 +9,4 @@ WHERE
     AND (
         args LIKE '%reg.exe%HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System%REG_DWORD /d 0%'
     )
-    AND daypk = {{ search_day_pk|default(20230501, true) }}
+    {{ limit_search_days( search_day_pk ) }}

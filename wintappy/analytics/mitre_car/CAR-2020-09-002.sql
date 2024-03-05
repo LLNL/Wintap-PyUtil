@@ -6,4 +6,4 @@ SELECT {{ select_fallback( columns ) }}
 FROM process_registry
 WHERE
     reg_path LIKE '%Software\Classes\CLSID%'
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}
