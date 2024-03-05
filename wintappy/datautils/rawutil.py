@@ -1,8 +1,8 @@
 import logging
 import os
 import re
+import tempfile
 from collections import defaultdict
-from datetime import datetime
 from glob import glob
 from importlib.resources import files as resource_files
 
@@ -17,6 +17,8 @@ def init_db(dataset=None, agg_level="rolling", database=":memory:", lookups=""):
     Initialize an in memory db instance and configure with our custom sql.
     """
     con = duckdb.connect(database=database)
+    # set caching dir to a temp directory location
+    con.execute(f"SET temp_directory = '{tempfile.mkdtemp()}'")
     # TODO fix reference to SQL scripts
     run_sql_no_args(con, resource_files("wintappy.datautils").joinpath("initdb.sql"))
     if not dataset == None:
@@ -214,13 +216,14 @@ def generate_view_sql(event_map, start=None, end=None):
             """
             # Apply start/end filtering for rolling tables only.
             if "/rolling/" in pathspec:
-                if start != None and end != None:
+                if start and end:
                     view_sql += f"where dayPK between {start} and {end}"
-                if start != None and end == None:
+                if start is not None and end is None:
                     view_sql += f"where dayPK = {start}"
-        stmts.append(view_sql)
-        logging.debug(f"View for {event_type} using {pathspec}")
-        logging.debug(view_sql)
+        if view_sql:
+            stmts.append(view_sql)
+            logging.debug(f"View for {event_type} using {pathspec}")
+            logging.debug(view_sql)
     return stmts
 
 

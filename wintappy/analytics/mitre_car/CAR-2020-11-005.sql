@@ -12,4 +12,4 @@ WHERE
         OR args LIKE '%Remove-Item (Get-PSReadlineOption).HistorySavePath%'
         OR args LIKE '%del%Microsoft\Windows\Powershell\PSReadline\ConsoleHost_history.txt'
     )
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

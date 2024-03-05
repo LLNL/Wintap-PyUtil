@@ -13,4 +13,4 @@ WHERE
     AND process_path NOT LIKE 'c:\\windows%'
     AND process_path NOT LIKE 'c:\\Program File%'
     AND process_path NOT LIKE 'c:\\Programdata%'
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

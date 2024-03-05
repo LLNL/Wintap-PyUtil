@@ -95,14 +95,20 @@ def process_range(
         logging.debug(f"running with daypk: {daypk}")
         # run analytics against this day
         run_against_day(
-            daypk, manager.jinja_environment, manager.wintap_duckdb, analytics_list
+            manager.jinja_environment,
+            manager.wintap_duckdb,
+            analytics_list,
+            daypk=daypk,
         )
-        # write results out to the fs for this day
-        manager.wintap_duckdb.write_table(
-            CAR_ANALYTICS_RESULTS_TABLE, daypk, location=manager.dataset_path
-        )
-        # clear out results table that we just wrote out to the fs
-        manager.wintap_duckdb.clear_table(CAR_ANALYTICS_RESULTS_TABLE)
+    return
+
+
+def process_table(manager: TransformerManager) -> None:
+    # run analytics against single table
+    analytics_list = list(manager.analytics.values())
+    logging.debug("running without daypk")
+    # run analytics against this day
+    run_against_day(manager.jinja_environment, manager.wintap_duckdb, analytics_list)
     return
 
 
@@ -122,11 +128,13 @@ def main(argv=None):
     )
     args = get_configs(parser, argv)
 
-    manager = TransformerManager(current_dataset=args.DATASET)
+    manager = TransformerManager(current_dataset=args.DATASET, agg_level=args.AGGLEVEL)
 
-    start_date, end_date = get_date_range(args.START, args.END)
-
-    process_range(manager, start_date, end_date)
+    start_date, end_date = get_date_range(args.START, args.END, agg_level=args.AGGLEVEL)
+    if start_date and end_date:
+        process_range(manager, start_date, end_date)
+    else:
+        process_table(manager)
 
     if args.POPULATE_ENRICHMENT_TABLES:
         add_enrichment_tables(manager, args.POPULATE_ENRICHMENT_TABLES)

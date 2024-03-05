@@ -7,4 +7,4 @@ FROM process
 WHERE
     process_name = 'certutil.exe'
     AND args LIKE '% -exportPFX %'
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

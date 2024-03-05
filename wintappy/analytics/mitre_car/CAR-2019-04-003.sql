@@ -7,4 +7,4 @@ FROM process
 WHERE
     process_path LIKE '%regsvr32.exe'
     AND args LIKE '%scrobj.dll'
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

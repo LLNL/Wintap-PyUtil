@@ -2,7 +2,6 @@ from typing import Any, Dict
 from unittest import mock
 
 from wintappy.analytics.query_analytic import (
-    MITRE_CAR_TYPE,
     MitreAttackCoverage,
     CARAnalytic,
 )
