@@ -213,9 +213,12 @@ def display_event_chart(eventDF, width=1200, height=600):
         alt.Chart(allEvents)
         .mark_circle()
         .encode(
-            x="BinDT",
-            y="Hostname_Event",
+            alt.X("BinDT"),
+            alt.Y("Hostname_Event"),
             # size=alt.Size('NumRowsRobust:N', scale=None),
+            alt.Size('NumRows:Q',
+            scale=alt.Scale(range=[0, 4000]),
+            legend=alt.Legend(title='Events per bucket')),
             # size=20,
             color="Event",
             tooltip=["Hostname:N", "Event:N", "NumRows:Q", "BinDT"],
