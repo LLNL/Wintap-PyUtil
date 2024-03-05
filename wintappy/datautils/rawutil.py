@@ -246,49 +246,6 @@ def create_raw_views(con, raw_data, start=None, end=None):
     create_views(con, raw_data, start, end)
 
 
-def create_empty_process_stop(con):
-    """
-    The current processing expects there to always be a RAW_PROCESS_STOP table for the final step for PROCESS.
-    This function is used to create an empty table with the right structure for cases where there were no PROCESS_STOP events reported.
-    """
-    db_objects = con.execute(
-        "select table_name, table_type from information_schema.tables where table_schema='main' and lower(table_name)='raw_process_stop'"
-    ).fetchall()
-    if len(db_objects) == 0:
-        logging.info("Creating empty RAW_PROCESS_STOP")
-        cursor = con.cursor()
-        cursor.execute(
-            """
-        CREATE TABLE raw_process_stop (
-            PidHash VARCHAR,
-            ParentPidHash VARCHAR,
-            CPUCycleCount BIGINT,
-            CPUUtilization INTEGER,
-            CommitCharge BIGINT,
-            CommitPeak BIGINT,
-            ReadOperationCount BIGINT,
-            WriteOperationCount BIGINT,
-            ReadTransferKiloBytes BIGINT,
-            WriteTransferKiloBytes BIGINT,
-            HardFaultCount INTEGER,
-            TokenElevationType INTEGER,
-            ExitCode BIGINT,
-            MessageType VARCHAR,
-            Hostname VARCHAR,
-            ActivityType VARCHAR,
-            EventTime BIGINT,
-            ReceiveTime BIGINT,
-            PID INTEGER,
-            IncrType VARCHAR,
-            EventCount INTEGER,
-            FirstSeenMs BIGINT,
-            LastSeenMs BIGINT
-        )
-        """
-        )
-        cursor.close()
-
-
 def run_sql_no_args(con, sqlfile):
     """
     Execute all SQL statements in the file without binding any parameters.
