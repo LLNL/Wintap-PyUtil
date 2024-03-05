@@ -2,7 +2,7 @@ import argparse
 import logging
 from importlib.resources import files as resource_files
 
-from wintappy.config import get_configs
+from wintappy.config import EnvironmentConfig
 from wintappy.datautils import rawutil as ru
 from wintappy.etlutils.utils import configure_basic_logging, daterange, get_date_range
 
@@ -30,10 +30,11 @@ def main(argv=None) -> None:
         prog="rawtorolling.py",
         description="Convert raw Wintap data into standard form, partitioned by day",
     )
-    parser.add_argument("-s", "--start", help="Start date (YYYYMMDD)")
-    parser.add_argument("-e", "--end", help="End date (YYYYMMDD)")
-
-    args = get_configs(parser, argv)
+    env_config = EnvironmentConfig(parser)
+    env_config.add_start(required=False)
+    env_config.add_end(required=False)
+    env_config.add_dataset_path(required=True)
+    args = env_config.get_options(argv)
 
     start_date, end_date = get_date_range(
         args.START, args.END, data_set_path=args.DATASET
