@@ -2,6 +2,8 @@
 
 -- Create summaries for detail event types
 create or replace view process_registry_summary
+--# required
+--# template: stdview
 as
 SELECT
   hostname,
@@ -20,6 +22,8 @@ GROUP BY ALL
 ;
  
 create or replace view process_file_summary
+--# required
+--# template: stdview
 as
 SELECT
   hostname,
@@ -45,6 +49,8 @@ GROUP BY all
 ;
 
 CREATE OR REPLACE VIEW process_net_summary
+--# required
+--# template: stdview
 AS
 SELECT
 	os_family,
@@ -100,6 +106,8 @@ GROUP BY
 ;
 
 CREATE OR REPLACE VIEW process_image_load_summary
+--# required
+--# template: stdview
 AS
 SELECT 
   hostname,

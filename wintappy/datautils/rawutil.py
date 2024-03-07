@@ -3,13 +3,23 @@ import os
 import re
 import tempfile
 from collections import defaultdict
+from dataclasses import dataclass
 from glob import glob
 from importlib.resources import files as resource_files
+from typing import List
 
 import duckdb
 import pyarrow.parquet as pq
 from duckdb import CatalogException
 from pyarrow.lib import ArrowInvalid
+
+
+@dataclass
+class SqlStmt:
+    name: str
+    sql: str
+    required: bool
+    template: str
 
 
 def init_db(dataset=None, agg_level="rolling", database=":memory:", lookups=""):
@@ -157,35 +167,47 @@ def get_globs_for(dataset, daypk):
     return globs
 
 
-def loadSqlStatements(file):
+def loadSqlStatements(file) -> List[SqlStmt]:
     """
     Read sql script into map keyed by table name.
     """
     file = open(file, "r")
     lines = file.readlines()
 
-    statements = {}
-    count = 0
-    # Strips the newline character
-    curKey = ""
-    curStatement = ""
-    for count, line in enumerate(lines):
+    statements = []
+    linenumber = 0
+    skipline = True
+    for linenumber, line in enumerate(lines):
         if line.lower().startswith("create "):
             # For tables and views, use the object name
-            curKey = line.strip().split()[-1]
-            curStatement = line
+            curStatement = SqlStmt(
+                name=line.strip().split()[-1], sql=line, required=False, template=None
+            )
+            skipline = False
         elif line.split(" ", 1)[0].lower() in ["alter", "update", "insert", "delete"]:
             # Add line number to be sure its unique as there can be multiple of these per table
-            curKey = f"{line.strip()}-{count}"
-            curStatement = line
+            curStatement = SqlStmt(
+                name=f"{line.strip()}-{linenumber}",
+                sql=line,
+                required=False,
+                template=None,
+            )
+            skipline = False
+        elif line.lower().startswith("--# required"):
+            # This object is required to exist, so if execution fails, an empty object will be created with a matching schema.
+            curStatement.required = True
+        elif line.lower().startswith("--# template:"):
+            # Template identifies where the corresponding parquet template is that will be used for creating empty objects.
+            curStatement.template = line.split(":")[1].strip()
         else:
             if line.strip() == ";":
                 # We done. Save the statement. Don't save the semi-colon.
-                statements[curKey] = curStatement
-                curStatement = "SKIP"
+                statements.append(curStatement)
+                skipline = True
+                logging.debug(curStatement.sql)
             else:
-                if curStatement != "SKIP":
-                    curStatement += line
+                if not skipline:
+                    curStatement.sql += line
     return statements
 
 
@@ -249,6 +271,26 @@ def create_raw_views(con, raw_data, start=None, end=None):
     create_views(con, raw_data, start, end)
 
 
+def create_empty_table(con, sqlstmt: SqlStmt):
+    """
+    Create an empty table from a parquet used as the template for the schema.
+    This is useful when no data exists, but the structural element (table) is required for later SQL.
+
+    template
+    """
+    fqfn = resource_files(f"wintappy.schema.{sqlstmt.template}").joinpath(
+        f"{sqlstmt.name}.parquet"
+    )
+    logging.debug(f"Creating empty table from: {fqfn}")
+    sql = f"create table {sqlstmt.name} as select * from '{fqfn}' where False"
+    try:
+        con.execute(sql)
+    except CatalogException as e:
+        logging.info(
+            f"Warning! Failed to create empty table for {sqlstmt.name} due to:\n{e}"
+        )
+
+
 def run_sql_no_args(con, sqlfile):
     """
     Execute all SQL statements in the file without binding any parameters.
@@ -260,13 +302,16 @@ def run_sql_no_args(con, sqlfile):
        */
     """
     etl_sql = loadSqlStatements(sqlfile)
-    for key in etl_sql:
-        logging.info(f"Processing: {key}")
+    for sqlstmt in etl_sql:
+        logging.info(f"Processing: {sqlstmt.name}")
         try:
-            con.execute(etl_sql[key])
+            con.execute(sqlstmt.sql)
         except CatalogException as e:
-            logging.info(f"No raw data for {key}")
-            logging.debug(f"Error: {e}\nSQL: {etl_sql[key]}")
+            logging.info(f"Missing dependent table/view for {sqlstmt.name}")
+            logging.debug(f"Error: {e}\nSQL: {sqlstmt.sql}")
+            if sqlstmt.required:
+                logging.info(f"Creating empty object from {sqlstmt.template}")
+                create_empty_table(con, sqlstmt)
         except Exception as e:
             logging.info(f"  Failed: {e}")
             logging.info(type(e))
