@@ -31,9 +31,11 @@ def main(argv=None):
     env_config.add_dataset_path(required=True)
     args = env_config.get_options(argv)
 
+    fqds=os.path.abspath(args.DATASET)
+
     # Set path and name for helperdb file.
     dbname = args.NAME if args.NAME else args.AGGLEVEL + ".db"
-    dbpath = f"{args.PATH}" if args.PATH else f"{args.DATASET}{os.sep}dbhelpers"
+    dbpath = f"{args.PATH}" if args.PATH else f"{fqds}{os.sep}dbhelpers"
     if not os.path.exists(dbpath):
         os.makedirs(dbpath)
         logging.debug(f"created folder: {dbpath} ")
@@ -44,16 +46,16 @@ def main(argv=None):
 
     # Fix lookups! very fragile here...
     helperdb = ru.init_db(
-        args.DATASET,
+        fqds,
         agg_level="rolling",
         database=f"{dbpath}{os.sep}{dbname}",
-        lookups=f"{args.DATASET}/../lookups",
+        lookups=f"{fqds}/../lookups",
     )
     # Layer in the requested agglevel if it ISN'T rolling
     if args.AGGLEVEL.lower() != "rolling":
         # Create everything in stdview-Start-End, this will replace any views defined in rolling that got recreated, such as HOST, PROCESS, etc.
         logging.info(f"\n  Creating {args.AGGLEVEL} views...\n")
-        globs = ru.get_glob_paths_for_dataset(args.DATASET, subdir=args.AGGLEVEL)
+        globs = ru.get_glob_paths_for_dataset(fqds, subdir=args.AGGLEVEL)
         ru.create_views(helperdb, globs)
     helperdb.close()
 
