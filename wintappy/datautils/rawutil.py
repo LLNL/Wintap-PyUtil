@@ -169,30 +169,47 @@ def get_globs_for(dataset, daypk):
 
 def loadSqlStatements(file) -> List[SqlStmt]:
     """
-    Read sql script into map keyed by table name.
+    Read sql script. Parse into individual statements.
+
+    Optional metadata can be set for each statement. Must be provided AFTER the first line of sql:
+    --# name: [friendly name]
+    --# required
+    --# template: [path]
+
+    Name - defaults to tablename for CREATE, all others default to the first line with line number.
+    Best practice: for SELECT statements, provide a friendly name.
+
+    Required - applies only to CREATEs. If present, and create fails, an empty table will be built using a
+        parquet file located in ./schema/[template]/[name].parquet. Any data in the parquet will be ignored.
+
+    Template - applies only to CREATEs. The subdirectory within "./schema" that has the template parquet file.
     """
     file = open(file, "r")
     lines = file.readlines()
 
     statements = []
     linenumber = 0
-    skipline = True
+    inStmt = False
     for linenumber, line in enumerate(lines):
-        if line.lower().startswith("create "):
+        keyword=line.split(" ")[0].strip().lower()
+        if not inStmt and keyword in ["create", "alter", "update", "insert", "delete", "select"]:
+            # start of a new statement
             # For tables and views, use the object name
+            if keyword=="create":
+                name=line.strip().split()[-1]
+            else:
+                # Add line number to be sure its unique as there can be multiple of these per table
+                name=f"{line.strip()}-{linenumber}"
             curStatement = SqlStmt(
-                name=line.strip().split()[-1], sql=line, required=False, template=None
-            )
-            skipline = False
-        elif line.split(" ", 1)[0].lower() in ["alter", "update", "insert", "delete"]:
-            # Add line number to be sure its unique as there can be multiple of these per table
-            curStatement = SqlStmt(
-                name=f"{line.strip()}-{linenumber}",
+                name=name,
                 sql=line,
                 required=False,
                 template=None,
             )
-            skipline = False
+            inStmt = True
+        elif line.lower().startswith("--# name:"):
+            # Override default name with provided one.
+            curStatement.name = line.split(":")[1].strip()
         elif line.lower().startswith("--# required"):
             # This object is required to exist, so if execution fails, an empty object will be created with a matching schema.
             curStatement.required = True
@@ -203,10 +220,10 @@ def loadSqlStatements(file) -> List[SqlStmt]:
             if line.strip() == ";":
                 # We done. Save the statement. Don't save the semi-colon.
                 statements.append(curStatement)
-                skipline = True
+                inStmt = False
                 logging.debug(curStatement.sql)
             else:
-                if not skipline:
+                if inStmt:
                     curStatement.sql += line
     return statements
 
@@ -222,10 +239,7 @@ def generate_view_sql(event_map, start=None, end=None):
             # Raw files *may* have differing schemas, so enable union'ing of all schemas.
             # FIX in Wintap(?): Found that exact dups are in the raw tables, so remove them here using the GROUP BY ALL.
             # Only implement duplicate fix on 'raw_sensor' path. RAW tables in 'rolling' are already fixed.
-            view_sql = f"""
-            create or replace view {event_type} as
-            select *, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
-            """
+            view_sql = get_raw_view(event_type,pathspec)
         elif pathspec.endswith(".csv"):
             view_sql = f"""
             create or replace view {event_type} as
@@ -247,6 +261,28 @@ def generate_view_sql(event_map, start=None, end=None):
             logging.debug(f"View for {event_type} using {pathspec}")
             logging.debug(view_sql)
     return stmts
+
+def get_raw_view(event_type: str, pathspec):
+    """
+    The introduction of agentid causes a ripple effect thru all ETL SQL.
+    For as long as is reasonable, auto-detect incoming parquet and add a null agentid when missing.
+    This allows for processing of older data sets.
+    At some point, a new, breaking schema change will happen and a different approach will be needed.
+    """
+
+    # Get the schema from the first parquet file
+    schema=pq.read_schema(glob(pathspec)[0])
+    if 'agentid' in schema.names:
+        view_sql = f"""
+        create or replace view {event_type} as
+        select *, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
+        """
+    else:
+        view_sql = f"""
+        create or replace view {event_type} as
+        select *, cast(null as varchar) agentid, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
+        """
+    return view_sql
 
 
 def create_views(con, event_map, start=None, end=None):
