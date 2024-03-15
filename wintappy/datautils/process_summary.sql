@@ -6,6 +6,7 @@ create or replace view process_registry_summary
 --# template: stdview
 as
 SELECT
+  agent_id,
   hostname,
   pid_hash,
   process_name,
@@ -26,6 +27,7 @@ create or replace view process_file_summary
 --# template: stdview
 as
 SELECT
+  agent_id,
   hostname,
   process_name,
   pid_hash,
@@ -56,6 +58,7 @@ SELECT
 	os_family,
 	pid_hash,
 	process_name,
+    agent_id,
 	hostname,
 	count(DISTINCT conn_id) conn_id_count,
 	sum(total_events) net_total_events,
@@ -110,6 +113,7 @@ CREATE OR REPLACE VIEW process_image_load_summary
 --# template: stdview
 AS
 SELECT 
+  agent_id,
   hostname,
   pid_hash,
   process_name,

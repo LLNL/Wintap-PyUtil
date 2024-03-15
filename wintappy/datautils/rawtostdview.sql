@@ -10,9 +10,8 @@
 CREATE TABLE IF NOT EXISTS host
 AS
 SELECT
-    -- Ignore host.id.hash for now as it is really only composed of the hostname.
-    -- host.hostid.hash,
-    hostname hostname,
+    hostname,
+    list_sort(list(distinct agentid)) agent_ids,
     any_value('windows') os_family,
     to_timestamp(min(cast(eventtime as bigint))) first_seen, -- TODO: Should lastseen for host just be dropped? It isn't accurate. Better would be to derive it from other data: network, file, etc.
     to_timestamp(max(cast(eventtime as bigint))) last_seen,
@@ -55,6 +54,7 @@ GROUP BY ALL
 CREATE TABLE IF NOT EXISTS host_ip
 AS
 SELECT
+    agentid agent_id,
     hostname,
     any_value('windows') os_family,
     CASE
@@ -67,7 +67,7 @@ SELECT
         ELSE mac
     END mac,
     ipaddr ip_addr,
-    interface,
+    'missing?' interface,
     mtu,
     to_timestamp(min(cast(eventtime as bigint))) first_seen,
     to_timestamp(max(cast(eventtime as bigint))) last_seen,
@@ -83,6 +83,8 @@ AS
 SELECT
     p.pidhash pid_hash, -- osfamily will eventually come back as a partition key
     any_value('windows') os_family,
+    any_value(agentid) agent_id,
+    count(distinct agentid) num_agent_id,
     any_value(p.hostname) hostname,
     any_value(pid) os_pid,
     any_value(CASE
@@ -191,7 +193,7 @@ WHERE
 -- Move to Wintap
 
 UPDATE process
-SET file_id = md5(concat_ws('||', hostname, filename))
+SET file_id = md5(concat_ws('||', agent_id, filename))
 WHERE filename IS NOT NULL
 ;
 
@@ -200,7 +202,8 @@ CREATE TABLE IF NOT EXISTS process_conn_incr
 AS
 SELECT
     'windows' os_family,
-    hostname hostname,
+    agentid agent_id,
+    hostname,
     pidhash pid_hash,
     processname process_name,
     connid conn_id,
@@ -340,6 +343,7 @@ CREATE TABLE IF NOT EXISTS process_net_conn
 AS
 SELECT
     os_family,
+    agent_id,
     hostname,
     pid_hash,
     process_name,
@@ -383,10 +387,11 @@ GROUP BY ALL
 CREATE TABLE IF NOT EXISTS process_file
 AS
 SELECT
-    hostname hostname,
+    agentid agent_id,
+    hostname,
     pidhash pid_hash, -- generate FileID
     processname process_name,
-    md5(concat_ws('||', hostname, file_path)) file_id,
+    md5(concat_ws('||', agentid, file_path)) file_id,
     file_hash file_hash,
     file_path filename,
     activitytype activity_type,
@@ -407,6 +412,7 @@ GROUP BY ALL
 CREATE TABLE IF NOT EXISTS process_registry
 AS
 SELECT
+    agentid agent_id,
     hosthame hostname,
     pidhash pid_hash,
     processname process_name,
@@ -431,6 +437,7 @@ GROUP BY ALL
 CREATE TABLE IF NOT EXISTS process_image_load
 AS
 SELECT
+    agentid agent_id,
     computername hostname,
     pidhash pid_hash,
     processname process_name,
