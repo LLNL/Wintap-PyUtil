@@ -21,6 +21,12 @@ class SqlStmt:
     required: bool
     template: str
 
+class InvalidSchema(Exception):
+    """
+    Use to signal that the base schema doesn't match what we expect.
+    """
+    pass
+
 
 def init_db(dataset=None, agg_level="rolling", database=":memory:", lookups=""):
     """
@@ -348,9 +354,12 @@ def run_sql_no_args(con, sqlfile):
             if sqlstmt.required:
                 logging.info(f"Creating empty object from {sqlstmt.template}")
                 create_empty_table(con, sqlstmt)
+        except duckdb.BinderException as e:
+            logging.error(f"Likely missing column: \n{e}")
+            raise InvalidSchema(f"Likely missing column: \n{e}")
         except Exception as e:
-            logging.info(f"  Failed: {e}")
-            logging.info(type(e))
+            logging.error(f"  Failed: {e}")
+            raise
 
 
 def get_db_objects(con, exclude=None):
