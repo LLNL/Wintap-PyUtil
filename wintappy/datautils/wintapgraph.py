@@ -1,8 +1,6 @@
 """
 Functions for creating graph data structures from wintap dataframes
 """
-import matplotlib
-import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
 
