@@ -21,10 +21,12 @@ class SqlStmt:
     required: bool
     template: str
 
+
 class InvalidSchema(Exception):
     """
     Use to signal that the base schema doesn't match what we expect.
     """
+
     pass
 
 
@@ -197,15 +199,22 @@ def loadSqlStatements(file) -> List[SqlStmt]:
     linenumber = 0
     inStmt = False
     for linenumber, line in enumerate(lines):
-        keyword=line.split(" ")[0].strip().lower()
-        if not inStmt and keyword in ["create", "alter", "update", "insert", "delete", "select"]:
+        keyword = line.split(" ")[0].strip().lower()
+        if not inStmt and keyword in [
+            "create",
+            "alter",
+            "update",
+            "insert",
+            "delete",
+            "select",
+        ]:
             # start of a new statement
             # For tables and views, use the object name
-            if keyword=="create":
-                name=line.strip().split()[-1]
+            if keyword == "create":
+                name = line.strip().split()[-1]
             else:
                 # Add line number to be sure its unique as there can be multiple of these per table
-                name=f"{line.strip()}-{linenumber}"
+                name = f"{line.strip()}-{linenumber}"
             curStatement = SqlStmt(
                 name=name,
                 sql=line,
@@ -245,7 +254,7 @@ def generate_view_sql(event_map, start=None, end=None):
             # Raw files *may* have differing schemas, so enable union'ing of all schemas.
             # FIX in Wintap(?): Found that exact dups are in the raw tables, so remove them here using the GROUP BY ALL.
             # Only implement duplicate fix on 'raw_sensor' path. RAW tables in 'rolling' are already fixed.
-            view_sql = get_raw_view(event_type,pathspec)
+            view_sql = get_raw_view(event_type, pathspec)
         elif pathspec.endswith(".csv"):
             view_sql = f"""
             create or replace view {event_type} as
@@ -268,6 +277,7 @@ def generate_view_sql(event_map, start=None, end=None):
             logging.debug(view_sql)
     return stmts
 
+
 def get_raw_view(event_type: str, pathspec):
     """
     The introduction of agentid causes a ripple effect thru all ETL SQL.
@@ -277,8 +287,8 @@ def get_raw_view(event_type: str, pathspec):
     """
 
     # Get the schema from the first parquet file
-    schema=pq.read_schema(glob(pathspec)[0])
-    if 'agentid' in schema.names:
+    schema = pq.read_schema(glob(pathspec)[0])
+    if "agentid" in schema.names:
         view_sql = f"""
         create or replace view {event_type} as
         select *, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all

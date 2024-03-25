@@ -197,6 +197,7 @@ def fetch_summary_data(con):
         ) * sizeMx
     return eventDF
 
+
 def create_event_chart(eventDF):
     # Set altair options
     alt.data_transformers.disable_max_rows()
@@ -231,4 +232,4 @@ def display_event_chart(eventDF, width=1200, height=600):
     pd.set_option("display.max_columns", None)
     pd.set_option("display.max_colwidth", None)
 
-    display(create_event_chart(eventDF).properties(width=width,heigh=height))
+    display(create_event_chart(eventDF).properties(width=width, heigh=height))

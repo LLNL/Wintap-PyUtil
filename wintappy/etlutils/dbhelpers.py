@@ -31,7 +31,7 @@ def main(argv=None):
     env_config.add_dataset_path(required=True)
     args = env_config.get_options(argv)
 
-    fqds=os.path.abspath(args.DATASET)
+    fqds = os.path.abspath(args.DATASET)
 
     # Set path and name for helperdb file.
     dbname = args.NAME if args.NAME else args.AGGLEVEL + ".db"
