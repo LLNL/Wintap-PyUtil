@@ -34,8 +34,8 @@ def main(argv=None):
     fqds = os.path.abspath(args.DATASET)
 
     # Set path and name for helperdb file.
-    dbname = args.NAME if args.NAME else args.AGGLEVEL + ".db"
-    dbpath = f"{args.PATH}" if args.PATH else f"{fqds}{os.sep}dbhelpers"
+    dbname = args.NAME if "NAME" in args else args.AGGLEVEL + ".db"
+    dbpath = f"{args.PATH}" if "PATH" in args else f"{fqds}{os.sep}dbhelpers"
     if not os.path.exists(dbpath):
         os.makedirs(dbpath)
         logging.debug(f"created folder: {dbpath} ")
