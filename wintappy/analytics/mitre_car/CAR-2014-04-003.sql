@@ -1,7 +1,7 @@
 -- Powershell Execution
 SELECT
-    child.pid_hash AS pid_hash,
-    child.first_seen AS first_seen
+    child.pid_hash,
+    child.first_seen
 FROM process AS child,
     process AS parent
 WHERE
