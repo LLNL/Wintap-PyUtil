@@ -6,7 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from glob import glob
 from importlib.resources import files as resource_files
-from typing import List
+from typing import List, Optional
 
 import duckdb
 import pyarrow.parquet as pq
@@ -19,7 +19,7 @@ class SqlStmt:
     name: str
     sql: str
     required: bool
-    template: str
+    template: Optional[str]
 
 
 class InvalidSchema(Exception):
