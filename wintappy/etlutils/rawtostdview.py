@@ -25,8 +25,6 @@ def main(argv=None):
         args.DATASET, subdir="rolling", include="raw_"
     )
     ru.create_raw_views(con, globs, args.START, args.END)
-    # For now, processing REQUIREs that RAW_PROCESS_STOP exist even if its empty. Create an empty table if needed.
-    ru.create_empty_process_stop(con)
 
     for sqlfile in ["rawtostdview.sql", "process_path.sql", "process_summary.sql"]:
         ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(sqlfile))

@@ -44,7 +44,7 @@ class TestWinTapDuckDB:
         mock_datetime.strftime.return_value = mock_time
         mock_analytic_id = "my-cool-analytic"
         mock_entity_type = "not_the-pid-hash"
-        expected_sql = f"INSERT INTO mitre_labels(\n    entity,\n    analytic_id,\n    time,\n    entity_type\n)\nVALUES (\n    '{mock_entity_type}',\n    '{mock_analytic_id}',\n    to_timestamp({int(mock_time)}),\n    'pid_hash'\n)"
+        expected_sql = f"INSERT INTO mitre_labels (\n    entity,\n    analytic_id,\n    time,\n    entity_type\n)\nVALUES (\n    '{mock_entity_type}',\n    '{mock_analytic_id}',\n    to_timestamp({int(mock_time)}),\n    'pid_hash'\n)"
         wintap_db.insert_analytics_results_table(
             mock_analytic_id,
             mock_entity_type,

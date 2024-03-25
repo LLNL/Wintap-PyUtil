@@ -5,6 +5,7 @@ create table process_path
 as
 select * from (
     with recursive cte_process_tree (
+        agent_id,
         hostname,
         pid_hash,
         os_pid,
@@ -19,6 +20,7 @@ select * from (
         ptree_list_tuples
     ) as (
         select
+            p.agent_id,
             p.hostname,
             p.pid_hash,
             p.os_pid,
@@ -34,6 +36,7 @@ select * from (
         from process as p
         union all
         select
+            pt.agent_id,
             pt.hostname,
             pt.pid_hash,
             pt.os_pid,
@@ -55,7 +58,7 @@ select * from (
             and pt.parent_pid_hash != pt.pid_hash
             and not list_contains(pt.ptree_list, p.pid_hash)
             -- optimization?
-            and p.hostname=pt.hostname
+            and p.agent_id=pt.agent_id
     )
     select
         *,
