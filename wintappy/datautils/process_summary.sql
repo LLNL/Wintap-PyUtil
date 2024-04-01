@@ -119,9 +119,9 @@ SELECT
   process_name,
   list_sort(list(distinct filename)) dlls,
   len(dlls) num_uniq_files,
-  max(num_uniq_build_times) max_uniq_build_times,
-  max(num_uniq_Checksums) max_uniq_checksums,
-  max(num_image_size) max_uniq_image_size,
+--  max(num_uniq_build_times) max_uniq_build_times,
+--  max(num_uniq_Checksums) max_uniq_checksums,
+--  max(num_image_size) max_uniq_image_size,
   min(first_seen) first_seen,
   max(last_seen) last_seen
 FROM PROCESS_IMAGE_LOAD
@@ -199,9 +199,9 @@ SELECT
 	-- Image Loads
 	i.dlls,
 	i.num_uniq_files dll_num_uniq_files,
-	i.max_uniq_build_times dll_max_uniq_build_times,
-	i.max_uniq_checksums dll_max_uniq_checksums,
-	i.max_uniq_image_size dll_max_uniq_image_size,
+--	i.max_uniq_build_times dll_max_uniq_build_times,
+--	i.max_uniq_checksums dll_max_uniq_checksums,
+--	i.max_uniq_image_size dll_max_uniq_image_size,
 	i.first_seen dll_first_seen,
 	i.last_seen dll_last_seen,
 	-- Host

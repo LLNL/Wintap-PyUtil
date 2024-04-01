@@ -434,28 +434,29 @@ GROUP BY ALL
 
 -- Summarize to PID_HASH+FILENAME
 
+--EXPLAIN ANALYZE
 CREATE TABLE IF NOT EXISTS process_image_load
 AS
 SELECT
-    agentid agent_id,
-    computername hostname,
     pidhash pid_hash,
-    processname process_name,
+    lower(filename) filename,
+    any_value(agentid) agent_id,
+    any_value(computername) hostname,
+    any_value(processname) process_name,
     md5(concat_ws('||', computername, lower(filename))) file_id,
     any_value(md5) file_md5,
-    count(DISTINCT md5) num_file_md5,
-    lower(filename) filename,
+--    count(DISTINCT md5) num_file_md5,
     max(buildtime) build_time,
-    count(DISTINCT buildtime) num_uniq_build_times,
+--    count(DISTINCT buildtime) num_uniq_build_times,
     max(imagechecksum) checksum,
-    count(DISTINCT imagechecksum) num_uniq_checksums,
+--    count(DISTINCT imagechecksum) num_uniq_checksums,
     max(defaultbase) default_base,
-    count(DISTINCT defaultbase) num_default_base,
+--    count(DISTINCT defaultbase) num_default_base,
     max(imagebase) image_base,
-    count(DISTINCT imagebase) num_image_base,
+--    count(DISTINCT imagebase) num_image_base,
     min(imagesize) min_image_size,
     max(imagesize) max_image_size,
-    count(DISTINCT imagesize) num_image_size,
+--    count(DISTINCT imagesize) num_image_size,
     sum(if(upper(activitytype) = 'LOAD', 1, 0)) num_load,
     sum(if(upper(activitytype) = 'UNLOAD', 1, 0)) num_unload,
     to_timestamp_micros(win32_to_epoch(min(cast(eventtime as bigint)))) first_seen,
