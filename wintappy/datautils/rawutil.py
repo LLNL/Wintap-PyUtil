@@ -6,6 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from glob import glob
 from importlib.resources import files as resource_files
+import time
 from typing import List, Optional
 
 import duckdb
@@ -37,6 +38,7 @@ def init_db(dataset=None, agg_level="rolling", database=":memory:", lookups=""):
     con = duckdb.connect(database=database)
     # set caching dir to a temp directory location
     con.execute(f"SET temp_directory = '{tempfile.mkdtemp()}'")
+    logging.debug(f"Duckdb info: {con.sql('CALL pragma_database_size()').fetchall()}")
     # TODO fix reference to SQL scripts
     run_sql_no_args(con, resource_files("wintappy.datautils").joinpath("initdb.sql"))
     if not dataset == None:
@@ -315,12 +317,42 @@ def create_views(con, event_map, start=None, end=None):
         finally:
             cursor.close()
 
+def validate_raw_views(con, raw_data, start=None, end=None):
+    """
+    Due to the variability in sensor configuration and collection issues, this hook is here to allow validating
+    and possibly fixing, known problems:
+    * In some cases, there are no raw_process_stop.parquet files which leads to all the unique fields defined in
+      it to be missing, causing downstream SQL errors. Fixed here by copying in an empty parquet file.
+    """
+
+    if 'raw_process' in raw_data.keys():
+        # Validate existence of raw_process_stop fields. Shortcut by just checking for 1 for now.
+        col_sql = """
+            select table_catalog, table_name, column_name
+            from information_schema.columns
+            where table_name ilike 'raw_process'
+            and lower(column_name)=lower('CPUCycleCount')
+            """
+        if con.sql(col_sql).count("*").fetchone()[0]==0:
+            # It's missing, create the empty file from the template
+            src_file=resource_files("wintappy.schema.raw_sensor").joinpath("raw_processstop.parquet")
+            # Destination will be the pathspec for raw_process, with a little tweaking:
+            pathspec = raw_data['raw_process']
+            basepath = pathspec.split('*')[0]
+            dest_file =  os.path.join(basepath,'hourPK=00',f'EMPTY-raw_processstop-{int(time.time())}.parquet')
+            # Create the file by querying from template with the right schema
+            logging.info(f'Creating empty raw_processstop.parquet in {pathspec}')
+            con.execute(f"copy (select * from '{src_file}' where false) to '{dest_file}'")
+            # Finally, recreate the raw_view.
+            create_views(con, {'raw_process': pathspec}, start, end)
+
 
 def create_raw_views(con, raw_data, start=None, end=None):
     """
     Create views in the db for each of the event_types.
     """
     create_views(con, raw_data, start, end)
+    validate_raw_views(con, raw_data, start, end)
 
 
 def create_empty_table(con, sqlstmt: SqlStmt):
