@@ -379,7 +379,7 @@ def create_empty_table(con, sqlstmt: SqlStmt):
     try:
         con.execute(sql)
     except CatalogException as e:
-        logging.info(
+        logging.warning(
             f"Warning! Failed to create empty table for {sqlstmt.name} due to:\n{e}"
         )
 
