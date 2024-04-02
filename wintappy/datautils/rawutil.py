@@ -2,11 +2,11 @@ import logging
 import os
 import re
 import tempfile
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 from glob import glob
 from importlib.resources import files as resource_files
-import time
 from typing import List, Optional
 
 import duckdb
@@ -317,6 +317,7 @@ def create_views(con, event_map, start=None, end=None):
         finally:
             cursor.close()
 
+
 def validate_raw_views(con, raw_data, start=None, end=None):
     """
     Due to the variability in sensor configuration and collection issues, this hook is here to allow validating
@@ -325,7 +326,7 @@ def validate_raw_views(con, raw_data, start=None, end=None):
       it to be missing, causing downstream SQL errors. Fixed here by copying in an empty parquet file.
     """
 
-    if 'raw_process' in raw_data.keys():
+    if "raw_process" in raw_data.keys():
         # Validate existence of raw_process_stop fields. Shortcut by just checking for 1 for now.
         col_sql = """
             select table_catalog, table_name, column_name
@@ -333,18 +334,26 @@ def validate_raw_views(con, raw_data, start=None, end=None):
             where table_name ilike 'raw_process'
             and lower(column_name)=lower('CPUCycleCount')
             """
-        if con.sql(col_sql).count("*").fetchone()[0]==0:
+        if con.sql(col_sql).count("*").fetchone()[0] == 0:
             # It's missing, create the empty file from the template
-            src_file=resource_files("wintappy.schema.raw_sensor").joinpath("raw_processstop.parquet")
+            src_file = resource_files("wintappy.schema.raw_sensor").joinpath(
+                "raw_processstop.parquet"
+            )
             # Destination will be the pathspec for raw_process, with a little tweaking:
-            pathspec = raw_data['raw_process']
-            basepath = pathspec.split('*')[0]
-            dest_file =  os.path.join(basepath,'hourPK=00',f'EMPTY-raw_processstop-{int(time.time())}.parquet')
+            pathspec = raw_data["raw_process"]
+            basepath = pathspec.split("*")[0]
+            dest_file = os.path.join(
+                basepath,
+                "hourPK=00",
+                f"EMPTY-raw_processstop-{int(time.time())}.parquet",
+            )
             # Create the file by querying from template with the right schema
-            logging.info(f'Creating empty raw_processstop.parquet in {pathspec}')
-            con.execute(f"copy (select * from '{src_file}' where false) to '{dest_file}'")
+            logging.info(f"Creating empty raw_processstop.parquet in {pathspec}")
+            con.execute(
+                f"copy (select * from '{src_file}' where false) to '{dest_file}'"
+            )
             # Finally, recreate the raw_view.
-            create_views(con, {'raw_process': pathspec}, start, end)
+            create_views(con, {"raw_process": pathspec}, start, end)
 
 
 def create_raw_views(con, raw_data, start=None, end=None):
