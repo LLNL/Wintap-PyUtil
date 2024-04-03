@@ -29,7 +29,7 @@ def main(argv=None):
     parser.add_argument(
         "--portable",
         help="Copy data from source parquet files into the duckdb. Resulting db file is portable.",
-        action="store_true"
+        action="store_true",
     )
     env_config = EnvironmentConfig(parser)
     env_config.add_aggregation_level(required=True)
@@ -66,15 +66,17 @@ def main(argv=None):
     helperdb.close()
 
     if portable and args.AGGLEVEL.lower() != "rolling":
-        logging.info(f"\n  Creating portable version of database: {dbpath}{os.sep}portable-{dbname}\n")
+        logging.info(
+            f"\n  Creating portable version of database: {dbpath}{os.sep}portable-{dbname}\n"
+        )
         # Create another DB that actually contains all the data, not pointers to the parquet. MUCH LARGER RESULT! But portable.
-        # Currently, doesn't support copying rolling tables because they have no start/end filter and could be HUGE. 
+        # Currently, doesn't support copying rolling tables because they have no start/end filter and could be HUGE.
         # Ignores raw_ tables as there is no easy way to limit to a subset of dayPKs and the result could be way too big.
 
         # New database instance
         portabledbname = f"{dbpath}{os.sep}portable-{dbname}"
         # Using attach will create the db
-        portabledb = ru.init_db(database=portabledbname+".db")
+        portabledb = ru.init_db(database=portabledbname + ".db")
         portabledb.sql(f"attach '{dbpath}{os.sep}{dbname}.db' as src (read_only true)")
 
         for table in ru.get_db_objects(portabledb, exclude=["raw_"]):
