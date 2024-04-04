@@ -77,7 +77,7 @@ def event_summary_metadata():
     return esm
 
 
-def create_event_summary_view(con):
+def create_event_summary_view(con, min_daypk, max_daypk):
     """
     Create a view for all known raw event types.
     To add a new type, define in the event_summary_metadata.
@@ -101,23 +101,35 @@ def create_event_summary_view(con):
     {{esm.ts_func}} bin_date,
     {{esm.num_event_func}} NumRows
     FROM {{esm.table}}
+    WHERE dayPK between {{min_daypk}} and {{max_daypk}}
     GROUP BY ALL
     {% if not loop.last %}UNION{% endif %}
     {%- endfor %}
     """
 
-    sql = Template(template).render(esms=tables)
+    sql = Template(template).render(
+        esms=tables, min_daypk=min_daypk, max_daypk=max_daypk
+    )
     logging.debug(f"Generated summary view: {sql}")
     con.execute(sql)
 
 
-def init_db(con, bucket_size="30 minutes"):
+def init_db(con, min_dayPK, max_dayPK):
     # Create a macro (function) that will create the time bins.
     # To do: derive the intertotal_size based on the dataset time range and the desired target number of data points. The data points size directly affects performance of the chart. Too fine-grained isn't generally useful.
+
+    # Move this into stdview_duckdb and make behavior the default...
+
+    bucket_size = str((max_dayPK - min_dayPK) / 500)
+
+    # Once min/max are calc'd here, they can be passed into creating the view
     con.execute(
         f"create or replace macro tb(wts) as time_bucket(interval '{bucket_size}', cast(to_timestamp_micros(win32_to_epoch(wts)) as timestamp))"
     )
-    create_event_summary_view(con)
+    # Convert from Timestamps to int
+    create_event_summary_view(
+        con, int(min_dayPK.strftime("%Y%m%d")), int(max_dayPK.strftime("%Y%m%d"))
+    )
 
 
 def duckdb_table_metadata(con, include_paritioned_data=True):
@@ -233,3 +245,30 @@ def display_event_chart(eventDF, width=1200, height=600):
     pd.set_option("display.max_colwidth", None)
 
     display(create_event_chart(eventDF).properties(width=width, heigh=height))
+
+
+def create_data_summary(datasummaryDF):
+    # Create line charts for many features. Each chart will then have its own Y-Scale
+    # Set altair options
+    alt.data_transformers.disable_max_rows()
+
+    hostChart = (
+        alt.Chart(datasummaryDF)
+        .mark_line(interpolate="monotone")
+        .encode(
+            alt.X("bucket_day"),
+            alt.Y("hosts"),
+            tooltip=["bucket_day"],
+        )
+    )
+    uniqProcessChart = (
+        alt.Chart(datasummaryDF)
+        .mark_line(interpolate="monotone", stroke="grey")
+        .encode(
+            alt.X("bucket_day"),
+            alt.Y("uniq_processes"),
+            tooltip=["bucket_day"],
+        )
+    )
+
+    return (hostChart + uniqProcessChart).resolve_scale(y="independent").interactive()
