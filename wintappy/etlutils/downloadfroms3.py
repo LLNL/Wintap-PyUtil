@@ -230,7 +230,8 @@ def parse_s3_metadata(files, dataset, uploadedDPK, uploadedHPK, event_type):
     if new_event_type == "raw_registry":
         new_event_type = "raw_process_registry"
     if new_event_type == "raw_processstop":
-        new_event_type = "raw_process_stop"
+        # Put process_stop in with process.
+        new_event_type = "raw_process"
 
     files_metadata = []
     back_dated = {}

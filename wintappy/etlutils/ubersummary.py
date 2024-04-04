@@ -74,8 +74,8 @@ def main(argv=None):
         description="Convert networkx JSON to table summarized by PID_HASH",
     )
     env_config = EnvironmentConfig(parser)
-    env_config.add_start(required=True)
-    env_config.add_end(required=True)
+    env_config.add_start(required=False)
+    env_config.add_end(required=False)
     env_config.add_dataset_path(required=True)
     env_config.add_aggregation_level(required=False)
     args = env_config.get_options(argv)

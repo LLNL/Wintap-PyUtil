@@ -4,38 +4,38 @@
  *
  */
 
-/* TODO: Change first() to mode(), which returns the most frequent value */
+/* TODO: Change any_value() to mode(), which returns the most frequent value.
+   Caution! mode() is much more expensive on larger datasets! For now, sticking with any_value() */
 
 CREATE TABLE IF NOT EXISTS host
 AS
 SELECT
-    -- Ignore host.id.hash for now as it is really only composed of the hostname.
-    -- host.hostid.hash,
-    hostname hostname,
-    first('windows') os_family,
+    hostname,
+    list_sort(list(distinct agentid)) agent_ids,
+    any_value('windows') os_family,
     to_timestamp(min(cast(eventtime as bigint))) first_seen, -- TODO: Should lastseen for host just be dropped? It isn't accurate. Better would be to derive it from other data: network, file, etc.
     to_timestamp(max(cast(eventtime as bigint))) last_seen,
-    first(os) os,
+    any_value(os) os,
     count(DISTINCT os) num_os,
-    first(CASE
+    any_value(CASE
         WHEN osversion = '' THEN NULL
         ELSE osversion
     END) os_version,
     count(DISTINCT osversion) num_os_version,
-    first(CASE
+    any_value(CASE
         WHEN arch = '' THEN NULL
         ELSE arch
     END) arch,
     count(DISTINCT arch) num_arch,
-    first(processorcount) processor_count,
+    any_value(processorcount) processor_count,
     count(DISTINCT processorcount) num_processor_count,
-    first(processorspeed) processor_speed,
+    any_value(processorspeed) processor_speed,
     count(DISTINCT processorspeed) num_processor_speed,
-    first(hasbattery) has_battery,
+    any_value(hasbattery) has_battery,
     count(DISTINCT hasbattery) num_has_battery,
-    first(domain) ad_domain,
+    any_value(domain) ad_domain,
     count(DISTINCT domain) num_ad_domain,
-    first(domainrole) domain_role,
+    any_value(domainrole) domain_role,
     count(DISTINCT domainrole) num_domain_role,
     max(lastboot) last_boot,
     count(DISTINCT lastboot) num_last_boot,
@@ -43,8 +43,8 @@ SELECT
     count(DISTINCT wintapversion) num_wintap_version,
     max(etlversion) etl_version,
     count(DISTINCT etlversion) num_etl_version,
-    max(collectors) collectors,
-    count(DISTINCT collectors) num_collectors,
+--    max(collectors) collectors,
+--    count(DISTINCT collectors) num_collectors,
     count(*) num_rows
 FROM raw_host
 GROUP BY ALL
@@ -54,8 +54,9 @@ GROUP BY ALL
 CREATE TABLE IF NOT EXISTS host_ip
 AS
 SELECT
+    agentid agent_id,
     hostname,
-    first('windows') os_family,
+    any_value('windows') os_family,
     CASE
         WHEN privategateway = '' THEN NULL
         ELSE privategateway
@@ -66,7 +67,7 @@ SELECT
         ELSE mac
     END mac,
     ipaddr ip_addr,
-    interface,
+    'missing?' interface,
     mtu,
     to_timestamp(min(cast(eventtime as bigint))) first_seen,
     to_timestamp(max(cast(eventtime as bigint))) last_seen,
@@ -77,38 +78,40 @@ GROUP BY ALL
 
 -- Summarize Process events into Process entities
 
-CREATE TABLE IF NOT EXISTS process_tmp
+CREATE TABLE IF NOT EXISTS process
 AS
 SELECT
     p.pidhash pid_hash, -- osfamily will eventually come back as a partition key
-    first('windows') os_family,
-    first(p.hostname) hostname,
-    first(pid) os_pid,
-    first(CASE
+    any_value('windows') os_family,
+    any_value(agentid) agent_id,
+    count(distinct agentid) num_agent_id,
+    any_value(p.hostname) hostname,
+    any_value(pid) os_pid,
+    any_value(CASE
         WHEN p.processname = '' THEN NULL
         ELSE p.processname
     END) process_name,
     count(DISTINCT p.processname) num_process_name,
-    first(CASE
+    any_value(CASE
         WHEN p.processargs = '' THEN NULL
         ELSE p.processargs
     END) args,
     count(DISTINCT p.processargs) num_args, -- Ignore useless names
-    first(CASE
+    any_value(CASE
         WHEN
             p.username = ''
             OR lower(p.username) = 'na' THEN NULL
         ELSE p.username
     END) user_name,
     count(DISTINCT p.username) num_user_name,
-    first(CASE
+    any_value(CASE
         WHEN p.parentpidhash = '' THEN NULL
         ELSE p.parentpidhash
     END) parent_pid_hash,
     count(DISTINCT p.parentpidhash) num_parent_pid_hash,
-    first(p.parentpid) parent_os_pid,
+    any_value(p.parentpid) parent_os_pid,
     count(DISTINCT p.parentpid) num_parent_os_pid,
-    first(CASE
+    any_value(CASE
         WHEN p.processpath = '' THEN NULL
         ELSE p.processpath
     END) process_path,
@@ -116,12 +119,12 @@ SELECT
     count(DISTINCT p.processpath) num_process_path,
     '' filename,
     '' file_id,
-    first(CASE
+    any_value(CASE
         WHEN p.filemd5 = '' THEN NULL
         ELSE p.filemd5
     END) file_md5,
     count(DISTINCT p.filemd5) num_file_md5,
-    first(CASE
+    any_value(CASE
         WHEN p.filesha2 = '' THEN NULL
         ELSE p.filesha2
     END) file_sha2,
@@ -132,17 +135,47 @@ SELECT
             THEN win32_to_epoch(cast(p.eventtime as bigint))
         ELSE NULL
     END) process_started_seconds,
-    to_timestamp_micros(cast(process_started_seconds as bigint)) process_started,
+    min(CASE
+        WHEN
+            upper(p.activitytype) IN ('START', 'REFRESH')
+            THEN to_timestamp_micros(win32_to_epoch(cast(p.eventtime as bigint)))
+        ELSE NULL
+    END) process_started,
     to_timestamp_micros(win32_to_epoch(min(cast(p.eventtime as bigint)))) first_seen,
     to_timestamp_micros(win32_to_epoch(max(cast(p.eventtime as bigint)))) last_seen,
-    count(*) num_start_events
+    sum((CASE WHEN upper(p.activitytype) IN ('START', 'REFRESH') THEN 1 ELSE 0 END)) num_process_start,
+    -- These all come from ETW Process Stop events
+    max(CASE
+        WHEN
+            upper(p.activitytype) IN ('STOP')
+            THEN win32_to_epoch(cast(p.eventtime as bigint))
+        ELSE NULL
+    END) process_stop_seconds,
+    max(CASE
+        WHEN
+            upper(p.activitytype) IN ('STOP')
+            THEN to_timestamp_micros(win32_to_epoch(cast(p.eventtime as bigint)))
+        ELSE NULL
+    END) process_term,
+    max(cpucyclecount) cpu_cycle_count,
+    max(cpuutilization) cpu_utilization,
+    max(commitcharge) commit_charge,
+    max(commitpeak) commit_peak,
+    max(readoperationcount) read_operation_count,
+    max(writeoperationcount) write_operation_count,
+    max(readtransferkilobytes) read_transfer_kilobytes,
+    max(writetransferkilobytes) write_transfer_kilobytes,
+    max(hardfaultcount) hard_fault_count,
+    max(tokenelevationtype) token_elevation_type,
+    max(exitcode) exit_code,
+    sum((CASE WHEN upper(p.activitytype) = 'STOP' THEN 1 ELSE 0 END)) num_process_stop
 FROM raw_process p
 GROUP BY ALL
 ;
 
 --== Update process_path
-
-UPDATE process_tmp
+-- Move to Wintap
+UPDATE process
 SET
     filename = CASE
         WHEN process_path IS NULL THEN process_name
@@ -157,40 +190,11 @@ WHERE
 ;
 
 --== Set file_id on process
+-- Move to Wintap
 
-UPDATE process_tmp
-SET file_id = md5(concat_ws('||', hostname, filename))
+UPDATE process
+SET file_id = md5(concat_ws('||', agent_id, filename))
 WHERE filename IS NOT NULL
-;
-
-
-CREATE TABLE IF NOT EXISTS process
-AS
-SELECT
-    p.*,
-    s.* EXCLUDE (pidhash)
-FROM process_tmp p
-LEFT OUTER JOIN
-    (SELECT
-        pidhash,
-        to_timestamp_micros(
-            win32_to_epoch(max(cast(eventtime as bigint)))
-        ) process_term_seconds,
-        to_timestamp_micros(win32_to_epoch(max(cast(eventtime as bigint)))) process_term,
-        max(cpucyclecount) cpu_cycle_count,
-        max(cpuutilization) cpu_utilization,
-        max(commitcharge) commit_charge,
-        max(commitpeak) commit_peak,
-        max(readoperationcount) read_operation_count,
-        max(writeoperationcount) write_operation_count,
-        max(readtransferkilobytes) read_transfer_kilobytes,
-        max(writetransferkilobytes) write_transfer_kilobytes,
-        max(hardfaultcount) hard_fault_count,
-        max(tokenelevationtype) token_elevation_type,
-        max(exitcode) exit_code,
-        count(*) num_process_stop
-    FROM raw_process_stop
-    GROUP BY ALL) s ON p.pid_hash = s.pidhash
 ;
 
 
@@ -198,7 +202,8 @@ CREATE TABLE IF NOT EXISTS process_conn_incr
 AS
 SELECT
     'windows' os_family,
-    hostname hostname,
+    agentid agent_id,
+    hostname,
     pidhash pid_hash,
     processname process_name,
     connid conn_id,
@@ -217,14 +222,12 @@ SELECT
     )) local_ip_addr,
     localipaddr local_ip_int,
     localport local_port,
-    localipprivategateway local_pg, --remoteiphash,
     int_to_ip(cast(
         remoteipaddr
         AS bigint
     )) remote_ip_addr,
     remoteipaddr remote_ip_int,
     remoteport remote_port,
-    remoteipprivategateway remote_pg,
     sum(eventcount) total_events,
     sum(packetsize) total_size,
     count(*) num_raw_rows,
@@ -340,6 +343,7 @@ CREATE TABLE IF NOT EXISTS process_net_conn
 AS
 SELECT
     os_family,
+    agent_id,
     hostname,
     pid_hash,
     process_name,
@@ -347,10 +351,8 @@ SELECT
     protocol,
     local_ip_addr,
     local_port,
-    local_pg,
     remote_ip_addr,
     remote_port,
-    remote_pg,
     sum(total_events) total_events,
     sum(total_size) total_size,
     sum(sq_size) sq_size,
@@ -385,10 +387,11 @@ GROUP BY ALL
 CREATE TABLE IF NOT EXISTS process_file
 AS
 SELECT
-    hostname hostname,
+    agentid agent_id,
+    hostname,
     pidhash pid_hash, -- generate FileID
     processname process_name,
-    md5(concat_ws('||', hostname, file_path)) file_id,
+    md5(concat_ws('||', agentid, file_path)) file_id,
     file_hash file_hash,
     file_path filename,
     activitytype activity_type,
@@ -409,6 +412,7 @@ GROUP BY ALL
 CREATE TABLE IF NOT EXISTS process_registry
 AS
 SELECT
+    agentid agent_id,
     hosthame hostname,
     pidhash pid_hash,
     processname process_name,
@@ -430,27 +434,29 @@ GROUP BY ALL
 
 -- Summarize to PID_HASH+FILENAME
 
+--EXPLAIN ANALYZE
 CREATE TABLE IF NOT EXISTS process_image_load
 AS
 SELECT
-    computername hostname,
     pidhash pid_hash,
-    processname process_name,
-    md5(concat_ws('||', computername, lower(filename))) file_id,
-    first(md5) file_md5,
-    count(DISTINCT md5) num_file_md5,
     lower(filename) filename,
+    any_value(agentid) agent_id,
+    any_value(computername) hostname,
+    any_value(processname) process_name,
+    md5(concat_ws('||', computername, lower(filename))) file_id,
+    any_value(md5) file_md5,
+--    count(DISTINCT md5) num_file_md5,
     max(buildtime) build_time,
-    count(DISTINCT buildtime) num_uniq_build_times,
+--    count(DISTINCT buildtime) num_uniq_build_times,
     max(imagechecksum) checksum,
-    count(DISTINCT imagechecksum) num_uniq_checksums,
+--    count(DISTINCT imagechecksum) num_uniq_checksums,
     max(defaultbase) default_base,
-    count(DISTINCT defaultbase) num_default_base,
+--    count(DISTINCT defaultbase) num_default_base,
     max(imagebase) image_base,
-    count(DISTINCT imagebase) num_image_base,
+--    count(DISTINCT imagebase) num_image_base,
     min(imagesize) min_image_size,
     max(imagesize) max_image_size,
-    count(DISTINCT imagesize) num_image_size,
+--    count(DISTINCT imagesize) num_image_size,
     sum(if(upper(activitytype) = 'LOAD', 1, 0)) num_load,
     sum(if(upper(activitytype) = 'UNLOAD', 1, 0)) num_unload,
     to_timestamp_micros(win32_to_epoch(min(cast(eventtime as bigint)))) first_seen,
