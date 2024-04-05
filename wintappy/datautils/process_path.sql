@@ -57,8 +57,8 @@ select * from (
             p.pid_hash = pt.parent_pid_hash
             and pt.parent_pid_hash != pt.pid_hash
             and not list_contains(pt.ptree_list, p.pid_hash)
-            -- optimization?
-            and p.agent_id=pt.agent_id
+            -- optimization? Do not use agent_id because its null for older data, like ACME.
+            and p.hostname=pt.hostname
     )
     select
         *,
