@@ -4,22 +4,21 @@ from glob import iglob
 from typing import NamedTuple
 
 import altair as alt
+from dataclasses import dataclass
 import pandas as pd
 from humanfriendly import format_size
 from jinja2 import Template
 
 from wintappy.datautils import rawutil as ru
 
-EventSummaryColumn = NamedTuple(
-    "EventSummaryColumn",
-    [
-        ("table", str),
-        ("label", str),
-        ("host_col", str),
-        ("ts_func", str),
-        ("num_event_func", str),
-    ],
-)
+
+@dataclass
+class EventSummaryColumn:
+    table: str
+    label: str
+    host_col: str
+    ts_func: str
+    num_event_func: str
 
 
 def event_summary_metadata():
@@ -126,18 +125,20 @@ def create_event_summary_view(con, min_daypk, max_daypk):
     print(sql)
     con.execute(sql)
 
+
 def calc_time_bucket(min_dayPK, max_dayPK, num_buckets=500):
-    '''
-    Calculate time bucket size (as an interval). 
-    '''
+    """
+    Calculate time bucket size (as an interval).
+    """
     return str((max_dayPK - min_dayPK) / num_buckets)
+
 
 def init_db(con, min_dayPK, max_dayPK, bucket_size=None):
     # Create a macro (function) that will create the time bins.
 
     # If not provided, calc the default size based on the time range.
     if not bucket_size:
-        bucket_size=calc_time_bucket(min_dayPK, max_dayPK)
+        bucket_size = calc_time_bucket(min_dayPK, max_dayPK)
     print(bucket_size)
 
     # Once min/max are calc'd here, they can be passed into creating the view
@@ -203,9 +204,12 @@ def table_summary(
     return tablesDF
 
 
-def fetch_summary_data(con,hostname='%',agent_id='%'):
+def fetch_summary_data(con, hostname="%", agent_id="%"):
     # To get mixed-case column names in the DF, use "". But to use strings in the WHERE, use ''.
-    sql='select "Event", "Hostname",bin_date as BinDT,"NumRows" from event_summary_raw_v1'+f" where hostname ilike '%{hostname}%' and agentid ilike '%{agent_id}%' order by all"
+    sql = (
+        'select "Event", "Hostname",bin_date as BinDT,"NumRows" from event_summary_raw_v1'
+        + f" where hostname ilike '%{hostname}%' and agentid ilike '%{agent_id}%' order by all"
+    )
     print(sql)
     eventDF = con.execute(sql).df()
 
@@ -250,7 +254,12 @@ def create_event_chart(eventDF):
             ),
             # size=20,
             color="Event:N",
-            tooltip=["Hostname:N", "Event:N", "NumRows:Q", alt.Tooltip("BinDT:T", format="%Y-%m-%d %H:%M:%S")],
+            tooltip=[
+                "Hostname:N",
+                "Event:N",
+                "NumRows:Q",
+                alt.Tooltip("BinDT:T", format="%Y-%m-%d %H:%M:%S"),
+            ],
         )
         .properties(title="Raw Events over Time")
         .interactive()
