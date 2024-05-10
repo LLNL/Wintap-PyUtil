@@ -13,6 +13,8 @@ def configure_basic_logging() -> None:
     logger.handlers[0].setFormatter(
         logging.Formatter("%(asctime)s %(message)s", datefmt="%m/%d/%Y %I:%M:%S %p")
     )
+    # TODO Make log level configurable
+    logging.disable(logging.CRITICAL)
 
 
 def daterange(start_date: datetime, end_date: datetime):
@@ -37,8 +39,7 @@ def get_date_range(
         return start, end
     if agg_level and agg_level != "rolling":
         return start, end
-    start = latest_processed_datetime(data_set_path)
-    end = datetime.utcnow()
+    start, end = date_range(data_set_path)
     return start, end
 
 
@@ -65,6 +66,25 @@ def latest_processed_datetime(data_set_path) -> datetime:
     if len(hourpks) > 0:
         _, hour = heapq.nlargest(1, hourpks, key=pk_sort)[0].split("=")
     return datetime.strptime(f"{day}{hour}", "%Y%m%d%H")
+
+def date_range(data_set_path):
+    path = f"{data_set_path}{os.sep}{DEFAULT_DATE_RANGE_PATH}"
+    try:
+        daypks = os.listdir(path)
+    except FileNotFoundError:
+        # directory does not exist
+        logging.info(f"Directory ({path}) does not exist. Will use default times.")
+        daypks = []
+    # remove "bad" directories
+    daypks = [d for d in daypks if "=" in d]
+    # if there is no data, return a default of a day ago
+    if len(daypks) == 0:
+        print(f"No daypks in {data_set_path}{os.sep}{DEFAULT_DATE_RANGE_PATH}")
+#        end = datetime.utcnow()
+#        return datetime(end.year, end.month, end.day) - timedelta(days=1)
+    _, start_day = heapq.nsmallest(1, daypks, key=pk_sort)[0].split("=")
+    _, end_day = heapq.nlargest(1, daypks, key=pk_sort)[0].split("=")
+    return datetime.strptime(f"{start_day}", "%Y%m%d"), datetime.strptime(f"{int(end_day)+1}", "%Y%m%d")
 
 
 def pk_sort(pk):

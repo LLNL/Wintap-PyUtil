@@ -38,6 +38,8 @@ def init_db(dataset=None, agg_level="rolling", database=":memory:", lookups=""):
     con = duckdb.connect(database=database)
     # set caching dir to a temp directory location
     con.execute(f"SET temp_directory = '{tempfile.mkdtemp()}'")
+    #TODO Make threads configurable.
+    con.execute(f"set threads = 8")
     logging.debug(f"Duckdb info: {con.sql('CALL pragma_database_size()').fetchall()}")
     # TODO fix reference to SQL scripts
     run_sql_no_args(con, resource_files("wintappy.datautils").joinpath("initdb.sql"))
