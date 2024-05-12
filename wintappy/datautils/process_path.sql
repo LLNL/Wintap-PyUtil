@@ -57,7 +57,10 @@ select * from (
             p.pid_hash = pt.parent_pid_hash
             and pt.parent_pid_hash != pt.pid_hash
             and not list_contains(pt.ptree_list, p.pid_hash)
-            -- optimization? Do not use agent_id because its null for older data, like ACME.
+            -- This *may* be an optimization. The intent is to help the optimizer reduce scope.
+            -- Note: Do not use agent_id because its null for older data, like ACME.
+            -- For cases like malware sandbox where all VM executions use the same hostname, PID_HASH will
+            -- still keep executions isolated as they use agent_id in their pid_hash.
             and p.hostname=pt.hostname
     )
     select
