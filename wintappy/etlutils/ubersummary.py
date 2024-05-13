@@ -21,6 +21,7 @@ def label_summary(con, dataset):
                 "labels_networkx",
             ]
         )
+        logging.debug("Found labels")
     logging.debug(con.execute("show tables").fetchall())
     for sqlfile in ["label_summary.sql"]:
         ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(sqlfile))
@@ -98,6 +99,7 @@ def main(argv=None):
     uber_summary(con)
 
     logging.debug(con.execute("show tables").fetchall())
+    logging.debug(f"Objects to save: {save_db_objects}")
     ru.write_parquet(
         con,
         args.DATASET,

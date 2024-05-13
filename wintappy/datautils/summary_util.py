@@ -12,6 +12,7 @@ def create_lolbas_view(con, dataset):
         SELECT * FROM read_csv_auto('{dataset}/../lookups/benignware/lolbas.csv',header=true,normalize_names=1)
     """
     con.execute(sql)
+    return True
 
 
 def create_mitre_labels_view(con, dataset, agglevel="rolling") -> bool:
@@ -36,6 +37,7 @@ def create_networkx_view(con, dataset):
     # Set max JSON size to 64MB
     sql = f"create or replace view labels_networkx as select * from read_json_auto('{dataset}/labels/networkx/*.json', filename=true, maximum_object_size=67108864)"
     con.execute(sql)
+    return True
 
 
 def create_process_view(con, dataset, agglevel="rolling"):
