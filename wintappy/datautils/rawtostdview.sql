@@ -193,7 +193,7 @@ WHERE
 -- Move to Wintap
 
 UPDATE process
-SET file_id = md5(concat_ws('||', agent_id, filename))
+SET file_id = md5(concat_ws('||', agent_id, lower(filename)))
 WHERE filename IS NOT NULL
 ;
 
@@ -391,7 +391,7 @@ SELECT
     hostname,
     pidhash pid_hash, -- generate FileID
     processname process_name,
-    md5(concat_ws('||', agentid, file_path)) file_id,
+    md5(concat_ws('||', agentid, lower(file_path))) file_id,
     file_hash file_hash,
     file_path filename,
     activitytype activity_type,
