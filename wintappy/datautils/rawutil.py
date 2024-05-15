@@ -432,6 +432,17 @@ def get_db_objects(con, exclude=None):
         tables = [t for t, x in db_objects]
     return tables
 
+# TODO breakout generic functions like this into a dbutils package
+def check_column(con, table_name, column_name):
+    col_sql = f"""
+    select table_catalog, table_name, column_name
+    from information_schema.columns
+    where table_name ilike '{table_name}'
+    and lower(column_name)=lower('{column_name}')
+    """
+    # Is it missing? Wow, thats some syntax to check!
+    return con.sql(col_sql).count("*").fetchone()[0] == 1
+
 
 def write_parquet(con, datasetpath, db_objects, daypk=None, agg_level="stdview"):
     """
