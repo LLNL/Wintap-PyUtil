@@ -129,3 +129,10 @@ class EnvironmentConfig:
                 print(f"Dataset: {args.DATASET} has agglevels:")
                 for dir in os.listdir(args.DATASET):
                     print(f"  {dir}")
+
+    # Support functions for argparser definitions.
+    # Is there a better place to put these?
+    def list_of_strings(arg):
+        return arg.split(',')
+
+
