@@ -13,8 +13,6 @@ def configure_basic_logging() -> None:
     logger.handlers[0].setFormatter(
         logging.Formatter("%(asctime)s %(message)s", datefmt="%m/%d/%Y %I:%M:%S %p")
     )
-    # TODO Make log level configurable
-    logging.disable(logging.CRITICAL)
 
 
 def daterange(start_date: datetime, end_date: datetime):
