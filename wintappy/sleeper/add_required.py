@@ -11,10 +11,14 @@ def add_required_to_all(source_file, dest_dir):
     for i, col in enumerate(schema):
         schema = schema.set(i, pa.field(col.name, col.type, nullable=False))
 
-    writer = pq.ParquetWriter(os.path.join(dest_dir,os.path.basename(source_file)+"-required.parquet"), schema=schema)
-    src=src.cast(schema)
+    writer = pq.ParquetWriter(
+        os.path.join(dest_dir, os.path.basename(source_file) + "-required.parquet"),
+        schema=schema,
+    )
+    src = src.cast(schema)
     writer.write_table(src)
     writer.close()
+
 
 def main():
     parser = argparse.ArgumentParser(
