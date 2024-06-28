@@ -7,4 +7,4 @@ FROM process
 WHERE
     process_name = 'fltmc.exe'
     AND args LIKE '%unload%'
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

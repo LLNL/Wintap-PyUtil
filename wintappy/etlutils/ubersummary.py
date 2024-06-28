@@ -2,7 +2,7 @@ import argparse
 import logging
 from importlib.resources import files as resource_files
 
-from wintappy.config import get_configs
+from wintappy.config import EnvironmentConfig
 from wintappy.datautils import rawutil as ru
 from wintappy.datautils import summary_util as su
 from wintappy.etlutils.utils import configure_basic_logging
@@ -21,6 +21,7 @@ def label_summary(con, dataset):
                 "labels_networkx",
             ]
         )
+        logging.debug("Found labels")
     logging.debug(con.execute("show tables").fetchall())
     for sqlfile in ["label_summary.sql"]:
         ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(sqlfile))
@@ -73,10 +74,12 @@ def main(argv=None):
         prog="uber_summary.py",
         description="Convert networkx JSON to table summarized by PID_HASH",
     )
-    parser.add_argument("-s", "--start", help="Start date (YYYYMMDD)")
-    parser.add_argument("-e", "--end", help="End date (YYYYMMDD)")
-
-    args = get_configs(parser, argv)
+    env_config = EnvironmentConfig(parser)
+    env_config.add_start(required=False)
+    env_config.add_end(required=False)
+    env_config.add_dataset_path(required=True)
+    env_config.add_aggregation_level(required=False)
+    args = env_config.get_options(argv)
 
     con = ru.init_db()
     # Create a view for the PROCESS table.
@@ -96,6 +99,7 @@ def main(argv=None):
     uber_summary(con)
 
     logging.debug(con.execute("show tables").fetchall())
+    logging.debug(f"Objects to save: {save_db_objects}")
     ru.write_parquet(
         con,
         args.DATASET,

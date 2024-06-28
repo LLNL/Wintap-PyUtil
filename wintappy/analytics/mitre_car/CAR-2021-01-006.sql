@@ -1,7 +1,7 @@
 -- Unusual Child Process spawned using DDE exploit
 SELECT
-    child.pid_hash AS pid_hash,
-    COALESCE(child.first_seen, child.daypk) AS first_seen
+    child.pid_hash,
+    child.first_seen
 FROM process AS child,
     process AS parent
 WHERE
@@ -14,5 +14,7 @@ WHERE
             OR parent.process_name LIKE '%outlook.exe'
         )
     )
+{% if search_day_pk is defined and search_day_pk != None %}
     AND parent.daypk = {{ search_day_pk|default(20230501, true) }}
     AND child.daypk = {{ search_day_pk|default(20230501, true) }}
+{% endif %}

@@ -12,6 +12,7 @@ def create_lolbas_view(con, dataset):
         SELECT * FROM read_csv_auto('{dataset}/../lookups/benignware/lolbas.csv',header=true,normalize_names=1)
     """
     con.execute(sql)
+    return True
 
 
 def create_mitre_labels_view(con, dataset, agglevel="rolling") -> bool:

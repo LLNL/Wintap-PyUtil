@@ -9,7 +9,7 @@ import fsspec
 
 from wintappy.analytics.constants import TACTIC_STIX_TYPE, TECHNIQUE_STIX_TYPE
 from wintappy.analytics.utils import load_attack_metadata, run_against_day
-from wintappy.config import get_configs
+from wintappy.config import EnvironmentConfig
 from wintappy.database.constants import (
     CAR_ANALYTIC_COVERAGE,
     CAR_ANALYTICS_RESULTS_TABLE,
@@ -95,14 +95,20 @@ def process_range(
         logging.debug(f"running with daypk: {daypk}")
         # run analytics against this day
         run_against_day(
-            daypk, manager.jinja_environment, manager.wintap_duckdb, analytics_list
+            manager.jinja_environment,
+            manager.wintap_duckdb,
+            analytics_list,
+            daypk=daypk,
         )
-        # write results out to the fs for this day
-        manager.wintap_duckdb.write_table(
-            CAR_ANALYTICS_RESULTS_TABLE, daypk, location=manager.dataset_path
-        )
-        # clear out results table that we just wrote out to the fs
-        manager.wintap_duckdb.clear_table(CAR_ANALYTICS_RESULTS_TABLE)
+    return
+
+
+def process_table(manager: TransformerManager) -> None:
+    # run analytics against single table
+    analytics_list = list(manager.analytics.values())
+    logging.debug("running without daypk")
+    # run analytics against this day
+    run_against_day(manager.jinja_environment, manager.wintap_duckdb, analytics_list)
     return
 
 
@@ -112,21 +118,27 @@ def main(argv=None):
         prog="run_enrichment.py",
         description="Run enrichements against wintap data, write out results partitioned by day",
     )
-    parser.add_argument("-s", "--start", help="Start date (YYYYMMDD)")
-    parser.add_argument("-e", "--end", help="End date (YYYYMMDD)")
+    # option that is specific to this cli tool
     parser.add_argument(
         "-E",
         "--populate-enrichment-tables",
         help="Add enrichment tables to the specified path",
         default="",
     )
-    args = get_configs(parser, argv)
+    env_config = EnvironmentConfig(parser)
+    env_config.add_start(required=False)
+    env_config.add_end(required=False)
+    env_config.add_aggregation_level(required=False)
+    env_config.add_dataset_path(required=True)
+    args = env_config.get_options(argv)
 
-    manager = TransformerManager(current_dataset=args.DATASET)
+    manager = TransformerManager(current_dataset=args.DATASET, agg_level=args.AGGLEVEL)
 
-    start_date, end_date = get_date_range(args.START, args.END)
-
-    process_range(manager, start_date, end_date)
+    start_date, end_date = get_date_range(args.START, args.END, agg_level=args.AGGLEVEL)
+    if start_date and end_date:
+        process_range(manager, start_date, end_date)
+    else:
+        process_table(manager)
 
     if args.POPULATE_ENRICHMENT_TABLES:
         add_enrichment_tables(manager, args.POPULATE_ENRICHMENT_TABLES)

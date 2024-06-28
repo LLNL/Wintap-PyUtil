@@ -15,4 +15,4 @@ WHERE
         OR args LIKE '%Get-CachedGPPPassword%'
         OR args LIKE '%Get-RegistryAutoLogon%'
     )
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

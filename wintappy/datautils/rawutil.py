@@ -1,10 +1,13 @@
 import logging
 import os
 import re
+import tempfile
+import time
 from collections import defaultdict
-from datetime import datetime
+from dataclasses import dataclass
 from glob import glob
 from importlib.resources import files as resource_files
+from typing import List, Optional
 
 import duckdb
 import pyarrow.parquet as pq
@@ -12,15 +15,30 @@ from duckdb import CatalogException
 from pyarrow.lib import ArrowInvalid
 
 
+@dataclass
+class SqlStmt:
+    name: str
+    sql: str
+    required: bool
+    template: Optional[str]
+
+
+class InvalidSchema(Exception):
+    """
+    Use to signal that the base schema doesn't match what we expect.
+    """
+
+    pass
+
+
 def init_db(dataset=None, agg_level="rolling", database=":memory:", lookups=""):
     """
     Initialize an in memory db instance and configure with our custom sql.
     """
     con = duckdb.connect(database=database)
-    # Set a temp file path when using memory as it will allow for larger than memory databases.
-#    if database.lower()==':memory:':
-#        logging.info("Setting temp dir")
-#        con.execute("SET temp_directory = '/tmp' ")
+    # set caching dir to a temp directory location
+    con.execute(f"SET temp_directory = '{tempfile.mkdtemp()}'")
+    logging.debug(f"Duckdb info: {con.sql('CALL pragma_database_size()').fetchall()}")
     # TODO fix reference to SQL scripts
     run_sql_no_args(con, resource_files("wintappy.datautils").joinpath("initdb.sql"))
     if not dataset == None:
@@ -159,35 +177,71 @@ def get_globs_for(dataset, daypk):
     return globs
 
 
-def loadSqlStatements(file):
+def loadSqlStatements(file) -> List[SqlStmt]:
     """
-    Read sql script into map keyed by table name.
+    Read sql script. Parse into individual statements.
+
+    Optional metadata can be set for each statement. Must be provided AFTER the first line of sql:
+    --# name: [friendly name]
+    --# required
+    --# template: [path]
+
+    Name - defaults to tablename for CREATE, all others default to the first line with line number.
+    Best practice: for SELECT statements, provide a friendly name.
+
+    Required - applies only to CREATEs. If present, and create fails, an empty table will be built using a
+        parquet file located in ./schema/[template]/[name].parquet. Any data in the parquet will be ignored.
+
+    Template - applies only to CREATEs. The subdirectory within "./schema" that has the template parquet file.
     """
     file = open(file, "r")
     lines = file.readlines()
 
-    statements = {}
-    count = 0
-    # Strips the newline character
-    curKey = ""
-    curStatement = ""
-    for count, line in enumerate(lines):
-        if line.lower().startswith("create "):
+    statements = []
+    linenumber = 0
+    inStmt = False
+    for linenumber, line in enumerate(lines):
+        keyword = line.split(" ")[0].strip().lower()
+        if not inStmt and keyword in [
+            "create",
+            "alter",
+            "update",
+            "insert",
+            "delete",
+            "select",
+        ]:
+            # start of a new statement
             # For tables and views, use the object name
-            curKey = line.strip().split()[-1]
-            curStatement = line
-        elif line.split(" ", 1)[0].lower() in ["alter", "update", "insert", "delete"]:
-            # Add line number to be sure its unique as there can be multiple of these per table
-            curKey = f"{line.strip()}-{count}"
-            curStatement = line
+            if keyword == "create":
+                name = line.strip().split()[-1]
+            else:
+                # Add line number to be sure its unique as there can be multiple of these per table
+                name = f"{line.strip()}-{linenumber}"
+            curStatement = SqlStmt(
+                name=name,
+                sql=line,
+                required=False,
+                template=None,
+            )
+            inStmt = True
+        elif line.lower().startswith("--# name:"):
+            # Override default name with provided one.
+            curStatement.name = line.split(":")[1].strip()
+        elif line.lower().startswith("--# required"):
+            # This object is required to exist, so if execution fails, an empty object will be created with a matching schema.
+            curStatement.required = True
+        elif line.lower().startswith("--# template:"):
+            # Template identifies where the corresponding parquet template is that will be used for creating empty objects.
+            curStatement.template = line.split(":")[1].strip()
         else:
             if line.strip() == ";":
                 # We done. Save the statement. Don't save the semi-colon.
-                statements[curKey] = curStatement
-                curStatement = "SKIP"
+                statements.append(curStatement)
+                inStmt = False
+                logging.debug(curStatement.sql)
             else:
-                if curStatement != "SKIP":
-                    curStatement += line
+                if inStmt:
+                    curStatement.sql += line
     return statements
 
 
@@ -202,10 +256,7 @@ def generate_view_sql(event_map, start=None, end=None):
             # Raw files *may* have differing schemas, so enable union'ing of all schemas.
             # FIX in Wintap(?): Found that exact dups are in the raw tables, so remove them here using the GROUP BY ALL.
             # Only implement duplicate fix on 'raw_sensor' path. RAW tables in 'rolling' are already fixed.
-            view_sql = f"""
-            create or replace view {event_type} as
-            select *, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
-            """
+            view_sql = get_raw_view(event_type, pathspec)
         elif pathspec.endswith(".csv"):
             view_sql = f"""
             create or replace view {event_type} as
@@ -218,14 +269,38 @@ def generate_view_sql(event_map, start=None, end=None):
             """
             # Apply start/end filtering for rolling tables only.
             if "/rolling/" in pathspec:
-                if start != None and end != None:
+                if start and end:
                     view_sql += f"where dayPK between {start} and {end}"
-                if start != None and end == None:
+                if start is not None and end is None:
                     view_sql += f"where dayPK = {start}"
-        stmts.append(view_sql)
-        logging.debug(f"View for {event_type} using {pathspec}")
-        logging.debug(view_sql)
+        if view_sql:
+            stmts.append(view_sql)
+            logging.debug(f"View for {event_type} using {pathspec}")
+            logging.debug(view_sql)
     return stmts
+
+
+def get_raw_view(event_type: str, pathspec):
+    """
+    The introduction of agentid causes a ripple effect thru all ETL SQL.
+    For as long as is reasonable, auto-detect incoming parquet and add a null agentid when missing.
+    This allows for processing of older data sets.
+    At some point, a new, breaking schema change will happen and a different approach will be needed.
+    """
+
+    # Get the schema from the first parquet file
+    schema = pq.read_schema(glob(pathspec)[0])
+    if "agentid" in schema.names:
+        view_sql = f"""
+        create or replace view {event_type} as
+        select *, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
+        """
+    else:
+        view_sql = f"""
+        create or replace view {event_type} as
+        select *, cast(null as varchar) agentid, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
+        """
+    return view_sql
 
 
 def create_views(con, event_map, start=None, end=None):
@@ -243,54 +318,70 @@ def create_views(con, event_map, start=None, end=None):
             cursor.close()
 
 
+def validate_raw_views(con, raw_data, start=None, end=None):
+    """
+    Due to the variability in sensor configuration and collection issues, this hook is here to allow validating
+    and possibly fixing, known problems:
+    * In some cases, there are no raw_process_stop.parquet files which leads to all the unique fields defined in
+      it to be missing, causing downstream SQL errors. Fixed here by copying in an empty parquet file.
+    """
+
+    if "raw_process" in raw_data.keys():
+        # Validate existence of raw_process_stop fields. Shortcut by just checking for 1 for now.
+        col_sql = """
+            select table_catalog, table_name, column_name
+            from information_schema.columns
+            where table_name ilike 'raw_process'
+            and lower(column_name)=lower('CPUCycleCount')
+            """
+        if con.sql(col_sql).count("*").fetchone()[0] == 0:
+            # It's missing, create the empty file from the template
+            src_file = resource_files("wintappy.schema.raw_sensor").joinpath(
+                "raw_processstop.parquet"
+            )
+            # Destination will be the pathspec for raw_process, with a little tweaking:
+            pathspec = raw_data["raw_process"]
+            basepath = pathspec.split("*")[0]
+            dest_file = os.path.join(
+                basepath,
+                "hourPK=00",
+                f"EMPTY-raw_processstop-{int(time.time())}.parquet",
+            )
+            # Create the file by querying from template with the right schema
+            logging.info(f"Creating empty raw_processstop.parquet in {pathspec}")
+            con.execute(
+                f"copy (select * from '{src_file}' where false) to '{dest_file}'"
+            )
+            # Finally, recreate the raw_view.
+            create_views(con, {"raw_process": pathspec}, start, end)
+
+
 def create_raw_views(con, raw_data, start=None, end=None):
     """
     Create views in the db for each of the event_types.
     """
     create_views(con, raw_data, start, end)
+    validate_raw_views(con, raw_data, start, end)
 
 
-def create_empty_process_stop(con):
+def create_empty_table(con, sqlstmt: SqlStmt):
     """
-    The current processing expects there to always be a RAW_PROCESS_STOP table for the final step for PROCESS.
-    This function is used to create an empty table with the right structure for cases where there were no PROCESS_STOP events reported.
+    Create an empty table from a parquet used as the template for the schema.
+    This is useful when no data exists, but the structural element (table) is required for later SQL.
+
+    template
     """
-    db_objects = con.execute(
-        "select table_name, table_type from information_schema.tables where table_schema='main' and lower(table_name)='raw_process_stop'"
-    ).fetchall()
-    if len(db_objects) == 0:
-        logging.info("Creating empty RAW_PROCESS_STOP")
-        cursor = con.cursor()
-        cursor.execute(
-            """
-        CREATE TABLE raw_process_stop (
-            PidHash VARCHAR,
-            ParentPidHash VARCHAR,
-            CPUCycleCount BIGINT,
-            CPUUtilization INTEGER,
-            CommitCharge BIGINT,
-            CommitPeak BIGINT,
-            ReadOperationCount BIGINT,
-            WriteOperationCount BIGINT,
-            ReadTransferKiloBytes BIGINT,
-            WriteTransferKiloBytes BIGINT,
-            HardFaultCount INTEGER,
-            TokenElevationType INTEGER,
-            ExitCode BIGINT,
-            MessageType VARCHAR,
-            Hostname VARCHAR,
-            ActivityType VARCHAR,
-            EventTime BIGINT,
-            ReceiveTime BIGINT,
-            PID INTEGER,
-            IncrType VARCHAR,
-            EventCount INTEGER,
-            FirstSeenMs BIGINT,
-            LastSeenMs BIGINT
+    fqfn = resource_files(f"wintappy.schema.{sqlstmt.template}").joinpath(
+        f"{sqlstmt.name}.parquet"
+    )
+    logging.debug(f"Creating empty table from: {fqfn}")
+    sql = f"create table {sqlstmt.name} as select * from '{fqfn}' where False"
+    try:
+        con.execute(sql)
+    except CatalogException as e:
+        logging.warning(
+            f"Warning! Failed to create empty table for {sqlstmt.name} due to:\n{e}"
         )
-        """
-        )
-        cursor.close()
 
 
 def run_sql_no_args(con, sqlfile):
@@ -304,16 +395,22 @@ def run_sql_no_args(con, sqlfile):
        */
     """
     etl_sql = loadSqlStatements(sqlfile)
-    for key in etl_sql:
-        logging.info(f"Processing: {key}")
+    for sqlstmt in etl_sql:
+        logging.info(f"Processing: {sqlstmt.name}")
         try:
-            con.execute(etl_sql[key])
+            con.execute(sqlstmt.sql)
         except CatalogException as e:
-            logging.info(f"No raw data for {key}")
-            logging.debug(f"Error: {e}\nSQL: {etl_sql[key]}")
+            logging.info(f"Missing dependent table/view for {sqlstmt.name}")
+            logging.debug(f"Error: {e}\nSQL: {sqlstmt.sql}")
+            if sqlstmt.required:
+                logging.info(f"Creating empty object from {sqlstmt.template}")
+                create_empty_table(con, sqlstmt)
+        except duckdb.BinderException as e:
+            logging.error(f"Likely missing column: \n{e}")
+            raise InvalidSchema(f"Likely missing column: \n{e}")
         except Exception as e:
-            logging.info(f"  Failed: {e}")
-            logging.info(type(e))
+            logging.error(f"  Failed: {e}")
+            raise
 
 
 def get_db_objects(con, exclude=None):

@@ -5,6 +5,7 @@ create table process_path
 as
 select * from (
     with recursive cte_process_tree (
+        agent_id,
         hostname,
         pid_hash,
         os_pid,
@@ -19,6 +20,7 @@ select * from (
         ptree_list_tuples
     ) as (
         select
+            p.agent_id,
             p.hostname,
             p.pid_hash,
             p.os_pid,
@@ -34,6 +36,7 @@ select * from (
         from process as p
         union all
         select
+            pt.agent_id,
             pt.hostname,
             pt.pid_hash,
             pt.os_pid,
@@ -54,6 +57,11 @@ select * from (
             p.pid_hash = pt.parent_pid_hash
             and pt.parent_pid_hash != pt.pid_hash
             and not list_contains(pt.ptree_list, p.pid_hash)
+            -- This *may* be an optimization. The intent is to help the optimizer reduce scope.
+            -- Note: Do not use agent_id because its null for older data, like ACME.
+            -- For cases like malware sandbox where all VM executions use the same hostname, PID_HASH will
+            -- still keep executions isolated as they use agent_id in their pid_hash.
+            and p.hostname=pt.hostname
     )
     select
         *,

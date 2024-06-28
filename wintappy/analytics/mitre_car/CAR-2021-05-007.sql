@@ -8,4 +8,4 @@ WHERE
     process_name = 'certutil.exe'
     AND args LIKE '%verifyctl%'
     AND args LIKE '%split%'
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

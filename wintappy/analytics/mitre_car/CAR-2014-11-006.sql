@@ -9,4 +9,4 @@ WHERE
     OR local_port = '5986'
     OR remote_port = '5985'
     OR remote_port = '5986'
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

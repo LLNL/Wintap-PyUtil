@@ -2,8 +2,8 @@
 -- Tactic: Persistence; Technique: Server Software Component
 
 SELECT
-    child.pid_hash AS pid_hash,
-    COALESCE(child.first_seen, child.daypk) AS first_seen
+    child.pid_hash,
+    child.first_seen
 FROM process AS child,
     process AS parent
 WHERE
@@ -23,5 +23,7 @@ WHERE
         'systeminfo.exe',
         'ipconfig.exe'
     )
-    AND child.daypk = {{ search_day_pk|default(20230501, true) }}
+{% if search_day_pk is defined and search_day_pk != None %}
     AND parent.daypk = {{ search_day_pk|default(20230501, true) }}
+    AND child.daypk = {{ search_day_pk|default(20230501, true) }}
+{% endif %}

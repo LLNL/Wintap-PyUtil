@@ -11,4 +11,4 @@ WHERE
         OR args LIKE '%/add%'
         OR args LIKE '%user%'
     )
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

@@ -16,11 +16,17 @@ class TransformerManager:
     jinja_environment: Environment
     wintap_duckdb: WintapDuckDB
 
-    def __init__(self, current_dataset: str):
+    def __init__(self, current_dataset: str, agg_level: str = ""):
         self.dataset_path = current_dataset
-        con = ru.init_db(self.dataset_path)
+        con = None
+        if agg_level:
+            con = ru.init_db(self.dataset_path, agg_level=agg_level)
+            path = f"{self.dataset_path}/{agg_level}"
+        else:
+            con = ru.init_db(self.dataset_path)
+            path = self.dataset_path
         ## basic setup for what we will use to run analytics
-        options = WintapDuckDBOptions(con, self.dataset_path, load_analytics=False)
+        options = WintapDuckDBOptions(con, path, load_analytics=False)
         self.wintap_duckdb = WintapDuckDB(options)
         self.jinja_environment = Environment(
             loader=PackageLoader("wintappy", package_path="./analytics/mitre_car/")

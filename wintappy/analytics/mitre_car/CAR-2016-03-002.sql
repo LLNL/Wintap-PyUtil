@@ -6,4 +6,4 @@ FROM process
 WHERE
     process_name = 'wmic.exe'
     AND args LIKE '% process call create %'
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}

@@ -5,4 +5,4 @@ SELECT {{ select_fallback( columns ) }}
 FROM process
 WHERE
     process_name = 'at.exe'
-    AND daypk = {{ limit_search_days( search_day_pk ) }}
+    {{ limit_search_days( search_day_pk ) }}
