@@ -317,6 +317,9 @@ def create_views(con, event_map, start=None, end=None):
             logging.error("If the error is too many files open, try this on OSX:")
             logging.error("ulimit -Sn 524288; ulimit -Hn 10485760")
             raise e
+        except duckdb.duckdb.ParserException as e:
+            logging.error(f"SQL Failed: {sql}", e)
+            raise e
         finally:
             cursor.close()
 
@@ -451,6 +454,9 @@ def write_parquet(con, datasetpath, db_objects, daypk=None, agg_level="stdview")
     Otherwise, write to agg_level.
     """
     for object_name in db_objects:
+        if object_name == "raw_memorymap":
+            logging.warn("Skipping raw_memorymap because its causing a OOM failure")
+            continue
         logging.info(f"Writing {object_name}")
         try:
             if daypk == None:
