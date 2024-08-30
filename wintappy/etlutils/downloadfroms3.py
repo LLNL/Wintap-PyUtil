@@ -19,9 +19,12 @@ import os
 import sys
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta, timezone
 from functools import partial
+from pathlib import Path
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 import boto3
 import botocore
@@ -53,6 +56,9 @@ class S3File:
     os: str
     sensor_version: str
     event_type: str
+
+    def dict(self):
+        return {k: str(v) for k, v in asdict(self).items()}
 
 
 def list_files(s3_client, bucket, prefix):
@@ -363,7 +369,7 @@ def main(argv=None) -> None:
                             args.DATASET,
                             daypk,
                             hourpk,
-                            event_type.get("Prefix").split("/")[2],
+                            get_event_type(event_type),
                         )
                     )
                 logging.info(
@@ -376,6 +382,17 @@ def main(argv=None) -> None:
             logging.info(f"   Downloading {len(files_md)}...")
             download_files_threaded(args.AWS_S3_BUCKET, s3, files_md)
 
+        # Write metadata
+        # Ugly conversion to list of dicts to be able to easily create parquet.
+        tmp_files=[]
+        for file in files_md:
+            tmp_files.append(file.dict())
+        s3_table = pa.Table.from_pylist(tmp_files)
+        Path(f'{args.DATASET}/s3_metadata').mkdir(parents=True, exist_ok=True)
+        pq.write_table(s3_table, f'{args.DATASET}/s3_metadata/s3_metadata-{get_event_type(event_type)}-{args.START.replace(" ","_")}-{args.END.replace(" ","_")}.parquet')
+
+def get_event_type(event_type):
+    return event_type.get("Prefix").split("/")[2]
 
 if __name__ == "__main__":
     main(argv=None)
