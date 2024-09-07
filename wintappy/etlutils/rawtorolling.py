@@ -42,8 +42,9 @@ def main(argv=None) -> None:
     )
     parser.add_argument(
         # This form works, but fails the lint test. Since its not critical, I'm adding as a form that will pass, but doesn't support multiples.
-        #"--exclude_event_types", type=EnvironmentConfig.list_of_strings, default=[]
-        "--exclude_event_types", default=[]
+        # "--exclude_event_types", type=EnvironmentConfig.list_of_strings, default=[]
+        "--exclude_event_types",
+        default=[],
     )
     env_config = EnvironmentConfig(parser)
     env_config.add_start(required=False)
