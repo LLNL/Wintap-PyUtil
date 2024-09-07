@@ -132,5 +132,5 @@ class EnvironmentConfig:
 
     # Support functions for argparser definitions.
     # Is there a better place to put these?
-    def list_of_strings(arg):
+    def list_of_strings(self, arg: str)->List[str]:
         return arg.split(",")

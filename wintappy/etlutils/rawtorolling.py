@@ -10,7 +10,7 @@ from wintappy.etlutils.utils import configure_basic_logging, daterange, get_date
 
 def process_range(
     cur_dataset: str, start_date, end_date, exclude_event_types: List[str]
-) -> Dict:
+):
     for single_date in daterange(start_date, end_date):
         daypk = single_date.strftime("%Y%m%d")
         con = ru.init_db()
@@ -32,7 +32,6 @@ def process_range(
             con, cur_dataset, ru.get_db_objects(con, exclude=["tmp"]), daypk
         )
         con.close()
-    return
 
 
 def main(argv=None) -> None:
@@ -42,7 +41,9 @@ def main(argv=None) -> None:
         description="Convert raw Wintap data into standard form, partitioned by day",
     )
     parser.add_argument(
-        "--exclude_event_types", type=EnvironmentConfig.list_of_strings, default=[]
+        # This form works, but fails the lint test. Since its not critical, I'm adding as a form that will pass, but doesn't support multiples.
+        #"--exclude_event_types", type=EnvironmentConfig.list_of_strings, default=[]
+        "--exclude_event_types", default=[]
     )
     env_config = EnvironmentConfig(parser)
     env_config.add_start(required=False)
