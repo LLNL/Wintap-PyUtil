@@ -327,7 +327,6 @@ def main(argv=None) -> None:
         start_date = datetime(end.year, end.month, end.day) - timedelta(days=1)
         end_date = datetime(end.year, end.month, end.day)
 
-
     logging.info(f"Using time range: {start_date} -> {end_date}")
     for event_type in event_types:
         logging.info(f'S3 EventType Prefix: {event_type.get("Prefix")}')
