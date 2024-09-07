@@ -1,10 +1,10 @@
 import logging
 import os
+from dataclasses import dataclass
 from glob import iglob
 from typing import NamedTuple
 
 import altair as alt
-from dataclasses import dataclass
 import pandas as pd
 from humanfriendly import format_size
 from jinja2 import Template

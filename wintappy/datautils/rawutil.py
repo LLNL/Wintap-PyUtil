@@ -38,9 +38,9 @@ def init_db(dataset=None, agg_level="rolling", database=":memory:", lookups=""):
     con = duckdb.connect(database=database)
     # set caching dir to a temp directory location
     con.execute(f"SET temp_directory = '{tempfile.mkdtemp()}'")
-    #TODO Make threads configurable.
+    # TODO Make threads configurable.
     # 8 is for big malware run
-#    con.execute(f"set threads = 8")
+    #    con.execute(f"set threads = 8")
     logging.debug(f"Duckdb info: {con.sql('CALL pragma_database_size()').fetchall()}")
     # TODO fix reference to SQL scripts
     run_sql_no_args(con, resource_files("wintappy.datautils").joinpath("initdb.sql"))
@@ -434,6 +434,7 @@ def get_db_objects(con, exclude=None):
     else:
         tables = [t for t, x in db_objects]
     return tables
+
 
 # TODO breakout generic functions like this into a dbutils package
 def check_column(con, table_name, column_name):

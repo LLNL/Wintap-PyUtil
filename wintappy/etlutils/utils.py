@@ -65,6 +65,7 @@ def latest_processed_datetime(data_set_path) -> datetime:
         _, hour = heapq.nlargest(1, hourpks, key=pk_sort)[0].split("=")
     return datetime.strptime(f"{day}{hour}", "%Y%m%d%H")
 
+
 def date_range(data_set_path):
     path = f"{data_set_path}{os.sep}{DEFAULT_DATE_RANGE_PATH}"
     try:
@@ -78,11 +79,13 @@ def date_range(data_set_path):
     # if there is no data, return a default of a day ago
     if len(daypks) == 0:
         print(f"No daypks in {data_set_path}{os.sep}{DEFAULT_DATE_RANGE_PATH}")
-#        end = datetime.utcnow()
-#        return datetime(end.year, end.month, end.day) - timedelta(days=1)
+    #        end = datetime.utcnow()
+    #        return datetime(end.year, end.month, end.day) - timedelta(days=1)
     _, start_day = heapq.nsmallest(1, daypks, key=pk_sort)[0].split("=")
     _, end_day = heapq.nlargest(1, daypks, key=pk_sort)[0].split("=")
-    return datetime.strptime(f"{start_day}", "%Y%m%d"), datetime.strptime(f"{int(end_day)+1}", "%Y%m%d")
+    return datetime.strptime(f"{start_day}", "%Y%m%d"), datetime.strptime(
+        f"{int(end_day)+1}", "%Y%m%d"
+    )
 
 
 def pk_sort(pk):

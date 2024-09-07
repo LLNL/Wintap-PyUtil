@@ -1,14 +1,16 @@
 import argparse
 import logging
 from importlib.resources import files as resource_files
-from typing import List, Dict
+from typing import Dict, List
 
 from wintappy.config import EnvironmentConfig
 from wintappy.datautils import rawutil as ru
 from wintappy.etlutils.utils import configure_basic_logging, daterange, get_date_range
 
 
-def process_range(cur_dataset: str, start_date, end_date, exclude_event_types: List[str]) -> Dict:
+def process_range(
+    cur_dataset: str, start_date, end_date, exclude_event_types: List[str]
+) -> Dict:
     for single_date in daterange(start_date, end_date):
         daypk = single_date.strftime("%Y%m%d")
         con = ru.init_db()
@@ -30,6 +32,8 @@ def process_range(cur_dataset: str, start_date, end_date, exclude_event_types: L
             con, cur_dataset, ru.get_db_objects(con, exclude=["tmp"]), daypk
         )
         con.close()
+    return
+
 
 def main(argv=None) -> None:
     configure_basic_logging()
@@ -37,7 +41,9 @@ def main(argv=None) -> None:
         prog="rawtorolling.py",
         description="Convert raw Wintap data into standard form, partitioned by day",
     )
-    parser.add_argument('--exclude_event_types', type=EnvironmentConfig.list_of_strings, default=[])
+    parser.add_argument(
+        "--exclude_event_types", type=EnvironmentConfig.list_of_strings, default=[]
+    )
     env_config = EnvironmentConfig(parser)
     env_config.add_start(required=False)
     env_config.add_end(required=False)
@@ -49,7 +55,9 @@ def main(argv=None) -> None:
     )
 
     logging.info(f"Processing {start_date} to {end_date}")
-    process_range(args.DATASET, start_date, end_date, exclude_event_types=args.exclude_event_types)
+    process_range(
+        args.DATASET, start_date, end_date, exclude_event_types=args.exclude_event_types
+    )
 
 
 if __name__ == "__main__":
