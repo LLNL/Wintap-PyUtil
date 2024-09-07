@@ -321,6 +321,12 @@ def main(argv=None) -> None:
     start_date, end_date = get_date_range(
         args.START, args.END, date_format="%Y%m%d %H", data_set_path=args.DATASET
     )
+    if start_date == None and end_date == None:
+        # Default to the last day
+        end = datetime.now(timezone.utc)
+        start_date = datetime(end.year, end.month, end.day) - timedelta(days=1)
+        end_date = datetime(end.year, end.month, end.day)
+
 
     logging.info(f"Using time range: {start_date} -> {end_date}")
     for event_type in event_types:

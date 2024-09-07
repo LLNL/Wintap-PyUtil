@@ -19,11 +19,13 @@ class TestUtils:
         mock_datetime.return_value = dt(2021, 12, 5)
         mock_listdir.return_value = []
         start, end = get_date_range("", "")
-        assert start == dt(2021, 12, 4, 0, 0)
-        assert end == dt(2021, 12, 5, 11, 24)
+        print(f"{start}  {end}")
+        print(f"{dt(2021, 12, 5, 11, 24)}")
+        assert start == None
+        assert end == None
         start, end = get_date_range(None, None)
-        assert start == dt(2021, 12, 4, 0, 0)
-        assert end == dt(2021, 12, 5, 11, 24)
+        assert start == None
+        assert end == None
 
     def test_get_date_range_specified(self) -> None:
         start, end = get_date_range("20231101", "20231108")

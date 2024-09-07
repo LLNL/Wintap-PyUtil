@@ -66,7 +66,11 @@ def latest_processed_datetime(data_set_path) -> datetime:
     return datetime.strptime(f"{day}{hour}", "%Y%m%d%H")
 
 
-def date_range(data_set_path):
+def date_range(data_set_path: str) -> Tuple[datetime, datetime]:
+    '''
+    Return start and end datetimes for the given path. This path must be a date partitioned agg_level: raw|rolling.
+    If there is no data at all, returns None.
+    '''
     path = f"{data_set_path}{os.sep}{DEFAULT_DATE_RANGE_PATH}"
     try:
         daypks = os.listdir(path)
@@ -79,8 +83,8 @@ def date_range(data_set_path):
     # if there is no data, return a default of a day ago
     if len(daypks) == 0:
         print(f"No daypks in {data_set_path}{os.sep}{DEFAULT_DATE_RANGE_PATH}")
-    #        end = datetime.utcnow()
-    #        return datetime(end.year, end.month, end.day) - timedelta(days=1)
+        return None, None
+    
     _, start_day = heapq.nsmallest(1, daypks, key=pk_sort)[0].split("=")
     _, end_day = heapq.nlargest(1, daypks, key=pk_sort)[0].split("=")
     return datetime.strptime(f"{start_day}", "%Y%m%d"), datetime.strptime(
