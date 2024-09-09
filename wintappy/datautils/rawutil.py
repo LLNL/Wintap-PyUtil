@@ -293,10 +293,17 @@ def get_raw_view(event_type: str, pathspec):
 
     # Get the schema from the first parquet file
     schema = pq.read_schema(glob(pathspec)[0])
-    if "agentid" in schema.names:
+    if "AgentId" in schema.names:
+        # Default to all columns
+        col_list = "*"
+        if "ConnId" in schema.names:
+            # Wintap used in ACME4 has a bug in CONNID creation: its not sorting the src/dest fields. Fix it here.
+            # Column list that generates a new connid value
+            col_list = "list_sort([int_to_ip(cast(localipaddr as bigint)), cast(localport AS varchar),int_to_ip(cast(remoteipaddr as bigint)),CAST(remoteport AS varchar),protocol]) ConnId, * exclude (connid)"
+
         view_sql = f"""
         create or replace view {event_type} as
-        select *, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
+        select {col_list}, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
         """
     else:
         view_sql = f"""
