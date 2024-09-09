@@ -293,23 +293,24 @@ def get_raw_view(event_type: str, pathspec):
 
     # Get the schema from the first parquet file
     schema = pq.read_schema(glob(pathspec)[0])
-    if "AgentId" in schema.names:
-        # Default to all columns
-        col_list = "*"
-        if "ConnId" in schema.names:
-            # Wintap used in ACME4 has a bug in CONNID creation: its not sorting the src/dest fields. Fix it here.
-            # Column list that generates a new connid value
-            col_list = "list_sort([int_to_ip(cast(localipaddr as bigint)), cast(localport AS varchar),int_to_ip(cast(remoteipaddr as bigint)),CAST(remoteport AS varchar),protocol]) ConnId, * exclude (connid)"
+    from_clause=f"from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all"
+    # Default to all columns
+    col_list = "*"
+    # Default to agentid existing. Note that the exclude is buried in the "col_list" definition as there can only be 1 exclude list.
+    agent_id_col="agentid"
+    if not "AgentId" in schema.names:
+        agent_id_col="cast(null as varchar) agentid"
 
-        view_sql = f"""
-        create or replace view {event_type} as
-        select {col_list}, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
-        """
-    else:
-        view_sql = f"""
-        create or replace view {event_type} as
-        select *, cast(null as varchar) agentid, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
-        """
+    if "ConnId" in schema.names:
+        # Wintap used in ACME4 has a bug in CONNID creation: its not sorting the src/dest fields. Fix it here.
+        # Column list that generates a new connid value
+        col_list = "list_sort([int_to_ip(cast(localipaddr as bigint)), cast(localport AS varchar),int_to_ip(cast(remoteipaddr as bigint)),CAST(remoteport AS varchar),protocol]) ConnId, * exclude (connid,agentid)"
+
+    view_sql = f"""
+    create or replace view {event_type} as
+    select {col_list}, {agent_id_col}, count(*) num_dups {from_clause}
+    """
+
     return view_sql
 
 
