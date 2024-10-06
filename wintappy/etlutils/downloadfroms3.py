@@ -16,18 +16,17 @@ import argparse
 import csv
 import logging
 import os
-import sys
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from pathlib import Path
-import pyarrow as pa
-import pyarrow.parquet as pq
 
 import boto3
 import botocore
+import pyarrow as pa
+import pyarrow.parquet as pq
 import tqdm
 
 from wintappy.config import EnvironmentConfig
