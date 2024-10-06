@@ -383,17 +383,17 @@ def main(argv=None) -> None:
             logging.info(f"   Downloading {len(files_md)}...")
             download_files_threaded(args.AWS_S3_BUCKET, s3, files_md)
 
-        # Write metadata
-        # Ugly conversion to list of dicts to be able to easily create parquet.
-        tmp_files = []
-        for file in files_md:
-            tmp_files.append(file.dict())
-        s3_table = pa.Table.from_pylist(tmp_files)
-        Path(f"{args.DATASET}/s3_metadata").mkdir(parents=True, exist_ok=True)
-        pq.write_table(
-            s3_table,
-            f'{args.DATASET}/s3_metadata/s3_metadata-{get_event_type(event_type)}-{args.START.replace(" ","_")}-{args.END.replace(" ","_")}.parquet',
-        )
+            # Write metadata
+            # Ugly conversion to list of dicts to be able to easily create parquet.
+            tmp_files = []
+            for file in files_md:
+                tmp_files.append(file.dict())
+            s3_table = pa.Table.from_pylist(tmp_files)
+            Path(f"{args.DATASET}/s3_metadata").mkdir(parents=True, exist_ok=True)
+            pq.write_table(
+                s3_table,
+                f'{args.DATASET}/s3_metadata/s3_metadata-{get_event_type(event_type)}-{args.START.replace(" ","_")}-{args.END.replace(" ","_")}.parquet',
+            )
 
 
 def get_event_type(event_type):
