@@ -221,7 +221,8 @@ def parse_filename(filename):
 def parse_s3_metadata(files, dataset, uploadedDPK, uploadedHPK, event_type):
     """
     Parse metadata from S3. This will be used for generating the correct path to write to.
-    TODO: Write this data also to a parquet file for metadata analytics.
+    Writes S3 metadata to a parquet file for metadata analytics.
+    TODO: Write S3 metadata into day/hour partitions, the same as other data.
     """
     # Prefix all event_types with "raw_" TODO: fix this in Wintap
     if event_type.lower().startswith("raw_"):
