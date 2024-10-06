@@ -293,13 +293,13 @@ def get_raw_view(event_type: str, pathspec):
 
     # Get the schema from the first parquet file
     schema = pq.read_schema(glob(pathspec)[0])
-    from_clause=f"from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all"
+    from_clause = f"from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all"
     # Default to all columns
     col_list = "*"
     # Default to agentid existing. Note that the exclude is buried in the "col_list" definition as there can only be 1 exclude list.
-    agent_id_col="agentid"
+    agent_id_col = "agentid"
     if not "AgentId" in schema.names:
-        agent_id_col="cast(null as varchar) agentid"
+        agent_id_col = "cast(null as varchar) agentid"
 
     if "ConnId" in schema.names:
         # Wintap used in ACME4 has a bug in CONNID creation: its not sorting the src/dest fields. Fix it here.
