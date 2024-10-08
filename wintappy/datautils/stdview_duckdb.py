@@ -91,7 +91,6 @@ def create_event_summary_view(con, min_daypk, max_daypk):
     To add a new type, define in the event_summary_metadata.
     """
     esms = event_summary_metadata()
-    print(esms)
     tablesDF = con.execute(
         "select table_name from information_schema.tables where table_name like 'raw_%'"
     ).df()
@@ -122,7 +121,6 @@ def create_event_summary_view(con, min_daypk, max_daypk):
         esms=tables, min_daypk=min_daypk, max_daypk=max_daypk
     )
     logging.debug(f"Generated summary view: {sql}")
-    print(sql)
     con.execute(sql)
 
 
