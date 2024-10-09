@@ -78,5 +78,5 @@ tramp
 # Ignore dynaconf secret files
 .secrets.*
 
-# Local config file
-wintappy_settings.toml
+# Local config file. A common practice is to have many, so ignore those also.
+wintappy_settings.toml*

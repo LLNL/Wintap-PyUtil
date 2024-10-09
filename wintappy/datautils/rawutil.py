@@ -38,6 +38,9 @@ def init_db(dataset=None, agg_level="rolling", database=":memory:", lookups=""):
     con = duckdb.connect(database=database)
     # set caching dir to a temp directory location
     con.execute(f"SET temp_directory = '{tempfile.mkdtemp()}'")
+    # TODO Make threads configurable.
+    # 8 is for big malware run
+    #    con.execute(f"set threads = 8")
     logging.debug(f"Duckdb info: {con.sql('CALL pragma_database_size()').fetchall()}")
     # TODO fix reference to SQL scripts
     run_sql_no_args(con, resource_files("wintappy.datautils").joinpath("initdb.sql"))
@@ -290,16 +293,24 @@ def get_raw_view(event_type: str, pathspec):
 
     # Get the schema from the first parquet file
     schema = pq.read_schema(glob(pathspec)[0])
-    if "agentid" in schema.names:
-        view_sql = f"""
-        create or replace view {event_type} as
-        select *, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
-        """
-    else:
-        view_sql = f"""
-        create or replace view {event_type} as
-        select *, cast(null as varchar) agentid, count(*) num_dups from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all
-        """
+    from_clause = f"from parquet_scan('{pathspec}',hive_partitioning=1,union_by_name=true) group by all"
+    # Default to all columns
+    col_list = "*"
+    # Default to agentid existing. Note that the exclude is buried in the "col_list" definition as there can only be 1 exclude list.
+    agent_id_col = "agentid"
+    if not "AgentId" in schema.names:
+        agent_id_col = "cast(null as varchar) agentid"
+
+    if "ConnId" in schema.names:
+        # Wintap used in ACME4 has a bug in CONNID creation: its not sorting the src/dest fields. Fix it here.
+        # Column list that generates a new connid value
+        col_list = "list_sort([int_to_ip(cast(localipaddr as bigint)), cast(localport AS varchar),int_to_ip(cast(remoteipaddr as bigint)),CAST(remoteport AS varchar),protocol]) ConnId, * exclude (connid,agentid)"
+
+    view_sql = f"""
+    create or replace view {event_type} as
+    select {col_list}, {agent_id_col}, count(*) num_dups {from_clause}
+    """
+
     return view_sql
 
 
@@ -313,6 +324,9 @@ def create_views(con, event_map, start=None, end=None):
             logging.error(f"SQL Failed: {sql}", e)
             logging.error("If the error is too many files open, try this on OSX:")
             logging.error("ulimit -Sn 524288; ulimit -Hn 10485760")
+            raise e
+        except duckdb.duckdb.ParserException as e:
+            logging.error(f"SQL Failed: {sql}", e)
             raise e
         finally:
             cursor.close()
@@ -430,6 +444,18 @@ def get_db_objects(con, exclude=None):
     return tables
 
 
+# TODO breakout generic functions like this into a dbutils package
+def check_column(con, table_name, column_name):
+    col_sql = f"""
+    select table_catalog, table_name, column_name
+    from information_schema.columns
+    where table_name ilike '{table_name}'
+    and lower(column_name)=lower('{column_name}')
+    """
+    # Is it missing? Wow, thats some syntax to check!
+    return con.sql(col_sql).count("*").fetchone()[0] == 1
+
+
 def write_parquet(con, datasetpath, db_objects, daypk=None, agg_level="stdview"):
     """
     Write tables/views from duckdb instance to parquet.
@@ -437,6 +463,9 @@ def write_parquet(con, datasetpath, db_objects, daypk=None, agg_level="stdview")
     Otherwise, write to agg_level.
     """
     for object_name in db_objects:
+        if object_name == "raw_memorymap":
+            logging.warn("Skipping raw_memorymap because its causing a OOM failure")
+            continue
         logging.info(f"Writing {object_name}")
         try:
             if daypk == None:

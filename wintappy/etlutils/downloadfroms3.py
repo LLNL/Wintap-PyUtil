@@ -16,15 +16,17 @@ import argparse
 import csv
 import logging
 import os
-import sys
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from functools import partial
+from pathlib import Path
 
 import boto3
 import botocore
+import pyarrow as pa
+import pyarrow.parquet as pq
 import tqdm
 
 from wintappy.config import EnvironmentConfig
@@ -53,6 +55,9 @@ class S3File:
     os: str
     sensor_version: str
     event_type: str
+
+    def dict(self):
+        return {k: str(v) for k, v in asdict(self).items()}
 
 
 def list_files(s3_client, bucket, prefix):
@@ -215,7 +220,8 @@ def parse_filename(filename):
 def parse_s3_metadata(files, dataset, uploadedDPK, uploadedHPK, event_type):
     """
     Parse metadata from S3. This will be used for generating the correct path to write to.
-    TODO: Write this data also to a parquet file for metadata analytics.
+    Writes S3 metadata to a parquet file for metadata analytics.
+    TODO: Write S3 metadata into day/hour partitions, the same as other data.
     """
     # Prefix all event_types with "raw_" TODO: fix this in Wintap
     if event_type.lower().startswith("raw_"):
@@ -321,6 +327,11 @@ def main(argv=None) -> None:
     start_date, end_date = get_date_range(
         args.START, args.END, date_format="%Y%m%d %H", data_set_path=args.DATASET
     )
+    if start_date == None and end_date == None:
+        # Default to the last day
+        end = datetime.now(timezone.utc)
+        start_date = datetime(end.year, end.month, end.day) - timedelta(days=1)
+        end_date = datetime(end.year, end.month, end.day)
 
     logging.info(f"Using time range: {start_date} -> {end_date}")
     for event_type in event_types:
@@ -358,7 +369,7 @@ def main(argv=None) -> None:
                             args.DATASET,
                             daypk,
                             hourpk,
-                            event_type.get("Prefix").split("/")[2],
+                            get_event_type(event_type),
                         )
                     )
                 logging.info(
@@ -370,6 +381,22 @@ def main(argv=None) -> None:
         if len(files_md) > 0:
             logging.info(f"   Downloading {len(files_md)}...")
             download_files_threaded(args.AWS_S3_BUCKET, s3, files_md)
+
+            # Write metadata
+            # Ugly conversion to list of dicts to be able to easily create parquet.
+            tmp_files = []
+            for file in files_md:
+                tmp_files.append(file.dict())
+            s3_table = pa.Table.from_pylist(tmp_files)
+            Path(f"{args.DATASET}/s3_metadata").mkdir(parents=True, exist_ok=True)
+            pq.write_table(
+                s3_table,
+                f'{args.DATASET}/s3_metadata/s3_metadata-{get_event_type(event_type)}-{args.START.replace(" ","_")}-{args.END.replace(" ","_")}.parquet',
+            )
+
+
+def get_event_type(event_type):
+    return event_type.get("Prefix").split("/")[2]
 
 
 if __name__ == "__main__":

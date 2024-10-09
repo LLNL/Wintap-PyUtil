@@ -51,11 +51,11 @@ def main(argv=None):
     logging.info("\n  Creating rolling views...\n")
 
     # Fix lookups! very fragile here...
+    # Hacked for malware processing!
     helperdb = ru.init_db(
-        fqds,
-        agg_level="rolling",
+        dataset=None,
+        agg_level=args.AGGLEVEL,
         database=f"{dbpath}{os.sep}{dbname}.db",
-        lookups=f"{fqds}/../lookups",
     )
     # Layer in the requested agglevel if it ISN'T rolling
     if args.AGGLEVEL.lower() != "rolling":

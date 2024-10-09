@@ -1,5 +1,6 @@
 import logging
 import os
+from dataclasses import dataclass
 from glob import iglob
 from typing import NamedTuple
 
@@ -10,16 +11,14 @@ from jinja2 import Template
 
 from wintappy.datautils import rawutil as ru
 
-EventSummaryColumn = NamedTuple(
-    "EventSummaryColumn",
-    [
-        ("table", str),
-        ("label", str),
-        ("host_col", str),
-        ("ts_func", str),
-        ("num_event_func", str),
-    ],
-)
+
+@dataclass
+class EventSummaryColumn:
+    table: str
+    label: str
+    host_col: str
+    ts_func: str
+    num_event_func: str
 
 
 def event_summary_metadata():
@@ -74,6 +73,15 @@ def event_summary_metadata():
             "count(*)",
         )
     )
+    esm.append(
+        EventSummaryColumn(
+            "raw_kernelapicall",
+            "kernelapicall",
+            "ComputerName",
+            "tb(EventTime)",
+            "count(*)",
+        )
+    )
     return esm
 
 
@@ -96,10 +104,12 @@ def create_event_summary_view(con, min_daypk, max_daypk):
     CREATE OR replace VIEW event_summary_raw_v1
     AS
     {%- for esm in esms %}
-    SELECT '{{esm.label}}' as Event,
-    upper({{esm.host_col}}) as Hostname,
-    {{esm.ts_func}} bin_date,
-    {{esm.num_event_func}} NumRows
+    SELECT
+        '{{esm.label}}' as Event,
+        upper({{esm.host_col}}) as Hostname,
+        agentid,
+        {{esm.ts_func}} bin_date,
+        {{esm.num_event_func}} NumRows
     FROM {{esm.table}}
     WHERE dayPK between {{min_daypk}} and {{max_daypk}}
     GROUP BY ALL
@@ -114,13 +124,20 @@ def create_event_summary_view(con, min_daypk, max_daypk):
     con.execute(sql)
 
 
-def init_db(con, min_dayPK, max_dayPK):
+def calc_time_bucket(min_dayPK, max_dayPK, num_buckets=500):
+    """
+    Calculate time bucket size (as an interval).
+    """
+    return str((max_dayPK - min_dayPK) / num_buckets)
+
+
+def init_db(con, min_dayPK, max_dayPK, bucket_size=None):
     # Create a macro (function) that will create the time bins.
-    # To do: derive the intertotal_size based on the dataset time range and the desired target number of data points. The data points size directly affects performance of the chart. Too fine-grained isn't generally useful.
 
-    # Move this into stdview_duckdb and make behavior the default...
-
-    bucket_size = str((max_dayPK - min_dayPK) / 500)
+    # If not provided, calc the default size based on the time range.
+    if not bucket_size:
+        bucket_size = calc_time_bucket(min_dayPK, max_dayPK)
+    print(bucket_size)
 
     # Once min/max are calc'd here, they can be passed into creating the view
     con.execute(
@@ -185,10 +202,14 @@ def table_summary(
     return tablesDF
 
 
-def fetch_summary_data(con):
-    eventDF = con.execute(
-        'select "Event", "Hostname",bin_date as BinDT,"NumRows" from event_summary_raw_v1 order by all'
-    ).df()
+def fetch_summary_data(con, hostname="%", agent_id="%"):
+    # To get mixed-case column names in the DF, use "". But to use strings in the WHERE, use ''.
+    sql = (
+        'select "Event", "Hostname",bin_date as BinDT,"NumRows" from event_summary_raw_v1'
+        + f" where hostname ilike '%{hostname}%' and agentid ilike '%{agent_id}%' order by all"
+    )
+    print(sql)
+    eventDF = con.execute(sql).df()
 
     # Calcuate "robust" scaling. eventDF has ALL event types so, need to handle that:
     for event in eventDF["Event"].unique():
@@ -221,8 +242,8 @@ def create_event_chart(eventDF):
         alt.Chart(allEvents)
         .mark_circle()
         .encode(
-            alt.X("BinDT"),
-            alt.Y("Hostname_Event"),
+            alt.X("BinDT:T"),
+            alt.Y("Hostname_Event:N"),
             # size=alt.Size('NumRowsRobust:N', scale=None),
             alt.Size(
                 "NumRows:Q",
@@ -230,8 +251,13 @@ def create_event_chart(eventDF):
                 legend=alt.Legend(title="Events per bucket"),
             ),
             # size=20,
-            color="Event",
-            tooltip=["Hostname:N", "Event:N", "NumRows:Q", "BinDT"],
+            color="Event:N",
+            tooltip=[
+                "Hostname:N",
+                "Event:N",
+                "NumRows:Q",
+                alt.Tooltip("BinDT:T", format="%Y-%m-%d %H:%M:%S"),
+            ],
         )
         .properties(title="Raw Events over Time")
         .interactive()
@@ -244,7 +270,7 @@ def display_event_chart(eventDF, width=1200, height=600):
     pd.set_option("display.max_columns", None)
     pd.set_option("display.max_colwidth", None)
 
-    display(create_event_chart(eventDF).properties(width=width, heigh=height))
+    display(create_event_chart(eventDF).properties(width=width, height=height))
 
 
 def create_data_summary(datasummaryDF):
