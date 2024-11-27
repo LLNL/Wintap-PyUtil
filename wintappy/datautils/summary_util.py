@@ -16,7 +16,7 @@ def create_lolbas_view(con, dataset):
 
 
 def create_mitre_labels_view(con, dataset, agglevel="rolling") -> bool:
-    created_empty = False
+    created = True
     globs = ru.get_glob_paths_for_dataset(
         dataset, subdir=agglevel, include="mitre_labels"
     )
@@ -29,8 +29,8 @@ def create_mitre_labels_view(con, dataset, agglevel="rolling") -> bool:
         logging.info("TODO: Creating empty MITRE_LABELS")
         #        sql = f"create view sigma_labels as select * from '{dataset}/samples/sigma_labels.parquet' where false "
         #        con.execute(sql)
-        created_empty = True
-    return created_empty
+        created = True
+    return created
 
 
 def create_networkx_view(con, dataset):
@@ -47,7 +47,7 @@ def create_process_view(con, dataset, agglevel="rolling"):
 
 
 def create_sigma_labels_view(con, dataset, agglevel="rolling") -> bool:
-    created_empty = False
+    created = True
     globs = ru.get_glob_paths_for_dataset(
         dataset, subdir=agglevel, include="sigma_labels"
     )
@@ -60,8 +60,8 @@ def create_sigma_labels_view(con, dataset, agglevel="rolling") -> bool:
         logging.info("Creating empty SIGMA_LABEL")
         sql = f"create view sigma_labels as select * from '{dataset}/samples/sigma_labels.parquet' where false "
         con.execute(sql)
-        created_empty = True
-    return created_empty
+        created = False
+    return created
 
 
 def create_lookups(con, dataset, include=None):
