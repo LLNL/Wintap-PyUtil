@@ -13,19 +13,18 @@ save_db_objects = []
 def label_summary(con, dataset):
     # Create a views for Labels.
     if su.create_networkx_view(con, dataset):
+        save_db_objects.extend(["labels_networkx"])
+        logging.debug("Found labels")
+    logging.debug(con.execute("show tables").fetchall())
+    for sqlfile in ["label_summary.sql"]:
+        ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(sqlfile))
         save_db_objects.extend(
             [
                 "labels_graph_net_conn",
                 "labels_graph_nodes",
                 "labels_graph_process_summary",
-                "labels_networkx",
             ]
         )
-        logging.debug("Found labels")
-    logging.debug(con.execute("show tables").fetchall())
-    for sqlfile in ["label_summary.sql"]:
-        ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(sqlfile))
-        # save_db_objects.append("process_label_summary")
 
 
 def lolbas_summary(con, dataset):
@@ -35,7 +34,7 @@ def lolbas_summary(con, dataset):
     logging.debug(con.execute("show tables").fetchall())
     for sqlfile in ["lolbas_summary.sql"]:
         ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(sqlfile))
-        # save_db_objects.append("process_lolbas_summary")
+        save_db_objects.append("process_lolbas_summary")
 
 
 def sigma_summary(con, args):
@@ -46,7 +45,7 @@ def sigma_summary(con, args):
     logging.debug(con.execute("show tables").fetchall())
     for sqlfile in ["sigma_summary.sql"]:
         ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(sqlfile))
-        # save_db_objects.extend(["sigma_labels_summary", "process_summary_sigma"])
+        save_db_objects.extend(["sigma_labels_summary"])
 
 
 def mitre_summary(con, args):
@@ -57,7 +56,7 @@ def mitre_summary(con, args):
     logging.debug(con.execute("show tables").fetchall())
     for sqlfile in ["mitre_summary.sql"]:
         ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath(sqlfile))
-        # save_db_objects.extend(["process_mitre_summary"])
+        save_db_objects.extend(["process_mitre_summary"])
 
 
 def uber_summary(con):
@@ -98,13 +97,14 @@ def main(argv=None):
     logging.info(f"Creating UBER Summary!!!")
     uber_summary(con)
 
-    logging.debug(con.execute("show tables").fetchall())
-    logging.debug(f"Objects to save: {save_db_objects}")
+    logging.info(con.execute("show tables").fetchall())
+    logging.info(f"Objects to save: {save_db_objects}")
     ru.write_parquet(
         con,
         args.DATASET,
         save_db_objects,
-        agg_level=f"{args.AGGLEVEL}",
+        #        agg_level=f"{args.AGGLEVEL}",
+        agg_level=f"label-test",
     )
 
     logging.info("Complete")
