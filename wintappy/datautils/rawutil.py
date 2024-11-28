@@ -415,7 +415,7 @@ def run_sql_no_args(con, sqlfile):
             con.execute(sqlstmt.sql)
         except CatalogException as e:
             logging.info(f"Missing dependent table/view for {sqlstmt.name}")
-            logging.debug(f"Error: {e}\nSQL: {sqlstmt.sql}")
+            logging.info(f"Error: {e}\nSQL: {sqlstmt.sql}")
             if sqlstmt.required:
                 logging.info(f"Creating empty object from {sqlstmt.template}")
                 create_empty_table(con, sqlstmt)
@@ -479,8 +479,12 @@ def write_parquet(con, datasetpath, db_objects, daypk=None, agg_level="stdview")
                 logging.debug(f"created folder: {pathspec} ")
             else:
                 logging.debug(f"folder already exists: {pathspec}")
-            # TODO Add test for file existence
-            sql = f"COPY {object_name} TO '{pathspec}{os.sep}{filename}' (FORMAT 'parquet')"
-            con.execute(sql)
+            # Don't overwrite existing files!
+            target = f"{pathspec}{os.sep}{filename}"
+            if os.path.exists(target):
+                logging.info(f"  {target} exists, skipping write.")
+            else:
+                sql = f"COPY {object_name} TO '{target}' (FORMAT 'parquet')"
+                con.execute(sql)
         except duckdb.IOException as e:
             logging.exception(f"Failed to write: {object_name}")
