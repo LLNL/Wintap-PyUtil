@@ -16,7 +16,7 @@ def create_lolbas_view(con, dataset):
 
 
 def create_mitre_labels_view(con, dataset, agglevel="rolling") -> bool:
-    created = True
+    created = False
     globs = ru.get_glob_paths_for_dataset(
         dataset, subdir=agglevel, include="mitre_labels"
     )
@@ -27,9 +27,9 @@ def create_mitre_labels_view(con, dataset, agglevel="rolling") -> bool:
         # Create an empty view definition. This allows subsequent queries to run.
         # Use "false" to return no rows, but still gets the schema definition.
         logging.info("TODO: Creating empty MITRE_LABELS")
-        #        sql = f"create view sigma_labels as select * from '{dataset}/samples/sigma_labels.parquet' where false "
-        #        con.execute(sql)
-        created = True
+        sql = f"create view mitre_labels as select * from '{dataset}/samples/mitre_labels.parquet' where false "
+        con.execute(sql)
+        created = False
     return created
 
 
@@ -47,7 +47,7 @@ def create_process_view(con, dataset, agglevel="rolling"):
 
 
 def create_sigma_labels_view(con, dataset, agglevel="rolling") -> bool:
-    created = True
+    created = False
     globs = ru.get_glob_paths_for_dataset(
         dataset, subdir=agglevel, include="sigma_labels"
     )
@@ -60,7 +60,7 @@ def create_sigma_labels_view(con, dataset, agglevel="rolling") -> bool:
         logging.info("Creating empty SIGMA_LABEL")
         sql = f"create view sigma_labels as select * from '{dataset}/samples/sigma_labels.parquet' where false "
         con.execute(sql)
-        created = False
+        created = True
     return created
 
 
