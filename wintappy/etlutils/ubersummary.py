@@ -97,14 +97,12 @@ def main(argv=None):
     logging.info(f"Creating UBER Summary!!!")
     uber_summary(con)
 
-    logging.info(con.execute("show tables").fetchall())
     logging.info(f"Objects to save: {save_db_objects}")
     ru.write_parquet(
         con,
         args.DATASET,
         save_db_objects,
-        #        agg_level=f"{args.AGGLEVEL}",
-        agg_level=f"label-test",
+        agg_level=f"{args.AGGLEVEL}",
     )
 
     logging.info("Complete")
