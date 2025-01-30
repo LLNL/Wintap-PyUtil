@@ -32,6 +32,7 @@ def main(argv=None):
     globs = ru.get_glob_paths_for_dataset(
         args.DATASET, subdir="rolling", include="raw_"
     )
+    logging.info(f"Processing ROLLING from {args.START} to {args.END}")
     ru.create_raw_views(con, globs, args.START, args.END)
 
     # Using a heuristic for process rows (what value? dunno?), when >, iterate on hostname to reduce the processing set.
