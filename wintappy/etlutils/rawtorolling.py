@@ -53,7 +53,7 @@ def main(argv=None) -> None:
     args = env_config.get_options(argv)
 
     start_date, end_date = get_date_range(
-        args.START, args.END, data_set_path=args.DATASET
+        args.START, args.END, data_set_path=args.DATASET, agg_level=args.AGGLEVEL
     )
 
     logging.info(f"Processing {start_date} to {end_date}")
