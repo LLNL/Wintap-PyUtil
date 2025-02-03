@@ -114,7 +114,12 @@ class WintapDuckDB:
                 pathspec = f"{path}"
                 filename = f"{table}.parquet"
             else:
-                pathspec = f"{path}/rolling/{table}/dayPK={partition_key}"
+                # TODO: Find a cleaner way to fix this!
+                # In some cases the "path" already includes rolling, so make sure we don't duplicate it here.
+                if path.endswith("rolling"):
+                    pathspec = f"{path}/{table}/dayPK={partition_key}"
+                else:
+                    pathspec = f"{path}/rolling/{table}/dayPK={partition_key}"
                 filename = f"{table}-{partition_key}.parquet"
             if not os.path.exists(pathspec):
                 os.makedirs(pathspec)
