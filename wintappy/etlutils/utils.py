@@ -35,7 +35,7 @@ def get_date_range(
         start = datetime.strptime(start_date, date_format)
     if start and end:
         return start, end
-    if agg_level and agg_level != "rolling":
+    if agg_level and agg_level not in ["raw_sensor", "rolling"]:
         return start, end
     start, end = date_range(data_set_path)
     return start, end

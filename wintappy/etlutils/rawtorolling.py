@@ -52,8 +52,9 @@ def main(argv=None) -> None:
     env_config.add_dataset_path(required=True)
     args = env_config.get_options(argv)
 
+    # The only place to search for default dates is in raw_sensor.
     start_date, end_date = get_date_range(
-        args.START, args.END, data_set_path=args.DATASET, agg_level=args.AGGLEVEL
+        args.START, args.END, data_set_path=args.DATASET, agg_level="raw_sensor"
     )
 
     logging.info(f"Processing {start_date} to {end_date}")
