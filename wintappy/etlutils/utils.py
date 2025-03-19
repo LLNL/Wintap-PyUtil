@@ -24,7 +24,7 @@ def get_date_range(
     start_date: str,
     end_date: str,
     data_set_path: str,
-    agg_level: str = None,
+    agg_level: str | None = None,
     date_format: str = "%Y%m%d",
 ) -> Tuple[Optional[datetime], Optional[datetime]]:
     start = None
