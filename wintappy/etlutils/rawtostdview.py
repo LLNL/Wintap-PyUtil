@@ -6,13 +6,18 @@ from wintappy.config import EnvironmentConfig
 from wintappy.datautils import rawutil as ru
 from wintappy.etlutils.utils import configure_basic_logging
 
+
 def hostnames(con):
     hosts = con.sql("select hostname from host order by all").fetchall()
     # List of tuples, with one element, so convert to a simple string list
     return [host[0] for host in hosts]
 
+
 def init_process_path(con):
-    ru.run_sql_no_args(con, resource_files("wintappy.datautils").joinpath("process_path_2.sql"))
+    ru.run_sql_no_args(
+        con, resource_files("wintappy.datautils").joinpath("process_path_2.sql")
+    )
+
 
 def main(argv=None):
     configure_basic_logging()
@@ -53,7 +58,7 @@ def main(argv=None):
     # Clean up
     con.sql("drop view process_path_v1")
     con.sql("drop table tmp_process")
-    
+
     ru.write_parquet(
         con,
         args.DATASET,

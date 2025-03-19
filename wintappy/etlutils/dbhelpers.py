@@ -1,21 +1,23 @@
 import argparse
-import fsspec
 import logging
 import os
 import sys
+
+import fsspec
 
 from wintappy.config import EnvironmentConfig
 from wintappy.datautils import rawutil as ru
 from wintappy.etlutils.utils import configure_basic_logging
 
 # These S3 helper functions should be moved into a new util package, eventually.
-#def validate_s3():
+# def validate_s3():
+
 
 def gen_duckdb_secret(con):
-    # Note: DuckDB uses different key names than the cli. 
+    # Note: DuckDB uses different key names than the cli.
     #  Also, ENDPOINT can't have the protocol!
-    endpoint = os.environ['AWS_ENDPOINT_URL'].split('http://')[1]
-    s3info=f'''
+    endpoint = os.environ["AWS_ENDPOINT_URL"].split("http://")[1]
+    s3info = f"""
         CREATE OR REPLACE SECRET spk16s3 (
             TYPE S3,
             PROVIDER CREDENTIAL_CHAIN,
@@ -26,34 +28,45 @@ def gen_duckdb_secret(con):
             KEY_ID '{os.environ['AWS_ACCESS_KEY_ID']}',
             SECRET '{os.environ['AWS_SECRET_ACCESS_KEY']}'
         )
-    '''
+    """
     print(s3info)
     con.sql(s3info)
 
+
 def validate_s3():
-    req_vars = set(['DUCKDB_USE_SSL','AWS_DEFAULT_REGION','AWS_ACCESS_KEY_ID','AWS_SECRET_ACCESS_KEY'])
+    req_vars = set(
+        [
+            "DUCKDB_USE_SSL",
+            "AWS_DEFAULT_REGION",
+            "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY",
+        ]
+    )
     # Validate that all env vars are set and work.
     if not req_vars.issubset(os.environ):
-        logging.error(f"Missing S3 environment variables: {req_vars.difference(os.environ)}")
+        logging.error(
+            f"Missing S3 environment variables: {req_vars.difference(os.environ)}"
+        )
         sys.exit()
+
 
 def list_s3(s3path):
     fs = fsspec.filesystem("s3")
     tables = []
     for table in fs.ls(s3path):
         print(f"Processing: {table}")
-        name=table.split('/')[-1:][0].split('.')[0]
+        name = table.split("/")[-1:][0].split(".")[0]
         if fs.isdir(table):
-            tables.append({'name':name,'path':f's3://{table}/**/*.parquet'})
+            tables.append({"name": name, "path": f"s3://{table}/**/*.parquet"})
         else:
-            tables.append({'name':name,'path':f's3://{table}'})
+            tables.append({"name": name, "path": f"s3://{table}"})
     return tables
 
 
 def create_views(con, s3path):
     gen_duckdb_secret(con)
     for table in list_s3(s3path):
-        sql=f"create view {table['name']} as from '{table['path']}'"
+        sql = f"create view {table['name']} as from '{table['path']}'"
         print(sql)
         con.sql(sql)
         print(con.sql(f"select count(*) from {table['name']}").fetchall())
@@ -81,12 +94,12 @@ def main(argv=None):
     parser.add_argument(
         "--portable",
         help="Copy data from source parquet files into the duckdb. Resulting db file is portable, although can be HUGE.",
-        action="store_true"
+        action="store_true",
     )
     parser.add_argument(
         "--S3",
         help="Create views using S3 paths. Requires S3 authentication tokens be available using AWS Boto3.",
-        default="None"
+        default="None",
     )
     env_config = EnvironmentConfig(parser)
     env_config.add_aggregation_level(required=True)

@@ -1,8 +1,9 @@
-import os
-import shutil
 import argparse
 import logging
+import os
+import shutil
 from datetime import datetime, timedelta, timezone
+
 
 def parse_filename(filename):
     """
@@ -24,6 +25,7 @@ def parse_filename(filename):
 
 def win32_to_epoch(wts):
     return wts / 1e7 - 11644473600
+
 
 def process_files(dataset):
     for file in os.listdir(f"{dataset}/merged"):
@@ -51,11 +53,10 @@ def process_files(dataset):
                         event_type = "raw_process"
                     case "raw_registry":
                         event_type = "raw_process_registry"
-                local_file_path = (
-                    f"{dataset}/raw_sensor/{event_type}/dayPK={datadpk}/hourPK={datahpk}"
-                )
+                local_file_path = f"{dataset}/raw_sensor/{event_type}/dayPK={datadpk}/hourPK={datahpk}"
             os.makedirs(local_file_path, exist_ok=True)
             shutil.copy2(f"{dataset}/merged/{file}", f"{local_file_path}/{file}")
+
 
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(
@@ -77,6 +78,7 @@ def main(argv=None) -> None:
 
     logging.info(f"Processing {args.source} to {args.dest}")
     process_files(args.source)
+
 
 if __name__ == "__main__":
     main(argv=None)
