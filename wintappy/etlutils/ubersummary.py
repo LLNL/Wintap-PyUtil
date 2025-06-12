@@ -22,6 +22,7 @@ def label_summary(con, dataset):
             [
                 "labels_graph_net_conn",
                 "labels_graph_nodes",
+                "labels_graph_links",
                 "labels_graph_process_summary",
             ]
         )

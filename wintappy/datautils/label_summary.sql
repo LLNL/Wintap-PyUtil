@@ -1,4 +1,5 @@
--- Create a summary view for all NetworkX (Everest) labels
+-- View for all nodes in the graph data
+-- id is based on the node_type
 create or replace view labels_graph_nodes
 as
 select
@@ -12,6 +13,7 @@ select
 		when node_type = 'File' then node->>'$.FileKey[0].Filename'
 		when node_type = 'FiveTupleConn' then concat_ws(':',node->>'$.FiveTupleKey[0].protocol',node->>'$.FiveTupleKey[0].RemoteIp', node->>'$.FiveTupleKey[0].RemotePort')
 		when node_type = 'IpConn' then node->>'$.IpConnKey[0].ID'
+		when node_type = 'IpV4Addr' then node->>'$.IpV4Addr[0].IP'
 		else node_type||' missing in view'
 	end as label
 from
@@ -25,10 +27,21 @@ order by
 	all
 ;
 
+-- View for all links
+-- To Do: map attribute features to sql specific SQL columns, which would make them easier to deal with later.
+create or replace view labels_graph_links
+as
+select
+		unnest(links, recursive:=true) as link,
+		filename
+	from
+		labels_networkx
+;
+
 -- Process node graph labels summarized by PID_HASH
 create or replace view labels_graph_process_summary
 as
-select id pid_hash, 'networkx' as label_source, count(distinct filename) label_num_sources, count(distinct annotation) label_num_uniq_annotations, count(*) label_num_hits
+select id pid_hash, list(distinct filename) as label_source, count(distinct filename) label_num_sources, list(distinct annotation) label_annonations, count(distinct annotation) label_num_uniq_annotations, count(*) label_num_hits
 from labels_graph_nodes 
 where node_type ='Process'
 group by ALL 
@@ -38,7 +51,7 @@ group by ALL
 -- Note: This view is just created for convenience for users later and must be joined to base network data.
 create or replace view labels_graph_net_conn
 as
-select id conn_id, 'networkx' as label_source, count(distinct filename) label_num_sources, count(distinct annotation) label_num_uniq_annotations, count(*) label_num_hits
+select id conn_id, list(distinct filename) as label_source, count(distinct filename) label_num_sources, list(distinct annotation) label_annonations, count(distinct annotation) label_num_uniq_annotations, count(*) label_num_hits
 from labels_graph_nodes 
 where node_type ='FiveTupleConn'
 group by ALL 
