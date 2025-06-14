@@ -57,7 +57,7 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None, looku
 
     Multiple files with/without Hive structure:
     {dataset}/{eventType}/[{attr=value}/..]/{filename}.parquet
-
+    or
     Single file at the top level:
     {dataset}/{eventType}.parquet
     """
