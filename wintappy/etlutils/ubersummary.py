@@ -28,9 +28,9 @@ def label_summary(con, dataset):
         )
 
 
-def lolbas_summary(con, dataset):
+def lolbas_summary(con, dataset, agglevel):
     # Create a views for LOLBAS.
-    if su.create_lolbas_view(con, dataset):
+    if su.create_lolbas_view(con, dataset, agglevel):
         save_db_objects.append("lolbas")
     logging.debug(con.execute("show tables").fetchall())
     for sqlfile in ["lolbas_summary.sql"]:
@@ -89,7 +89,7 @@ def main(argv=None):
     logging.info(f"Creating Label Summary view")
     label_summary(con, args.DATASET)
     logging.info(f"Creating LOLBAS Summary view")
-    lolbas_summary(con, args.DATASET)
+    lolbas_summary(con, args.DATASET, args.AGGLEVEL)
     logging.info(f"Creating MITRE Summary view")
     mitre_summary(con, args)
     logging.info(f"Creating SIGMA Summary view")

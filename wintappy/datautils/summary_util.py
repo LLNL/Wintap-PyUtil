@@ -4,13 +4,31 @@ from importlib.resources import files as resource_files
 from wintappy.datautils import rawutil as ru
 
 
-def create_lolbas_view(con, dataset):
-    # Map in the LOLBAS data
+def create_lolbas_view(con, dataset, agglevel="rolling"):
+    created = True
+    # Map in the LOLBAS data, expect it to always be available.
     sql = f"""
         CREATE OR REPLACE view lolbas
         AS
         SELECT * FROM read_csv_auto('{dataset}/../lookups/benignware/lolbas.csv',header=true,normalize_names=1)
     """
+    con.execute(sql)
+
+    # Map in the LOLC data
+    globs = ru.get_glob_paths_for_dataset(
+        dataset, subdir=agglevel, include="lolc_labels"
+    )
+    if "lolc_labels" in globs.keys():
+        logging.info("Found LOLC Results")
+        ru.create_raw_views(con, globs)
+    else:
+        # Create an empty view definition. This allows subsequent queries to run.
+        # Use "false" to return no rows, but still gets the schema definition.
+        logging.info("Creating empty LOLC_LABELS")
+        sql = f"create view lolc_labels as select * from '{dataset}/samples/lolc_labels.parquet' where false"
+        con.execute(sql)
+    return created
+
     con.execute(sql)
     return True
 
