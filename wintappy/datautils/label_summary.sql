@@ -39,7 +39,7 @@ select
 ;
 
 -- Macro for getting a simple name for the file
-create macro tmp_caldera_name(filename)
+create macro tmp_basename(filename)
 as
 replace(string_split(filename,'/')[-1:][1],'.json','')
 ;
@@ -47,7 +47,7 @@ replace(string_split(filename,'/')[-1:][1],'.json','')
 -- Process node graph labels summarized by PID_HASH
 create or replace view labels_graph_process_summary
 as
-select id pid_hash, list(distinct tmp_caldera_name(filename)) as label_source, count(distinct tmp_caldera_name(filename)) label_num_sources, list(distinct annotation) label_annonations, count(distinct annotation) label_num_uniq_annotations, count(*) label_num_hits
+select id pid_hash, list_sort(list(distinct tmp_basename(filename))) as label_sources, count(distinct tmp_basename(filename)) label_num_sources, list_sort(list(distinct annotation)) label_annonations, count(distinct annotation) label_num_uniq_annotations, count(*) label_num_hits
 from labels_graph_nodes 
 where node_type ='Process'
 group by ALL 
@@ -57,7 +57,7 @@ group by ALL
 -- Note: This view is just created for convenience for users later and must be joined to base network data.
 create or replace view labels_graph_net_conn
 as
-select id conn_id, list(distinct tmp_caldera_name(filename)) as label_source, count(distinct tmp_caldera_name(filename)) label_num_sources, list(distinct annotation) label_annonations, count(distinct annotation) label_num_uniq_annotations, count(*) label_num_hits
+select id conn_id, list_sort(list(distinct tmp_basename(filename))) as label_sources, count(distinct tmp_basename(filename)) label_num_sources, list_sort(list(distinct annotation)) label_annonations, count(distinct annotation) label_num_uniq_annotations, count(*) label_num_hits
 from labels_graph_nodes 
 where node_type ='FiveTupleConn'
 group by ALL 
