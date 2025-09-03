@@ -11,9 +11,12 @@ Datasets are labeled in 2 ways: manually by humans (labels) and programmatically
 Manual labels:
 For manual labels, we work with the red team attackers and develop a graph of activity composed of processes, files, network, etc. These graphs are persisted as NetworkX JSON format and are in the "Sources" directory. From these graphs, we extract the unique identifiers and ultimately create a summarized table that can be joined to PROCESS using the PID_HASH.
 
+With the addition of Caldera attacks, we can now parse reports generated from Caldera that detail the execution activity. That data is converted into a networkx graph and processed along with manual labels described above.
+
 Scripted labels are created several different ways:
 * Sigma/Mitre labels are created by running publicly avaliable rules. The hits are quite large for both, producing many false positives.
 * LolBAS (Living of the Land) are created by simply joining the LolBAS list of programs, by name, to the PROCESS data. Again, this produces many false positives.
+    * (add info about lolc here)
 
 ### Labels summarized to PID_HASH can be found in the following files (i.e., one row per PID_HASH):
 * labels_graph_process_summary.parquet (manual)
