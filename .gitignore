@@ -80,3 +80,5 @@ tramp
 
 # Local config file. A common practice is to have many, so ignore those also.
 wintappy_settings.toml*
+dbt/logs/dbt.log
+dbt/xdr/xdr-dev.duckdb

@@ -16,7 +16,7 @@ SELECT
   sum(CASE WHEN activity_type = 'DELETEKEY' THEN event_count ELSE 0 END) deletekeys,
   sum(CASE WHEN activity_type = 'DELETEVALUE' THEN event_count ELSE 0 END) deletevalues,
   min(first_seen) first_seen,
-  --max(last_seen) last seen,
+  max(last_seen) last_seen,
   sum(event_count) total_activity_types
 FROM process_registry
 GROUP BY ALL
@@ -144,6 +144,8 @@ SELECT
 	r.createkeys reg_createkeys,
 	r.deletekeys reg_deletekeys,
 	r.deletevalues reg_deletevalues,
+	r.first_seen reg_first_seen,
+	r.last_seen reg_last_seen,
 	-- File
 	f.Close_Events,
 	f.Create_Events,

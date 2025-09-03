@@ -121,6 +121,7 @@ def download_one_file(bucket: str, client: boto3.client, s3_file: S3File):
         new_filename = s3_file.filename.replace("=", "+raw_")
     else:
         new_filename = s3_file.filename
+    # TODO: If the source file in AWS doesn't have any CRCs, this will log a warning message. Need a cleaner display solution, like maybe just a note at the end of the job.
     client.download_file(
         Bucket=bucket,
         Key=s3_file.key,
@@ -324,8 +325,10 @@ def main(argv=None) -> None:
 
     # Top level is event types
     event_types = folders
+    # TODO: This form really needs a new method:
+    # get_missing_date_range - If start/end is missing, then use the local file based range in "raw" and calc new values for missing dates.
     start_date, end_date = get_date_range(
-        args.START, args.END, date_format="%Y%m%d %H", data_set_path=args.DATASET
+        args.START, args.END, data_set_path=args.DATASET, date_format="%Y%m%d %H"
     )
     if start_date == None and end_date == None:
         # Default to the last day

@@ -21,6 +21,7 @@ install_requires = [
     "pyarrow",
     "python-dotenv",
     "pyyaml",
+    "s3fs",
     "toml",
     "tqdm",
 ]

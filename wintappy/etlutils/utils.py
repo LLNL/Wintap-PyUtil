@@ -23,9 +23,9 @@ def daterange(start_date: datetime, end_date: datetime):
 def get_date_range(
     start_date: str,
     end_date: str,
+    data_set_path: str,
+    agg_level: str | None = None,
     date_format: str = "%Y%m%d",
-    data_set_path: str = os.getcwd(),
-    agg_level: str = "",
 ) -> Tuple[Optional[datetime], Optional[datetime]]:
     start = None
     end = None
@@ -35,7 +35,7 @@ def get_date_range(
         start = datetime.strptime(start_date, date_format)
     if start and end:
         return start, end
-    if agg_level and agg_level != "rolling":
+    if agg_level and agg_level not in ["raw_sensor", "rolling"]:
         return start, end
     start, end = date_range(data_set_path)
     return start, end
@@ -72,6 +72,7 @@ def date_range(data_set_path: str) -> Tuple[Optional[datetime], Optional[datetim
     If there is no data at all, returns None.
     """
     path = f"{data_set_path}{os.sep}{DEFAULT_DATE_RANGE_PATH}"
+    logging.debug(f"Deriving date range for {path}")
     try:
         daypks = os.listdir(path)
     except FileNotFoundError:
@@ -82,11 +83,12 @@ def date_range(data_set_path: str) -> Tuple[Optional[datetime], Optional[datetim
     daypks = [d for d in daypks if "=" in d]
     # if there is no data, return a default of a day ago
     if len(daypks) == 0:
-        print(f"No daypks in {data_set_path}{os.sep}{DEFAULT_DATE_RANGE_PATH}")
+        logging.error(f"No daypks in {data_set_path}{os.sep}{DEFAULT_DATE_RANGE_PATH}")
         return None, None
 
     _, start_day = heapq.nsmallest(1, daypks, key=pk_sort)[0].split("=")
     _, end_day = heapq.nlargest(1, daypks, key=pk_sort)[0].split("=")
+    logging.debug(f"Dates found: {start_day} {end_day}")
     return datetime.strptime(f"{start_day}", "%Y%m%d"), datetime.strptime(
         f"{int(end_day)+1}", "%Y%m%d"
     )

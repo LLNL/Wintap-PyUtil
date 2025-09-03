@@ -57,7 +57,7 @@ def get_glob_paths_for_dataset(dataset, subdir="raw_sensor", include=None, looku
 
     Multiple files with/without Hive structure:
     {dataset}/{eventType}/[{attr=value}/..]/{filename}.parquet
-
+    or
     Single file at the top level:
     {dataset}/{eventType}.parquet
     """
@@ -304,7 +304,8 @@ def get_raw_view(event_type: str, pathspec):
     if "ConnId" in schema.names:
         # Wintap used in ACME4 has a bug in CONNID creation: its not sorting the src/dest fields. Fix it here.
         # Column list that generates a new connid value
-        col_list = "list_sort([int_to_ip(cast(localipaddr as bigint)), cast(localport AS varchar),int_to_ip(cast(remoteipaddr as bigint)),CAST(remoteport AS varchar),protocol]) ConnId, * exclude (connid,agentid)"
+        # Note: the duckdb MD5 function generates lowercase hashes and we normally save as UPPER. Leaving it as lowercase to let it intentionally standout.
+        col_list = "md5(concat_ws(':',list_sort([int_to_ip(cast(localipaddr as bigint)), cast(localport AS varchar),int_to_ip(cast(remoteipaddr as bigint)),CAST(remoteport AS varchar),protocol]))) ConnId, * exclude (connid,agentid)"
 
     view_sql = f"""
     create or replace view {event_type} as
@@ -415,7 +416,7 @@ def run_sql_no_args(con, sqlfile):
             con.execute(sqlstmt.sql)
         except CatalogException as e:
             logging.info(f"Missing dependent table/view for {sqlstmt.name}")
-            logging.debug(f"Error: {e}\nSQL: {sqlstmt.sql}")
+            logging.info(f"Error: {e}\nSQL: {sqlstmt.sql}")
             if sqlstmt.required:
                 logging.info(f"Creating empty object from {sqlstmt.template}")
                 create_empty_table(con, sqlstmt)
@@ -479,8 +480,12 @@ def write_parquet(con, datasetpath, db_objects, daypk=None, agg_level="stdview")
                 logging.debug(f"created folder: {pathspec} ")
             else:
                 logging.debug(f"folder already exists: {pathspec}")
-            # TODO Add test for file existence
-            sql = f"COPY {object_name} TO '{pathspec}{os.sep}{filename}' (FORMAT 'parquet')"
-            con.execute(sql)
+            # Don't overwrite existing files!
+            target = f"{pathspec}{os.sep}{filename}"
+            if os.path.exists(target):
+                logging.info(f"  {target} exists, skipping write.")
+            else:
+                sql = f"COPY {object_name} TO '{target}' (FORMAT 'parquet')"
+                con.execute(sql)
         except duckdb.IOException as e:
             logging.exception(f"Failed to write: {object_name}")

@@ -18,22 +18,22 @@ class TestUtils:
         mock_datetime.utcnow.return_value = dt(2021, 12, 5, 11, 24)
         mock_datetime.return_value = dt(2021, 12, 5)
         mock_listdir.return_value = []
-        start, end = get_date_range("", "")
+        start, end = get_date_range("", "", "ACME")
         print(f"{start}  {end}")
         print(f"{dt(2021, 12, 5, 11, 24)}")
         assert start == None
         assert end == None
-        start, end = get_date_range(None, None)
+        start, end = get_date_range(None, None, "ACME")
         assert start == None
         assert end == None
 
     def test_get_date_range_specified(self) -> None:
-        start, end = get_date_range("20231101", "20231108")
+        start, end = get_date_range("20231101", "20231108", "ACME")
         assert start == dt(2023, 11, 1, 0, 0)
         assert end == dt(2023, 11, 8, 0, 0)
 
     def test_get_date_range_specified_datefmt(self) -> None:
-        start, end = get_date_range("20231101 05 05", "20231108 10 56", "%Y%m%d %H %M")
+        start, end = get_date_range("20231101 05 05", "20231108 10 56", "ACME", date_format = "%Y%m%d %H %M")
         assert start == dt(2023, 11, 1, 5, 5)
         assert end == dt(2023, 11, 8, 10, 56)
 

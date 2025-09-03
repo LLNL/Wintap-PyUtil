@@ -30,3 +30,12 @@ alter table sigma_labels_summary add column if not exists medium_num_sigma_hits 
 ;
 alter table sigma_labels_summary add column if not exists low_num_sigma_hits numeric
 ;
+alter table sigma_labels_summary add column if not exists critical_num_sigma_rows numeric
+;
+alter table sigma_labels_summary add column if not exists high_num_sigma_rows numeric
+;
+alter table sigma_labels_summary add column if not exists medium_num_sigma_rows numeric
+;
+alter table sigma_labels_summary add column if not exists low_num_sigma_rows numeric
+;
+
