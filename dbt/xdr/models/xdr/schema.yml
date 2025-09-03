@@ -1,0 +1,32 @@
+
+version: 2
+
+models:
+  - name: device_process_events
+    description: "Process events in XDR format"
+    columns:
+      - name: ProcessUniqueId
+        description: "Globally unique process id hash (hash from hostname, os pid, and start_time)"
+        data_tests:
+          - unique
+          - not_null
+    tests:
+      - dbt_utils.equal_rowcount:
+          arguments:
+            compare_model: ref('process')
+
+
+  - name: device_network_events
+    description: "Network events in XDR format. Sourced from PROCESS_NET_CONN"
+    columns:
+      - name: ProcessUniqueId
+        description: "Process for the network activty"
+        data_tests:
+          - not_null
+    tests:
+      - dbt_utils.equal_rowcount:
+          arguments:
+            compare_model: ref('process_net_conn')
+
+
+

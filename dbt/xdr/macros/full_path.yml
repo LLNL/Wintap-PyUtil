@@ -1,0 +1,17 @@
+version: 1
+
+macros:
+  - name: full_path
+    arguments:
+      - name: agg_level
+        type: str
+        description: "Aggregation level. Examples: bronze, silver, gold, export"
+      - name: table_name
+        type: str
+        description: "Table name. Examples: raw_process, process_uber_summary"
+      - name: data_path
+        type: str
+        description: "Base path for data"
+      - name: data_set
+        type: str
+        description: "Data set within the data path. Examples: ACME3, ACME4"
