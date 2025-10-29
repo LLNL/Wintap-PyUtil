@@ -22,16 +22,43 @@
 - Serve documentaion, this will open a local browser
     - `dbt serve --vars "$(cat local_vars.yml)"`
 
-## Testing KQL locally
+# Testing KQL locally using the Kusto Emulator
 
-### Install kusto.emulator
-### Use JupyterLab to interact
-
+Its possible to run a KQL engine in a docker container, using the Kusto Emulator, and then load the data. From there, you can connect via a python library and use either scripts or Jupyter.
 
 
-### Resources:
-- Learn more about dbt [in the docs](https://docs.getdbt.com/docs/introduction)
-- Check out [Discourse](https://discourse.getdbt.com/) for commonly asked questions and answers
-- Join the [chat](https://community.getdbt.com/) on Slack for live discussions and support
-- Find [dbt events](https://events.getdbt.com) near you
-- Check out [the blog](https://blog.getdbt.com/) for the latest news on dbt's development and best practices
+```sh
+docker pull mcr.microsoft.com/azuredataexplorer/emulator:latest
+docker run -p 8080:8080 mcr.microsoft.com/azuredataexplorer/emulator:latest
+```
+
+# **References**
+
+## **Microsoft Defender Advanced Hunting and Schemas**
+
+| Topic                                    | URL                                                                                                                           | Description                                |
+|------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------|
+| Defender XDR Main Page               | [https://learn.microsoft.com/en-us/defender-xdr/](https://learn.microsoft.com/en-us/defender-xdr/) | Main landing page for Defender XDR(?) |
+| Advanced Hunting Schema Tables           | [https://learn.microsoft.com/en-us/microsoft-365/security/defender/advanced-hunting-schema-tables?view=o365-worldwide](https://learn.microsoft.com/en-us/microsoft-365/security/defender/advanced-hunting-schema-tables?view=o365-worldwide) | Full list of schema tables                  |
+
+## **Kusto KQL Emulator**
+
+| Reference Topic                   | Link                                                                 |
+|-----------------------------------|----------------------------------------------------------------------|
+| Kusto Emulator Overview           | [Emulator Overview](https://learn.microsoft.com/en-us/azure/data-explorer emulator-overview) |
+| Kusto Emulator in Docker          | [Emulator Docker Guide](https://learn.microsoft.com/en-us/azure/data-explorer/kusto-emulator-install) |
+
+## **Kqlmagic Source Code**
+
+| Topic            | URL                                                                          | Description                        |
+|------------------|------------------------------------------------------------------------------|------------------------------------|
+| Kqlmagic GitHub  | [https://github.com/Microsoft/jupyter-Kqlmagic](https://github.com/Microsoft/jupyter-Kqlmagic) | Source code repository for Kqlmagic |
+
+## **Connecting to Kusto Emulator**
+
+| GUI Option                | Mac Support | How to Connect                                      |
+|---------------------------|-------------|-----------------------------------------------------|
+| Kusto Explorer            | No          | Windows only; VM required                           |
+| Azure Data Explorer Web   | Yes         | Use http://localhost:8080 as cluster URI            |
+| Python SDK + Jupyter/VSCode| Yes        | Use SDK to connect to emulator                      |
+| VS Code Kusto Extension   | Yes         | Connect to emulator via extension settings          |
