@@ -1,0 +1,85 @@
+version: 2
+
+models:
+  - name: stg_raw_process
+    description: Canonical raw process parquet scan over raw_sensor.
+    columns:
+      - name: PidHash
+        tests:
+          - not_null
+      - name: Hostname
+        tests:
+          - not_null
+      - name: dayPK
+        tests:
+          - not_null
+
+  - name: stg_raw_host
+    description: Canonical raw host parquet scan over raw_sensor.
+    columns:
+      - name: Hostname
+        tests:
+          - not_null
+
+  - name: process
+    description: Process entity table normalized from raw process events.
+    columns:
+      - name: pid_hash
+        tests:
+          - not_null
+          - unique
+      - name: hostname
+        tests:
+          - not_null
+
+  - name: process_net_conn
+    description: Connection-level network activity aggregated from network increments.
+    columns:
+      - name: pid_hash
+        tests:
+          - not_null
+      - name: conn_id
+        tests:
+          - not_null
+
+  - name: process_file
+    description: Process-file activity aggregated from raw file events.
+    columns:
+      - name: pid_hash
+        tests:
+          - not_null
+
+  - name: process_registry
+    description: Process-registry activity aggregated from raw registry events.
+    columns:
+      - name: pid_hash
+        tests:
+          - not_null
+
+  - name: process_image_load
+    description: Process image/DLL load activity aggregated from raw image-load events.
+    columns:
+      - name: pid_hash
+        tests:
+          - not_null
+
+  - name: process_path
+    description: Recursive paths from process to root process.
+    columns:
+      - name: pid_hash
+        tests:
+          - not_null
+
+  - name: process_summary
+    description: Process-centric summary with host, registry, file, network, and image-load features.
+    columns:
+      - name: pid_hash
+        tests:
+          - not_null
+
+  - name: process_uber_summary
+    description: Broad process-centric feature table with optional enrichment columns.
+    columns:
+      - name: pid_hash
+        tests:
+          - not_null

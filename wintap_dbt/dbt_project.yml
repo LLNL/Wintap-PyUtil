@@ -1,0 +1,33 @@
+name: 'wintap_dbt'
+version: '0.1.0'
+config-version: 2
+
+profile: 'wintap_dbt'
+
+model-paths: ['models']
+macro-paths: ['macros']
+test-paths: ['tests']
+seed-paths: ['seeds']
+analysis-paths: ['analyses']
+snapshot-paths: ['snapshots']
+
+target-path: 'target'
+clean-targets:
+  - 'target'
+  - 'dbt_packages'
+
+vars:
+  dataset: '/home/ubuntu/data/lintap/lintap-dev/ACME4'
+  start_day: 20240904
+  end_day: 20240904
+
+models:
+  wintap_dbt:
+    bronze:
+      +materialized: view
+    silver:
+      +materialized: table
+    gold:
+      +materialized: table
+    monitoring:
+      +materialized: view

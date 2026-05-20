@@ -1,44 +1,59 @@
-packages='./wintappy'
-analytics='./wintappy/analytics'
+packages=./wintappy
+analytics=./wintappy/analytics
+
+UV_RUN=uv run
+DBT_DIR=wintap_dbt
+DBT=$(UV_RUN) --project . dbt
 
 fmt:
-	pipenv run black $(packages)
-	pipenv run isort $(packages)
+	$(UV_RUN) black $(packages)
+	$(UV_RUN) isort $(packages)
 
 fmt-check:
-	pipenv run black --check $(packages)
-	pipenv run isort --check $(packages)
+	$(UV_RUN) black --check $(packages)
+	$(UV_RUN) isort --check $(packages)
 
-lint: 
-	pipenv run mypy $(packages)
-	pipenv run sqlfluff lint $(analytics)
+lint:
+	$(UV_RUN) mypy $(packages)
+	$(UV_RUN) sqlfluff lint $(analytics)
 
 test:
-	pipenv run pytest 
+	$(UV_RUN) pytest
 
-ci: fmt-check lint test
+ci: fmt-check lint test dbt-build
 
 venv:
-	pip3 install pipenv
-	pipenv install --dev
+	uv sync --all-extras --dev
 
 build:
 	rm -rf dist/
-	pipenv run python setup.py sdist
+	uv build
 
 clean:
-	pipenv --rm
+	rm -rf .venv dist build *.egg-info .pytest_cache .mypy_cache
+	rm -rf $(DBT_DIR)/target $(DBT_DIR)/dbt_packages $(DBT_DIR)/logs
 
 source-install:
-	pipenv run -- pip install -e .
+	uv sync --dev
 
-setup: venv source-install cleanpynb
+setup: venv cleanpynb
 
 requirements:
-	pipenv run pip freeze > requirements.txt
+	uv pip freeze > requirements.txt
 
 cleanpynb:
-	pip install nbstripout
-	nbstripout --install --attributes .gitattributes
+	$(UV_RUN) nbstripout --install --attributes .gitattributes
 
-.PHONY: fmt lint test ci venv setup cleanpynb
+dbt-debug:
+	$(DBT) debug --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
+
+dbt-build:
+	$(DBT) build --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
+
+dbt-test:
+	$(DBT) test --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
+
+dbt-docs:
+	$(DBT) docs generate --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
+
+.PHONY: fmt fmt-check lint test ci venv build clean source-install setup requirements cleanpynb dbt-debug dbt-build dbt-test dbt-docs
