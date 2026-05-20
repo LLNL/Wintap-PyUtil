@@ -10,8 +10,6 @@ Input is canonical `raw_sensor` parquet:
 <dataset>/raw_sensor/<event_type>/dayPK=YYYYMMDD/hourPK=HH/*.parquet
 ```
 
-Network data may later standardize on `protoPK`, but the current ACME4 sample stores TCP/UDP files directly under `hourPK` and includes `Protocol` in parquet columns.
-
 ## Quick start with sample data
 
 ```sh
