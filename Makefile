@@ -4,6 +4,8 @@ analytics=./wintappy/analytics
 UV_RUN=uv run
 DBT_DIR=wintap_dbt
 DBT=$(UV_RUN) --project . dbt
+DBT_VARS ?=
+DBT_VARS_ARG=$(if $(DBT_VARS),--vars '$(DBT_VARS)',)
 
 fmt:
 	$(UV_RUN) black $(packages)
@@ -48,10 +50,10 @@ dbt-debug:
 	$(DBT) debug --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
 
 dbt-build:
-	$(DBT) build --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
+	$(DBT) build --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) $(DBT_VARS_ARG)
 
 dbt-test:
-	$(DBT) test --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
+	$(DBT) test --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) $(DBT_VARS_ARG)
 
 dbt-docs:
 	$(DBT) docs generate --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)

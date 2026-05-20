@@ -1,4 +1,4 @@
 select *, count(*) as num_dups
-from {{ parquet_relation('raw_macip') }}
+from {{ raw_scan_for(['raw_macip', 'raw_macip_sensor']) }}
 where {{ day_filter() }}
 group by all
