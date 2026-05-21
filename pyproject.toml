@@ -23,6 +23,7 @@ dependencies = [
   "jinjasql",
   "lxml",
   "magic-duckdb",
+  "marimo",
   "matplotlib",
   "mitreattack-python",
   "networkx",

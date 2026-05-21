@@ -9,4 +9,6 @@ union all select 'process_image_load', count(*) from {{ ref('process_image_load'
 union all select 'process_path', count(*) from {{ ref('process_path') }}
 union all select 'process_summary', count(*) from {{ ref('process_summary') }}
 union all select 'process_uber_summary', count(*) from {{ ref('process_uber_summary') }}
+union all select 'pidstat_metrics', count(*) from {{ ref('pidstat_metrics') }}
+union all select 'telemetry_event_summary', count(*) from {{ ref('telemetry_event_summary') }}
 order by table_name
