@@ -6,6 +6,18 @@ DBT_UV_RUN ?= uv run --isolated --dev
 DBT_DIR=wintap_dbt
 DBT=$(DBT_UV_RUN) --project . dbt
 
+WINTAP_DBT_DATASET ?= $(WINTAP_DATA_ROOT)/parquet
+WINTAP_DBT_DATABASE ?= $(WINTAP_DATA_ROOT)/duckdb/wintap.duckdb
+WINTAP_DBT_START_DAY ?= $(shell if [ -n "$(WINTAP_DATA_ROOT)" ] && [ -d "$(WINTAP_DATA_ROOT)/parquet/raw_sensor" ]; then find "$(WINTAP_DATA_ROOT)/parquet/raw_sensor" -type d -name 'dayPK=*' 2>/dev/null | sed 's|.*/dayPK=||' | sort | head -1; fi)
+WINTAP_DBT_END_DAY ?= $(shell if [ -n "$(WINTAP_DATA_ROOT)" ] && [ -d "$(WINTAP_DATA_ROOT)/parquet/raw_sensor" ]; then find "$(WINTAP_DATA_ROOT)/parquet/raw_sensor" -type d -name 'dayPK=*' 2>/dev/null | sed 's|.*/dayPK=||' | sort | tail -1; fi)
+PIDSTAT_DATA_PATH ?= $(WINTAP_DATA_ROOT)/pidstat
+
+export WINTAP_DBT_DATASET
+export WINTAP_DBT_DATABASE
+export WINTAP_DBT_START_DAY
+export WINTAP_DBT_END_DAY
+export PIDSTAT_DATA_PATH
+
 fmt:
 	$(UV_RUN) black $(packages)
 	$(UV_RUN) isort $(packages)
@@ -76,4 +88,7 @@ dbt-docs: dbt-check-config
 qa-pid-hash: dbt-check-config
 	duckdb -cmd ".maxwidth 240" "$$WINTAP_DBT_DATABASE" < $(DBT_DIR)/qa/pid_hash_orphan_checks.sql
 
-.PHONY: fmt fmt-check lint test ci venv build clean source-install setup requirements cleanpynb dbt-check-config print-dbt-config dbt-debug dbt-build dbt-test dbt-docs qa-pid-hash
+qa-dashboard: dbt-check-config
+	$(DBT_UV_RUN) --project . marimo run notebooks/wintap_dbt_overview.py
+
+.PHONY: fmt fmt-check lint test ci venv build clean source-install setup requirements cleanpynb dbt-check-config print-dbt-config dbt-debug dbt-build dbt-test dbt-docs qa-pid-hash qa-dashboard
