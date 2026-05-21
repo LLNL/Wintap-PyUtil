@@ -10,11 +10,11 @@ The target user experience should be close to:
 wintap-etl build --dataset /data/acme4 --start 20240819 --end 20240923
 ```
 
-or, for raw dbt users:
+or, for Makefile/DBT users:
 
 ```sh
-dbt deps
-DBT_PROFILES_DIR=. dbt build --vars '{dataset: /data/acme4, start_day: 20240819, end_day: 20240923}'
+source wintap-run.env
+make dbt-build
 ```
 
 ## Updated assumptions from project guidance

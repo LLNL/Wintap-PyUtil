@@ -1,6 +1,6 @@
 # Wintap DBT Pipeline
 
-Experimental DBT/DuckDB implementation of the Wintap post-processing pipeline.
+DBT/DuckDB implementation of the canonical Wintap/Lintap post-processing pipeline.
 
 ## Scope
 
@@ -8,26 +8,48 @@ Input is canonical `raw_sensor` parquet:
 
 ```text
 <dataset>/raw_sensor/<event_type>/dayPK=YYYYMMDD/hourPK=HH/*.parquet
+<dataset>/raw_sensor/raw_process_conn_incr/dayPK=YYYYMMDD/hourPK=HH/protoPK=tcp|udp/*.parquet
 ```
 
-## Quick start with sample data
+## Configuration
 
-```sh
-cd Wintap-PyUtil/wintap_dbt
-DBT_PROFILES_DIR=. uvx --python 3.12 --from 'dbt-duckdb<1.10' dbt build \
-  --vars '{dataset: /home/ubuntu/data/lintap/lintap-dev/ACME4, start_day: 20240904, end_day: 20240904}'
-```
-
-The default profile writes DuckDB state to:
+DBT configuration is environment-driven. The intended single source of truth is the run root:
 
 ```text
-./target/wintap.duckdb
+WINTAP_DATA_ROOT
 ```
 
-Override with:
+The DBT-specific values are derived from that root in `../wintap-run.env`:
+
+```text
+WINTAP_DBT_DATASET=$WINTAP_DATA_ROOT/parquet
+WINTAP_DBT_DATABASE=$WINTAP_DATA_ROOT/duckdb/wintap.duckdb
+WINTAP_DBT_START_DAY=YYYYMMDD
+WINTAP_DBT_END_DAY=YYYYMMDD
+```
+
+`dbt_project.yml` requires:
+
+- `WINTAP_DBT_DATASET`
+- `WINTAP_DBT_START_DAY`
+- `WINTAP_DBT_END_DAY`
+
+`profiles.yml` requires:
+
+- `WINTAP_DBT_DATABASE`
+
+## Running
+
+Use the Makefile from the repository root:
 
 ```sh
-export WINTAP_DBT_DATABASE=/tmp/wintap.duckdb
+cd Wintap-PyUtil
+cp wintap-run.env.example wintap-run.env
+# edit wintap-run.env
+source wintap-run.env
+make dbt-build
+make dbt-test
+make qa-pid-hash
 ```
 
 ## Layers
@@ -35,20 +57,22 @@ export WINTAP_DBT_DATABASE=/tmp/wintap.duckdb
 - `models/bronze` — raw parquet scans and compatibility layer.
 - `models/silver` — normalized detail tables and process paths.
 - `models/gold` — process summaries and `process_uber_summary`.
+- `models/monitoring` — build/row-count monitoring.
 
 ## Current status
 
-Phases 1-3 initial implementation:
+Implemented:
 
 - Bronze models for core raw events.
-- Silver models ported from `rawtostdview.sql` and `process_path.sql`.
-- Gold models ported from `process_summary.sql` and `uber_summary.sql`.
-- Enrichment summaries are currently typed empty stubs unless/until label/lookup sources are wired into DBT.
+- Silver models ported from legacy detail SQL and process-path logic.
+- Gold models ported from legacy summary SQL.
+- `process_uber_summary` with typed empty enrichment stubs.
+- Schema tests for core keys and canonical network partitions.
+- QA script for `pid_hash` primary/foreign-key orphan checks.
 
 ## Known limitations
 
 - This is not yet wired to a `wintap-etl` wrapper command.
-- Parquet export is not implemented yet; DBT builds into DuckDB for validation.
-- Optional missing raw event types still need robust empty typed source macros.
+- Parquet export is not implemented yet; DBT builds into DuckDB.
 - Label/Sigma/MITRE/LOLBAS source loading is stubbed for now.
 - The historical `merged` flow is intentionally not supported here.

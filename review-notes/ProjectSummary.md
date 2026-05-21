@@ -51,7 +51,7 @@ Wintap/Lintap sensor
   - `make dbt-build`
   - `make dbt-test`
   - `make dbt-docs`
-- Makefile supports custom DBT vars through `DBT_VARS`.
+- Makefile validates environment-driven DBT config from `WINTAP_DATA_ROOT` and derived `WINTAP_DBT_*` variables.
 - .NET source naming fixed so new metadata emits `raw_host` and `raw_macip`.
 - .NET raw network partition output changed to canonical `protoPK`.
 - Legacy `mergedtoraw.py` scripts removed.
@@ -70,8 +70,7 @@ Wintap/Lintap sensor
 ```sh
 cd Wintap-PyUtil
 
-WINTAP_DBT_DATABASE=/tmp/wintap-debug.duckdb \
-DBT_VARS='{dataset: /path/to/dataset, start_day: 20260520, end_day: 20260520}' \
+source wintap-run.env
 make dbt-build
 ```
 

@@ -137,25 +137,20 @@ Future work should wire real label, LOLBAS/LOLC, MITRE, and Sigma inputs into DB
 
 The current official DBT output is a DuckDB database.
 
-Default path:
+The output path is controlled by:
 
 ```text
-Wintap-PyUtil/wintap_dbt/target/wintap.duckdb
+WINTAP_DBT_DATABASE
 ```
 
-Override path:
-
-```sh
-WINTAP_DBT_DATABASE=/tmp/my-run.duckdb
-```
+Normal runs should define this through `wintap-run.env`.
 
 Useful run command:
 
 ```sh
 cd Wintap-PyUtil
 
-WINTAP_DBT_DATABASE=/tmp/wintap-debug.duckdb \
-DBT_VARS='{dataset: /path/to/dataset, start_day: 20260520, end_day: 20260520}' \
+source wintap-run.env
 make dbt-build
 ```
 

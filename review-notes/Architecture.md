@@ -65,7 +65,7 @@ Supporting project infrastructure:
     - `make dbt-build`
     - `make dbt-test`
     - `make dbt-docs`
-  - `DBT_VARS` support for dataset/date selection.
+  - Environment-driven DBT config via `WINTAP_DATA_ROOT` and derived `WINTAP_DBT_*` variables.
 
 Legacy Python ETL still present:
 
@@ -189,8 +189,7 @@ Example manual run:
 ```sh
 cd Wintap-PyUtil
 
-WINTAP_DBT_DATABASE=/tmp/debug-test.duckdb \
-DBT_VARS='{dataset: /home/ubuntu/data/debug/parquet, start_day: 20260520, end_day: 20260520}' \
+source wintap-run.env
 make dbt-build
 ```
 

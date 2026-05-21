@@ -2,10 +2,9 @@ packages=./wintappy
 analytics=./wintappy/analytics
 
 UV_RUN=uv run
+DBT_UV_RUN ?= uv run --isolated --dev
 DBT_DIR=wintap_dbt
-DBT=$(UV_RUN) --project . dbt
-DBT_VARS ?=
-DBT_VARS_ARG=$(if $(DBT_VARS),--vars '$(DBT_VARS)',)
+DBT=$(DBT_UV_RUN) --project . dbt
 
 fmt:
 	$(UV_RUN) black $(packages)
@@ -46,16 +45,35 @@ requirements:
 cleanpynb:
 	$(UV_RUN) nbstripout --install --attributes .gitattributes
 
-dbt-debug:
+dbt-check-config:
+	@test -n "$$WINTAP_DATA_ROOT" || (echo "WINTAP_DATA_ROOT is required" && exit 1)
+	@test -n "$$WINTAP_DBT_DATASET" || (echo "WINTAP_DBT_DATASET is required" && exit 1)
+	@test -n "$$WINTAP_DBT_DATABASE" || (echo "WINTAP_DBT_DATABASE is required" && exit 1)
+	@test -n "$$WINTAP_DBT_START_DAY" || (echo "WINTAP_DBT_START_DAY is required" && exit 1)
+	@test -n "$$WINTAP_DBT_END_DAY" || (echo "WINTAP_DBT_END_DAY is required" && exit 1)
+	@test -d "$$WINTAP_DBT_DATASET/raw_sensor" || (echo "$$WINTAP_DBT_DATASET/raw_sensor does not exist" && exit 1)
+	@mkdir -p "$$(dirname "$$WINTAP_DBT_DATABASE")"
+
+print-dbt-config: dbt-check-config
+	@echo "WINTAP_DATA_ROOT=$$WINTAP_DATA_ROOT"
+	@echo "WINTAP_DBT_DATASET=$$WINTAP_DBT_DATASET"
+	@echo "WINTAP_DBT_DATABASE=$$WINTAP_DBT_DATABASE"
+	@echo "WINTAP_DBT_START_DAY=$$WINTAP_DBT_START_DAY"
+	@echo "WINTAP_DBT_END_DAY=$$WINTAP_DBT_END_DAY"
+
+dbt-debug: dbt-check-config
 	$(DBT) debug --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
 
-dbt-build:
-	$(DBT) build --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) $(DBT_VARS_ARG)
+dbt-build: dbt-check-config
+	$(DBT) build --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
 
-dbt-test:
-	$(DBT) test --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) $(DBT_VARS_ARG)
+dbt-test: dbt-check-config
+	$(DBT) test --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
 
-dbt-docs:
+dbt-docs: dbt-check-config
 	$(DBT) docs generate --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
 
-.PHONY: fmt fmt-check lint test ci venv build clean source-install setup requirements cleanpynb dbt-debug dbt-build dbt-test dbt-docs
+qa-pid-hash: dbt-check-config
+	duckdb -cmd ".maxwidth 240" "$$WINTAP_DBT_DATABASE" < $(DBT_DIR)/qa/pid_hash_orphan_checks.sql
+
+.PHONY: fmt fmt-check lint test ci venv build clean source-install setup requirements cleanpynb dbt-check-config print-dbt-config dbt-debug dbt-build dbt-test dbt-docs qa-pid-hash

@@ -17,9 +17,9 @@ clean-targets:
   - 'dbt_packages'
 
 vars:
-  dataset: '/home/ubuntu/data/lintap/lintap-dev/ACME4'
-  start_day: 20240904
-  end_day: 20240904
+  dataset: "{{ env_var('WINTAP_DBT_DATASET') }}"
+  start_day: "{{ env_var('WINTAP_DBT_START_DAY') }}"
+  end_day: "{{ env_var('WINTAP_DBT_END_DAY') }}"
 
 models:
   wintap_dbt:

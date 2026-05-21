@@ -51,13 +51,13 @@ The DBT project lives in:
 Wintap-PyUtil/wintap_dbt/
 ```
 
-The default DuckDB profile writes to:
+The DuckDB profile writes to the required environment variable:
 
 ```text
-Wintap-PyUtil/wintap_dbt/target/wintap.duckdb
+WINTAP_DBT_DATABASE
 ```
 
-Override with `WINTAP_DBT_DATABASE`.
+Normal runs should define this through `wintap-run.env`.
 
 Useful commands:
 
@@ -66,8 +66,7 @@ cd Wintap-PyUtil
 make dbt-build
 make dbt-test
 
-WINTAP_DBT_DATABASE=/tmp/debug.duckdb \
-DBT_VARS='{dataset: /path/to/dataset, start_day: 20260520, end_day: 20260520}' \
+source wintap-run.env
 make dbt-build
 ```
 

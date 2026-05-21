@@ -3,5 +3,5 @@ wintap_dbt:
   outputs:
     dev:
       type: duckdb
-      path: "{{ env_var('WINTAP_DBT_DATABASE', './wintap_dbt/target/wintap.duckdb') }}"
+      path: "{{ env_var('WINTAP_DBT_DATABASE') }}"
       threads: 4

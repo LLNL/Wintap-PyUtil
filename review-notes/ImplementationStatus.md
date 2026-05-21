@@ -65,15 +65,14 @@ The LINTAP build exposed schema drift that has now been handled in DBT:
   - `make dbt-build`
   - `make dbt-test`
   - `make dbt-docs`
-- Added `DBT_VARS` Makefile support.
+- Replaced normal `DBT_VARS` usage with environment-driven config based on `WINTAP_DATA_ROOT` and derived `WINTAP_DBT_*` variables.
 
 Example DBT build:
 
 ```sh
 cd Wintap-PyUtil
 
-WINTAP_DBT_DATABASE=/tmp/debug-test.duckdb \
-DBT_VARS='{dataset: /home/ubuntu/data/debug/parquet, start_day: 20260520, end_day: 20260520}' \
+source wintap-run.env
 make dbt-build
 ```
 
