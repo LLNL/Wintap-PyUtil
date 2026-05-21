@@ -1,5 +1,6 @@
 select
     pidhash pid_hash,
+    any_value(pid) os_pid,
     lower(filename) filename,
     any_value(agentid) agent_id,
     any_value(computername) hostname,

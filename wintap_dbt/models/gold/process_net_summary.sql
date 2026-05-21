@@ -1,6 +1,7 @@
 select
     os_family,
     pid_hash,
+    any_value(os_pid) os_pid,
     process_name,
     agent_id,
     hostname,

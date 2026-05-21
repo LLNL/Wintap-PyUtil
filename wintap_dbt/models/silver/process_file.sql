@@ -2,6 +2,7 @@ select
     agentid agent_id,
     hostname,
     pidhash pid_hash,
+    any_value(pid) os_pid,
     processname process_name,
     md5(concat_ws('||', hostname, lower(file_path))) file_id,
     file_hash file_hash,

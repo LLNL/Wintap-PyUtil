@@ -2,6 +2,7 @@ select
     agentid agent_id,
     hosthame hostname,
     pidhash pid_hash,
+    any_value(pid) os_pid,
     processname process_name,
     reg_path reg_path,
     reg_value reg_value,

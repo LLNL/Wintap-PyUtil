@@ -3,6 +3,7 @@ select
     hostname,
     process_name,
     pid_hash,
+    any_value(os_pid) os_pid,
     sum(case when activity_type = 'CLOSE' then event_count else 0 end) Close_Events,
     sum(case when activity_type = 'CREATE' then event_count else 0 end) Create_Events,
     sum(case when activity_type = 'DELETE' then event_count else 0 end) Delete_Events,
