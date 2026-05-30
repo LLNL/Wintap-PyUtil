@@ -405,3 +405,48 @@ When returning to this task, start with:
 5. Run a short new capture and DBT build; confirm no new `fixmepid` rows.
 
 This does not fully solve attribution, but it prevents bad fake identities from entering the dataset and makes remaining attribution misses visible.
+
+## Phase 1 implementation update — 2026-05-21, diligent-dude
+
+Implemented the Phase 1 code slice.
+
+Changed files:
+
+- `wintap/wintap/core/etl/extract/TcpConnectionSerializer.cs`
+  - Removed `?? "fixmepid"`.
+  - If an aggregate arrives without `PidHash`, logs a warning with PID/process/activity context and drops the aggregate.
+- `wintap/wintap/core/etl/extract/FileSerializer.cs`
+  - Removed `?? "fixmepid"`.
+  - If an aggregate arrives without `PidHash`, logs a warning with PID/process/activity/path context and drops the aggregate.
+- `wintap/wintap/core/infrastructure/ProcessResolver.cs`
+  - Replaced `"fixparentpidhash"` fallback with empty string for nullable `parent_pid_hash` reads.
+- `Wintap-PyUtil/wintap_dbt/macros/qa_tests.sql`
+  - Added generic DBT test `no_forbidden_pid_hash_values`.
+- `Wintap-PyUtil/wintap_dbt/models/schema.yml`
+  - Added forbidden PID hash checks to raw and modeled PID hash columns, including `process.parent_pid_hash`.
+
+Validation run:
+
+- `dotnet build Wintap.sln` fails immediately because the solution contains legacy website project `Wintap-Workbench`; this requires .NET Framework MSBuild and is not buildable with Linux `dotnet`.
+- `dotnet build wintap/Wintap.csproj` succeeds with existing platform warnings only; no errors.
+- `dbt parse` succeeds using explicit env vars and `--profiles-dir`.
+- `make dbt-build` against `/home/ubuntu/data/lintap/lintap-dev/tester` completes models but intentionally fails the new sentinel QA checks because existing raw parquet data still contains historical `fixmepid` rows:
+  - `stg_raw_process_file.PidHash = fixmepid`: 11,392 rows
+  - `stg_raw_process_conn_incr.PidHash = fixmepid`: 51 rows
+
+Existing-data investigation:
+
+- Existing raw file data summary:
+  - total rows: 15,446
+  - `fixmepid` rows: 11,392
+  - most common offender: `PID=526614`, `ProcessName=Unknown`, `ActivityType=Open`, sample path `/proc`, 9,693 rows
+- Existing raw network data summary:
+  - total rows: 67
+  - `fixmepid` rows: 51
+  - common offenders include `PID=649` recv rows and `PID=310` send rows with `ProcessName=Unknown`
+
+Interpretation:
+
+- The code paths that explicitly produced `fixmepid` / `fixparentpidhash` are now patched.
+- The new DBT QA checks correctly detect the historical bad rows in the current test dataset.
+- A fresh capture with the patched sensor/serializer should produce no new `fixmepid` rows from these Phase 1 locations; remaining missing-attribution events should now show up as warning logs and dropped aggregates instead of fake identities.
