@@ -63,6 +63,104 @@ Pidstat CSV data is optional. If `$PIDSTAT_DATA_PATH` or `$WINTAP_DATA_ROOT/pids
 - `models/gold` — process summaries and `process_uber_summary`.
 - `models/monitoring` — build/row-count monitoring, TeleTap-style event/chart summaries, and dashboard inputs.
 
+## Ilum / Spark proof of concept
+
+This project can also be pointed at an Ilum-managed Spark/Kyuubi service. The
+POC path is intentionally narrow: prove that dbt can read `raw_process` from S3
+and materialize a Spark table in the configured catalog/schema.
+
+Install the Spark adapter before running against Ilum:
+
+```sh
+uv sync --dev
+```
+
+Configure the dbt profile through environment variables. S3 credentials are not
+stored in `profiles.yml`; Ilum should inject object-storage credentials into the
+Spark driver/executors, for example through the `ilum-objectstorage` alias.
+
+```sh
+export WINTAP_DBT_TARGET=ilum
+export DBT_TARGET=ilum
+export WINTAP_DBT_DATASET=s3a://my-bucket/wintap-run/parquet
+export WINTAP_DBT_START_DAY=20250101
+export WINTAP_DBT_END_DAY=20250131
+
+export ILUM_KYUUBI_HOST=<kyuubi-service-host>
+export ILUM_KYUUBI_PORT=10009
+export ILUM_KYUUBI_METHOD=thrift
+export WINTAP_DBT_SCHEMA=wintap
+# dbt-spark's Hive/Kyuubi profile uses schema as the target namespace.
+# Configure Iceberg/Delta catalog details in the Spark/Ilum service itself.
+```
+
+Run the end-to-end POC model directly:
+
+```sh
+uv run --isolated --dev --project . dbt build \
+  --project-dir wintap_dbt \
+  --profiles-dir wintap_dbt \
+  --target ilum \
+  --select poc_s3_raw_process
+```
+
+Or through the Makefile:
+
+```sh
+make dbt-build DBT_TARGET=ilum DBT_SELECT=poc_s3_raw_process
+```
+
+The POC model is:
+
+```text
+wintap_dbt/models/bronze/poc_s3_raw_process.sql
+```
+
+It reads:
+
+```text
+$WINTAP_DBT_DATASET/raw_sensor/raw_process
+```
+
+using Spark's Parquet data source and writes a managed table via dbt-spark.
+
+### Submitting through the Ilum REST API
+
+A configurable helper script is included:
+
+```sh
+export ILUM_API_URL=https://<ilum-api>
+export ILUM_API_TOKEN=<token-if-required>
+export ILUM_GIT_REPO=https://github.com/LLNL/Wintap-PyUtil.git
+export ILUM_GIT_BRANCH=grants-add-dbt
+export ILUM_DBT_COMMAND="dbt build --project-dir wintap_dbt --profiles-dir wintap_dbt --target ilum --select poc_s3_raw_process"
+
+python3 wintap_dbt/scripts/submit_ilum_dbt_job.py
+```
+
+If your Ilum deployment expects a different `POST /api/v1/jobs` payload, provide
+it exactly with either:
+
+```sh
+export ILUM_JOB_PAYLOAD_FILE=/path/to/payload.json
+# or
+export ILUM_JOB_PAYLOAD_JSON='{"name":"wintap-dbt-poc", ...}'
+```
+
+### Spark compatibility notes
+
+Adapter-dispatched macros now cover the first set of DuckDB/Spark differences:
+
+- raw Parquet relation syntax: `parquet_scan(...)` for DuckDB vs `parquet.\`path\`` for Spark;
+- compile-time raw file checks are skipped for Spark because dbt may not have S3 credentials;
+- Win32 timestamp conversion uses Spark `timestamp_micros`;
+- list aggregation uses Spark `collect_set`/`sort_array`;
+- 10-second monitoring buckets use Spark `window(...).start`.
+
+The full graph is closer to Spark-compatible but remains POC-grade. The most
+likely follow-up work is replacing remaining `group by all` instances and
+validating recursive process-path SQL on the target Spark version.
+
 ## Current status
 
 Implemented:

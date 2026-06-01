@@ -48,6 +48,102 @@ The current ETL already has many DBT-shaped properties:
 
 DBT should own transformations, dependency ordering, docs, tests, and reproducible builds. It should **not** own sensor collection.
 
+## Dual-engine planning update: DuckDB and Spark from one dbt project
+
+The project should intentionally support a single dbt DAG that can run on both DuckDB and Spark by switching dbt targets. This is now a first-class design goal rather than a later portability nice-to-have.
+
+### Target execution engines
+
+The repo should maintain both adapters with version-compatible dbt-core dependencies:
+
+- `dbt-duckdb` for local development, laptop-scale runs, and fast iteration against local or S3 Parquet.
+- `dbt-spark` for Ilum/Spark runs against larger S3 datasets and persistent Spark catalog tables.
+
+Profiles should expose separate targets rather than requiring file edits:
+
+| Target | Adapter | Intended use |
+| --- | --- | --- |
+| `dev` | DuckDB | Local development and regression testing. |
+| `spark` | dbt-spark `session` | Spark Connect/gRPC endpoint, currently validated against `spk10.llnl.gov:15002`. |
+| `ilum` | dbt-spark `thrift`/Kyuubi | Future/alternate Ilum SQL gateway path if a Thrift endpoint is available. |
+
+The current Spark Connect proof of concept uses:
+
+```text
+SPARK_REMOTE=sc://spk10.llnl.gov:15002
+WINTAP_DBT_DATASET=s3a://ilum-data/lintap
+```
+
+Note that `WINTAP_DBT_DATASET` points at the parent containing `raw_sensor`; the current macros append `/raw_sensor/<event_type>`.
+
+### Bronze layer: Parquet as the engine-neutral boundary
+
+The Bronze layer should remain the abstraction over raw Parquet. The implementation should hide engine-specific file-read syntax behind macros or dbt source definitions.
+
+Current pragmatic approach:
+
+- DuckDB reads raw files with `parquet_scan(..., hive_partitioning=1, union_by_name=true)`.
+- Spark reads raw files with Spark SQL path syntax such as `parquet.`s3a://.../raw_sensor/raw_process``.
+- Adapter-dispatched macros such as `parquet_relation()` choose the correct relation expression for the active target.
+
+Future hardening option:
+
+- Move raw paths into `sources.yml`.
+- For DuckDB, use `external_location` where supported by `dbt-duckdb`.
+- For Spark, either reference catalog-registered external tables or keep path-based `parquet.`...`` relations. Spark `location_root` is useful for where dbt materializes models, but it is not by itself a complete raw-source declaration.
+
+### Silver and Gold portability expectations
+
+Silver and Gold models should be written in the most portable SQL practical, but dbt does not magically abstract all SQL dialect differences. The plan should explicitly use adapter dispatch for differences such as:
+
+- raw Parquet relation syntax;
+- timestamp and epoch functions;
+- array/list aggregation and array length;
+- file/schema introspection;
+- `group by all` replacement or target-specific handling;
+- recursive process-path behavior if Spark compatibility differs from DuckDB.
+
+The design goal is one logical model graph, not necessarily byte-identical compiled SQL across engines.
+
+### Materialization expectations
+
+Silver and Gold should continue to use dbt `table` materializations by default. For Spark, prefer persisted catalog tables, with Parquet as the underlying file format where the configured Spark catalog supports it. For DuckDB, continue building into a local DuckDB database for v1 and export to Parquet with a wrapper until external/partitioned Parquet materialization is proven reliable.
+
+When model-level file format settings are added, they should be target-aware. `file_format: parquet` is meaningful for Spark table materialization but is not the same mechanism as DuckDB external Parquet writes.
+
+### Execution model
+
+Engine selection should be a runtime choice:
+
+```sh
+# DuckDB/local
+make dbt-build DBT_TARGET=dev
+# or
+uv run --isolated --dev --project . dbt build --project-dir wintap_dbt --profiles-dir wintap_dbt --target dev
+
+# Spark Connect / Ilum Spark connector
+make dbt-build DBT_TARGET=spark DBT_SELECT=poc_s3_raw_process
+# or
+uv run --isolated --dev --project . dbt build --project-dir wintap_dbt --profiles-dir wintap_dbt --target spark --select poc_s3_raw_process
+
+# Thrift/Kyuubi if available
+uv run --isolated --dev --project . dbt build --project-dir wintap_dbt --profiles-dir wintap_dbt --target ilum --select poc_s3_raw_process
+```
+
+### Python/Spark API compatibility note
+
+DuckDB's experimental Spark/PySpark API compatibility is not part of the production plan for this dbt pipeline. It may be useful later for Python transformation experiments, but this project should keep the primary transformation contract in dbt SQL plus adapter-dispatched macros. That keeps lineage, docs, tests, and model materializations visible in dbt.
+
+### Impact on migration priorities
+
+This dual-engine guidance changes the priority order:
+
+1. Keep the existing DuckDB target green after every Spark change.
+2. Keep the Spark Connect POC target green against real S3 data.
+3. Move engine-specific syntax into macros or source definitions instead of duplicating models.
+4. Replace remaining DuckDB-only SQL constructs in Silver/Gold with portable SQL or dispatched macros.
+5. Add a small cross-target smoke test matrix: DuckDB local fixture, Spark `dbt debug`, Spark POC model against S3.
+
 ## Proposed pipeline boundary
 
 ### In scope for DBT

@@ -3,6 +3,10 @@
 {%- endmacro %}
 
 {% macro raw_event_exists(event_type) -%}
+    {{ return(adapter.dispatch('raw_event_exists', 'wintap_dbt')(event_type)) }}
+{%- endmacro %}
+
+{% macro duckdb__raw_event_exists(event_type) -%}
     {%- if not execute -%}
         {{ return(true) }}
     {%- endif -%}
@@ -15,6 +19,14 @@
         {{ return(false) }}
     {%- endif -%}
     {{ return(results.columns[0].values()[0] > 0) }}
+{%- endmacro %}
+
+{% macro spark__raw_event_exists(event_type) -%}
+    {#
+      Avoid compile-time filesystem checks in Spark/Ilum. S3 access is owned by
+      the Spark driver, and dbt compilation may not have equivalent credentials.
+    #}
+    {{ return(true) }}
 {%- endmacro %}
 
 {% macro first_existing_raw_event(event_types) -%}
@@ -35,6 +47,10 @@
 {%- endmacro %}
 
 {% macro raw_column_exists(event_types, column_name) -%}
+    {{ return(adapter.dispatch('raw_column_exists', 'wintap_dbt')(event_types, column_name)) }}
+{%- endmacro %}
+
+{% macro duckdb__raw_column_exists(event_types, column_name) -%}
     {%- if not execute -%}
         {{ return(true) }}
     {%- endif -%}
@@ -50,4 +66,14 @@
     {%- endset -%}
     {%- set results = run_query(sql) -%}
     {{ return(results is not none and results|length > 0) }}
+{%- endmacro %}
+
+{% macro spark__raw_column_exists(event_types, column_name) -%}
+    {#
+      POC default: assume optional compatibility columns already exist. This
+      keeps compilation independent from Spark-side S3 permissions. If a source
+      lacks ProcessArgs/UniqueProcessKey, set WINTAP_DBT_SPARK_ASSUME_RAW_COLUMNS=false
+      and implement catalog-backed schema introspection, or patch the source table.
+    #}
+    {{ return(env_var('WINTAP_DBT_SPARK_ASSUME_RAW_COLUMNS', 'true') | lower in ['1', 'true', 'yes', 'y']) }}
 {%- endmacro %}

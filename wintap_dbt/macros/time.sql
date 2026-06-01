@@ -3,9 +3,29 @@
 {%- endmacro %}
 
 {% macro to_timestamp_micros_expr(epoch_seconds) -%}
+    {{ adapter.dispatch('to_timestamp_micros_expr', 'wintap_dbt')(epoch_seconds) }}
+{%- endmacro %}
+
+{% macro duckdb__to_timestamp_micros_expr(epoch_seconds) -%}
     (to_timestamp(cast(floor({{ epoch_seconds }}) as bigint)) + to_microseconds(cast(floor(({{ epoch_seconds }} - floor({{ epoch_seconds }})) * 1e6) as bigint)))
+{%- endmacro %}
+
+{% macro spark__to_timestamp_micros_expr(epoch_seconds) -%}
+    timestamp_micros(cast(floor(({{ epoch_seconds }}) * 1000000) as bigint))
 {%- endmacro %}
 
 {% macro win32_to_timestamp_expr(wts) -%}
     {{ to_timestamp_micros_expr(win32_to_epoch_expr(wts)) }}
+{%- endmacro %}
+
+{% macro epoch_seconds_expr(ts) -%}
+    {{ adapter.dispatch('epoch_seconds_expr', 'wintap_dbt')(ts) }}
+{%- endmacro %}
+
+{% macro duckdb__epoch_seconds_expr(ts) -%}
+    epoch({{ ts }})
+{%- endmacro %}
+
+{% macro spark__epoch_seconds_expr(ts) -%}
+    unix_timestamp({{ ts }})
 {%- endmacro %}

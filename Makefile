@@ -4,6 +4,9 @@ analytics=./wintappy/analytics
 UV_RUN=uv run
 DBT_UV_RUN ?= uv run --isolated --dev
 DBT_DIR=wintap_dbt
+DBT_TARGET ?= dev
+DBT_SELECT ?=
+DBT_SELECT_ARGS=$(if $(DBT_SELECT),--select $(DBT_SELECT),)
 DBT=$(DBT_UV_RUN) --project . dbt
 
 WINTAP_DBT_DATASET ?= $(WINTAP_DATA_ROOT)/parquet
@@ -58,13 +61,17 @@ cleanpynb:
 	$(UV_RUN) nbstripout --install --attributes .gitattributes
 
 dbt-check-config:
-	@test -n "$$WINTAP_DATA_ROOT" || (echo "WINTAP_DATA_ROOT is required" && exit 1)
 	@test -n "$$WINTAP_DBT_DATASET" || (echo "WINTAP_DBT_DATASET is required" && exit 1)
-	@test -n "$$WINTAP_DBT_DATABASE" || (echo "WINTAP_DBT_DATABASE is required" && exit 1)
 	@test -n "$$WINTAP_DBT_START_DAY" || (echo "WINTAP_DBT_START_DAY is required" && exit 1)
 	@test -n "$$WINTAP_DBT_END_DAY" || (echo "WINTAP_DBT_END_DAY is required" && exit 1)
-	@test -d "$$WINTAP_DBT_DATASET/raw_sensor" || (echo "$$WINTAP_DBT_DATASET/raw_sensor does not exist" && exit 1)
-	@mkdir -p "$$(dirname "$$WINTAP_DBT_DATABASE")"
+	@if [ "$(DBT_TARGET)" = "ilum" ] || [ "$${WINTAP_DBT_TARGET:-dev}" = "ilum" ]; then \
+		test -n "$$ILUM_KYUUBI_HOST" || (echo "ILUM_KYUUBI_HOST is required for DBT_TARGET=ilum" && exit 1); \
+	else \
+		test -n "$$WINTAP_DATA_ROOT" || (echo "WINTAP_DATA_ROOT is required" && exit 1); \
+		test -n "$$WINTAP_DBT_DATABASE" || (echo "WINTAP_DBT_DATABASE is required" && exit 1); \
+		test -d "$$WINTAP_DBT_DATASET/raw_sensor" || (echo "$$WINTAP_DBT_DATASET/raw_sensor does not exist" && exit 1); \
+		mkdir -p "$$(dirname "$$WINTAP_DBT_DATABASE")"; \
+	fi
 
 print-dbt-config: dbt-check-config
 	@echo "WINTAP_DATA_ROOT=$$WINTAP_DATA_ROOT"
@@ -74,16 +81,16 @@ print-dbt-config: dbt-check-config
 	@echo "WINTAP_DBT_END_DAY=$$WINTAP_DBT_END_DAY"
 
 dbt-debug: dbt-check-config
-	$(DBT) debug --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
+	$(DBT) debug --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) --target $(DBT_TARGET)
 
 dbt-build: dbt-check-config
-	$(DBT) build --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
+	$(DBT) build --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) --target $(DBT_TARGET) $(DBT_SELECT_ARGS)
 
 dbt-test: dbt-check-config
-	$(DBT) test --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
+	$(DBT) test --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) --target $(DBT_TARGET) $(DBT_SELECT_ARGS)
 
 dbt-docs: dbt-check-config
-	$(DBT) docs generate --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR)
+	$(DBT) docs generate --project-dir $(DBT_DIR) --profiles-dir $(DBT_DIR) --target $(DBT_TARGET)
 
 qa-pid-hash: dbt-check-config
 	duckdb -cmd ".maxwidth 240" "$$WINTAP_DBT_DATABASE" < $(DBT_DIR)/qa/pid_hash_orphan_checks.sql

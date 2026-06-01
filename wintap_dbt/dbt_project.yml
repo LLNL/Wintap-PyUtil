@@ -20,6 +20,7 @@ vars:
   dataset: "{{ env_var('WINTAP_DBT_DATASET') }}"
   start_day: "{{ env_var('WINTAP_DBT_START_DAY') }}"
   end_day: "{{ env_var('WINTAP_DBT_END_DAY') }}"
+  include_monitoring: "{{ env_var('WINTAP_DBT_INCLUDE_MONITORING', 'true') }}"
 
 models:
   wintap_dbt:
@@ -31,3 +32,4 @@ models:
       +materialized: table
     monitoring:
       +materialized: view
+      +enabled: "{{ env_var('WINTAP_DBT_INCLUDE_MONITORING', 'True') == 'True' }}"

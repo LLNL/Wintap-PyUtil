@@ -1,6 +1,6 @@
 select
     hostname,
-    list_sort(list(distinct agentid)) agent_ids,
+    {{ array_agg_distinct_sorted('agentid') }} agent_ids,
     any_value('windows') os_family,
     to_timestamp(min(cast(eventtime as bigint))) first_seen,
     to_timestamp(max(cast(eventtime as bigint))) last_seen,

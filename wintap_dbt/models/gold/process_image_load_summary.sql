@@ -4,8 +4,8 @@ select
     pid_hash,
     any_value(os_pid) os_pid,
     process_name,
-    list_sort(list(distinct filename)) dlls,
-    len(dlls) num_uniq_files,
+    {{ array_agg_distinct_sorted('filename') }} dlls,
+    {{ array_length_expr(array_agg_distinct_sorted('filename')) }} num_uniq_files,
     min(first_seen) first_seen,
     max(last_seen) last_seen
 from {{ ref('process_image_load') }}

@@ -1,8 +1,5 @@
 {% if first_existing_raw_event(['raw_process_registry', 'raw_registry']) is not none %}
-select *, count(*) as num_dups
-from {{ raw_scan_for(['raw_process_registry', 'raw_registry']) }}
-where {{ day_filter() }}
-group by all
+{{ dedup_raw_select(raw_scan_for(['raw_process_registry', 'raw_registry']), day_filter()) }}
 {% else %}
 select
     cast(null as varchar) AgentId,

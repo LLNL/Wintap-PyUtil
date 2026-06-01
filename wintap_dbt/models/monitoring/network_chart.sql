@@ -1,5 +1,5 @@
 select
-    time_bucket(interval 10 seconds, to_timestamp(cast(eventtime as bigint))) as time_chunk,
+    {{ ten_second_bucket_expr('to_timestamp(cast(eventtime as bigint))') }} as time_chunk,
     'network' as event_type,
     count(distinct processname) as uniq_process_name,
     count(distinct pid) as uniq_pid,
@@ -9,5 +9,7 @@ select
     sum(eventcount) as events,
     count(*) as num_rows
 from {{ ref('stg_raw_process_conn_incr') }}
-group by all
+group by
+    time_chunk,
+    event_type
 order by time_chunk

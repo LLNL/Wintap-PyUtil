@@ -1,8 +1,5 @@
 {% if first_existing_raw_event(['raw_imageload', 'raw_image_load']) is not none %}
-select *, count(*) as num_dups
-from {{ raw_scan_for(['raw_imageload', 'raw_image_load']) }}
-where {{ day_filter() }}
-group by all
+{{ dedup_raw_select(raw_scan_for(['raw_imageload', 'raw_image_load']), day_filter()) }}
 {% else %}
 select
     cast(null as varchar) FileName,

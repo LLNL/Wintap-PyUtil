@@ -3,7 +3,7 @@ select * from (
         'process' as event_type,
         min(first_seen) as first_seen,
         max(last_seen) as last_seen,
-        epoch(max(last_seen)) - epoch(min(first_seen)) as elapsed_seconds,
+        {{ epoch_seconds_expr('max(last_seen)') }} - {{ epoch_seconds_expr('min(first_seen)') }} as elapsed_seconds,
         count(distinct process_name) as uniq_process_name,
         count(distinct os_pid) as uniq_pid,
         cast(null as bigint) as uniq_files,
@@ -11,10 +11,10 @@ select * from (
         cast(null as bigint) as uniq_local_ip,
         cast(null as bigint) as uniq_remote_ip,
         cast(null as hugeint) as events,
-        cast(null as real) as max_cpu,
-        cast(null as real) as max_mem,
-        cast(null as real) as max_read,
-        cast(null as real) as max_write,
+        cast(null as {{ real_type() }}) as max_cpu,
+        cast(null as {{ real_type() }}) as max_mem,
+        cast(null as {{ real_type() }}) as max_read,
+        cast(null as {{ real_type() }}) as max_write,
         count(*) as num_rows
     from {{ ref('process') }}
     group by all
@@ -33,10 +33,10 @@ select * from (
         cast(null as bigint) as uniq_local_ip,
         cast(null as bigint) as uniq_remote_ip,
         sum(eventcount) as events,
-        cast(null as real) as max_cpu,
-        cast(null as real) as max_mem,
-        cast(null as real) as max_read,
-        cast(null as real) as max_write,
+        cast(null as {{ real_type() }}) as max_cpu,
+        cast(null as {{ real_type() }}) as max_mem,
+        cast(null as {{ real_type() }}) as max_read,
+        cast(null as {{ real_type() }}) as max_write,
         count(*) as num_rows
     from {{ ref('stg_raw_process_file') }}
     group by all
@@ -55,10 +55,10 @@ select * from (
         count(distinct localipaddr) as uniq_local_ip,
         count(distinct remoteipaddr) as uniq_remote_ip,
         sum(eventcount) as events,
-        cast(null as real) as max_cpu,
-        cast(null as real) as max_mem,
-        cast(null as real) as max_read,
-        cast(null as real) as max_write,
+        cast(null as {{ real_type() }}) as max_cpu,
+        cast(null as {{ real_type() }}) as max_mem,
+        cast(null as {{ real_type() }}) as max_read,
+        cast(null as {{ real_type() }}) as max_write,
         count(*) as num_rows
     from {{ ref('stg_raw_process_conn_incr') }}
     group by all
@@ -69,7 +69,7 @@ select * from (
         'performance' as event_type,
         min(time) as first_seen,
         max(time) as last_seen,
-        epoch(max(time)) - epoch(min(time)) as elapsed_seconds,
+        {{ epoch_seconds_expr('max(time)') }} - {{ epoch_seconds_expr('min(time)') }} as elapsed_seconds,
         count(distinct command) as uniq_process_name,
         count(distinct pid) as uniq_pid,
         cast(null as bigint) as uniq_files,
