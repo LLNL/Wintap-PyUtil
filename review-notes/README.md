@@ -11,7 +11,7 @@ This directory contains first-pass review notes and current implementation statu
 
 1. [`ProjectSummary.md`](ProjectSummary.md) — durable summary of the goal, key decisions, implemented work, and current limitations.
 2. [`ImplementationStatus.md`](ImplementationStatus.md) — what has already been implemented since the initial plan.
-3. [`PipelineRunbook.md`](PipelineRunbook.md) — exact commands for running and inspecting the current DBT pipeline.
+3. [`PipelineRunbook.md`](PipelineRunbook.md) — exact commands for running and inspecting the current DBT pipeline, including the Spark/S3 POC.
 4. [`DataFlow.md`](DataFlow.md) — DBT-first end-to-end flow from raw_sensor parquet through DuckDB outputs.
 5. [`Architecture.md`](Architecture.md) — repository roles and component boundaries.
 6. [`DBT_Pipeline_Plan.md`](DBT_Pipeline_Plan.md) — DBT migration/orchestration plan.
@@ -21,6 +21,7 @@ This directory contains first-pass review notes and current implementation statu
 10. [`Dependencies.md`](Dependencies.md) — runtime/tool dependencies and relevant entry points.
 11. [`Teletap.md`](Teletap.md) — focused notes on the current Linux/TeleTap scaffolding.
 12. [`OpenQuestions.md`](OpenQuestions.md) — remaining follow-up work and deferred questions.
+13. [`../wintap_dbt/STATUS_AND_NEXT_STEPS.md`](../wintap_dbt/STATUS_AND_NEXT_STEPS.md) — current Spark/S3 POC status, staged all-model test plan, and delayed issues.
 
 ## Scope of this pass
 
@@ -29,6 +30,7 @@ The emphasis is the data path from initial parquet files into analysis notebooks
 ## Current code status summary
 
 - `Wintap-PyUtil/wintap_dbt/` exists and can build ACME4 and LINTAP sample raw_sensor data into DuckDB.
+- The Spark Connect target can read `s3a://ilum-data/lintap/raw_sensor` and materialize the POC table through `sc://spark.acme.dev:15002`.
 - `Wintap-PyUtil` now uses `uv` project configuration and includes `dbt-duckdb`.
 - The .NET sensor has been adjusted to emit canonical metadata names (`raw_host`, `raw_macip`) at the source.
 - Legacy `merged` tooling remains in the tree but is no longer the desired normal path.

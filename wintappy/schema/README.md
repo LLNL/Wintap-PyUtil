@@ -1,4 +1,7 @@
 # Overview
+
+Current status: these parquet templates are legacy/supporting artifacts. The dbt pipeline increasingly uses typed empty SQL models for missing optional data, especially for Spark/S3 where copying local template files is not appropriate.
+
 This directory contains empty parquet files that match the current schema from Wintap.
 
 The intent is that these can be used as stubs when data is missing from a collect. With

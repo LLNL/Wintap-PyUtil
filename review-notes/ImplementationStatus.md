@@ -14,7 +14,7 @@ This avoids creating a separate documentation repository while keeping the data-
 
 ## DBT pipeline
 
-A first DBT/DuckDB implementation now exists in:
+A first DBT dual-engine implementation now exists in:
 
 ```text
 Wintap-PyUtil/wintap_dbt/
@@ -22,7 +22,7 @@ Wintap-PyUtil/wintap_dbt/
 
 Implemented so far:
 
-- DBT project skeleton and DuckDB profile.
+- DBT project skeleton with DuckDB and Spark profiles.
 - Bronze raw-source models for core `raw_sensor` events.
 - Silver/detail models ported from `rawtostdview.sql`.
 - Recursive `process_path` model ported from `process_path.sql`.
@@ -32,11 +32,12 @@ Implemented so far:
 - `build_summary` monitoring view.
 - Raw-source macros for:
   - raw event existence checks,
+  - Spark raw event allow-listing with `WINTAP_DBT_AVAILABLE_RAW_EVENTS`,
   - raw event aliases during transition,
   - source-column detection,
   - typed empty optional inputs.
 
-Validated builds:
+Validated builds and POCs:
 
 ```text
 ACME4 / older Windows raw_sensor sample
@@ -44,6 +45,11 @@ ACME4 / older Windows raw_sensor sample
 
 LINTAP / newer Linux raw_sensor sample
 /home/ubuntu/data/debug/parquet
+
+S3/Spark Connect POC sample
+s3a://ilum-data/lintap/raw_sensor
+sc://spark.acme.dev:15002
+poc_s3_raw_process -> 728442 rows
 ```
 
 The LINTAP build exposed schema drift that has now been handled in DBT:
@@ -107,8 +113,10 @@ The same paths are also written to `WintapLogger`.
 
 Still not complete:
 
-- DBT parquet export is not implemented; DBT currently builds to a DuckDB database.
+- Full Spark graph validation is not complete; next work is trying all available Bronze/Silver/Gold models against the S3 sample.
+- DBT parquet export is not implemented; DBT currently builds to a DuckDB database or Spark catalog tables depending on target.
 - Optional enrichment inputs are represented as typed empty stubs unless/until label/Sigma/MITRE/LOLBAS source loading is wired into DBT.
 - Old Python ETL commands still exist and are not yet wrappers around DBT.
 - The legacy `merged` tooling still exists in code/docs, but is no longer the desired normal path.
 - Already-collected LINTAP data may use `proto`; new source output uses the canonical `protoPK` partition.
+- Local DuckDB reads from `s3://ilum-data/...` require local credentials; Ilum Spark succeeds because object-storage credentials are supplied server-side by the connector.

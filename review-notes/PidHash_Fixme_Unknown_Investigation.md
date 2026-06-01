@@ -2,6 +2,8 @@
 
 Date: 2026-05-21
 
+Current dbt/Spark note: this investigation remains relevant for full-model validation. After Bronze/Silver/Gold models pass against the S3 sample, rerun pid-hash QA on the resulting DuckDB/Spark tables and confirm no `fixme*` or `unknown*` sentinel process identifiers leak into summaries.
+
 ## Original user prompt
 
 > Now, another bug fix. Lets start with investigating where in the dotnet/ebpf code the pid_hash is being set to "unknown*" or "fixme*". These were "hacks" put in place to work around really noisy problems distracting from the main funcitonality. Identify the locations and analyze what you would do to resolve or test them. Prepare a plan and present to me.

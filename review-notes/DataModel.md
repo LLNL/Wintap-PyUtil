@@ -7,10 +7,10 @@ The current canonical implementation uses DBT model layers over `raw_sensor` par
 | Layer | Physical form today | Purpose |
 | --- | --- | --- |
 | Sensor output | on-host parquet and `raw_sensor` parquet | Durable raw telemetry materialized by Wintap/Lintap. |
-| DBT bronze | DuckDB tables/views from `models/bronze` | Raw-source compatibility, typed empty optional inputs, stable raw columns. |
-| DBT silver | DuckDB tables/views from `models/silver` | Normalized detail models for host, process, file, registry, network, image-load, and process path. |
-| DBT gold | DuckDB tables/views from `models/gold` | Per-process summaries and `process_uber_summary`. |
-| Monitoring | DuckDB view `build_summary` | Row-count sanity checks for built models. |
+| DBT bronze | DuckDB or Spark tables/views from `models/bronze` | Raw-source compatibility, typed empty optional inputs, stable raw columns. |
+| DBT silver | DuckDB or Spark tables/views from `models/silver` | Normalized detail models for host, process, file, registry, network, image-load, and process path. |
+| DBT gold | DuckDB or Spark tables/views from `models/gold` | Per-process summaries and `process_uber_summary`. |
+| Monitoring | DuckDB/Spark views where enabled | Row-count sanity checks for built models. |
 
 Historical filesystem layers still exist in older code/docs:
 
@@ -77,7 +77,25 @@ Bronze owns raw schema drift and optional input handling. Examples:
 
 - missing `ProcessArgs` can be synthesized from `CommandLine`,
 - missing `UniqueProcessKey` can be synthesized as `NULL`,
-- missing registry/image-load parquet can produce typed empty relations.
+- missing registry/image-load parquet can produce typed empty relations,
+- Spark/S3 partial datasets can be described with `WINTAP_DBT_AVAILABLE_RAW_EVENTS` so optional missing paths are not read.
+
+## Spark/S3 model validation status
+
+The POC model `poc_s3_raw_process` currently passes against:
+
+```text
+s3a://ilum-data/lintap/raw_sensor
+sc://spark.acme.dev:15002
+```
+
+Next validation target is all available Bronze/Silver/Gold models with:
+
+```sh
+export WINTAP_DBT_AVAILABLE_RAW_EVENTS=raw_host,raw_process,raw_macip,raw_process_conn_incr,raw_process_file
+```
+
+Known likely model-layer issues are remaining `group by all`, recursive `process_path`, optional missing registry/image-load inputs, and Linux/Windows schema drift.
 
 ## DBT silver detail models
 

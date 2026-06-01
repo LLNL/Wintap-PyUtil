@@ -101,6 +101,14 @@ Optional:
 
 The DBT pipeline provides typed empty relations for optional event types so the full graph can build even when a collection lacks registry or image-load data. LINTAP currently builds successfully with those sources absent.
 
+For Spark/S3 runs, compile-time S3 existence checks are intentionally avoided. When testing a partial S3 dataset, provide the known event list explicitly:
+
+```sh
+export WINTAP_DBT_AVAILABLE_RAW_EVENTS=raw_host,raw_process,raw_macip,raw_process_conn_incr,raw_process_file
+```
+
+This lets optional missing event families, such as registry or image-load in the current S3 sample, use typed empty fallbacks where implemented.
+
 ## Timestamp policy
 
 Timestamps are currently complex and vary by source/event.

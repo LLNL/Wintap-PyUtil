@@ -17,6 +17,27 @@ For the full current run process, start with:
 review-notes/PipelineRunbook.md
 ```
 
+## Current Spark/S3 POC status
+
+A working Ilum/Spark Connect proof of concept is available. The current sample data lives at:
+
+```text
+s3a://ilum-data/lintap/raw_sensor
+```
+
+The validated Spark target is:
+
+```text
+SPARK_REMOTE=sc://spark.acme.dev:15002
+```
+
+The POC model `wintap_dbt/models/bronze/poc_s3_raw_process.sql` successfully reads S3 raw Parquet and writes a Spark catalog table. We are now ready to try broader Bronze/Silver/Gold model subsets against the S3 sample. See:
+
+```text
+wintap_dbt/S3_POC_TESTS.md
+wintap_dbt/STATUS_AND_NEXT_STEPS.md
+```
+
 ## Minimum system requirements
 
 - Python 3.10, 3.11, or 3.12

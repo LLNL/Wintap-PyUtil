@@ -65,9 +65,27 @@ Pidstat CSV data is optional. If `$PIDSTAT_DATA_PATH` or `$WINTAP_DATA_ROOT/pids
 
 ## Ilum / Spark proof of concept
 
-This project can also be pointed at an Ilum-managed Spark/Kyuubi service. The
-POC path is intentionally narrow: prove that dbt can read `raw_process` from S3
-and materialize a Spark table in the configured catalog/schema.
+This project can also be pointed at an Ilum-managed Spark service. The current
+validated path uses Spark Connect/gRPC via the `spark` dbt target; the older
+`ilum` target remains for future Thrift/Kyuubi testing.
+
+The POC path is intentionally narrow: prove that dbt can read `raw_process` from
+S3 and materialize a Spark table in the configured catalog/schema. That POC is
+passing against:
+
+```text
+SPARK_REMOTE=sc://spark.acme.dev:15002
+WINTAP_DBT_DATASET=s3a://ilum-data/lintap
+WINTAP_DBT_START_DAY=20260530
+WINTAP_DBT_END_DAY=20260530
+```
+
+See also:
+
+```text
+wintap_dbt/S3_POC_TESTS.md
+wintap_dbt/STATUS_AND_NEXT_STEPS.md
+```
 
 Install the Spark adapter before running against Ilum:
 
@@ -80,18 +98,23 @@ stored in `profiles.yml`; Ilum should inject object-storage credentials into the
 Spark driver/executors, for example through the `ilum-objectstorage` alias.
 
 ```sh
-export WINTAP_DBT_TARGET=ilum
-export DBT_TARGET=ilum
-export WINTAP_DBT_DATASET=s3a://my-bucket/wintap-run/parquet
-export WINTAP_DBT_START_DAY=20250101
-export WINTAP_DBT_END_DAY=20250131
+export WINTAP_DBT_TARGET=spark
+export DBT_TARGET=spark
+export WINTAP_DBT_DATASET=s3a://ilum-data/lintap
+export WINTAP_DBT_START_DAY=20260530
+export WINTAP_DBT_END_DAY=20260530
+export WINTAP_DBT_SCHEMA=wintap_smoke
+export WINTAP_DBT_INCLUDE_MONITORING=False
+export WINTAP_DBT_AVAILABLE_RAW_EVENTS=raw_host,raw_process,raw_macip,raw_process_conn_incr,raw_process_file
 
-export ILUM_KYUUBI_HOST=<kyuubi-service-host>
-export ILUM_KYUUBI_PORT=10009
-export ILUM_KYUUBI_METHOD=thrift
-export WINTAP_DBT_SCHEMA=wintap
-# dbt-spark's Hive/Kyuubi profile uses schema as the target namespace.
-# Configure Iceberg/Delta catalog details in the Spark/Ilum service itself.
+export SPARK_CONNECT_HOST=spark.acme.dev
+export SPARK_CONNECT_PORT=15002
+export SPARK_REMOTE=sc://spark.acme.dev:15002
+
+# For a future Thrift/Kyuubi endpoint instead, use target=ilum and set:
+# export ILUM_KYUUBI_HOST=<kyuubi-service-host>
+# export ILUM_KYUUBI_PORT=10009
+# export ILUM_KYUUBI_METHOD=thrift
 ```
 
 Run the end-to-end POC model directly:
@@ -100,14 +123,14 @@ Run the end-to-end POC model directly:
 uv run --isolated --dev --project . dbt build \
   --project-dir wintap_dbt \
   --profiles-dir wintap_dbt \
-  --target ilum \
+  --target spark \
   --select poc_s3_raw_process
 ```
 
 Or through the Makefile:
 
 ```sh
-make dbt-build DBT_TARGET=ilum DBT_SELECT=poc_s3_raw_process
+make dbt-build DBT_TARGET=spark DBT_SELECT=poc_s3_raw_process
 ```
 
 The POC model is:
@@ -123,6 +146,18 @@ $WINTAP_DBT_DATASET/raw_sensor/raw_process
 ```
 
 using Spark's Parquet data source and writes a managed table via dbt-spark.
+
+### Trying broader model sets
+
+The current S3 sample includes `raw_host`, `raw_process`, `raw_macip`,
+`raw_process_conn_incr`, and `raw_process_file`. It does not include registry or
+image-load data. Before trying broader Spark builds, set:
+
+```sh
+export WINTAP_DBT_AVAILABLE_RAW_EVENTS=raw_host,raw_process,raw_macip,raw_process_conn_incr,raw_process_file
+```
+
+Recommended staged commands are documented in `STATUS_AND_NEXT_STEPS.md`.
 
 ### Submitting through the Ilum REST API
 

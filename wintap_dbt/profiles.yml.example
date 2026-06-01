@@ -5,6 +5,9 @@ wintap_dbt:
       type: duckdb
       path: "{{ env_var('WINTAP_DBT_DATABASE') }}"
       threads: 4
+      extensions:
+        - httpfs
+        - parquet
 
     ilum:
       type: spark
@@ -16,12 +19,20 @@ wintap_dbt:
       connect_retries: "{{ env_var('ILUM_KYUUBI_CONNECT_RETRIES', '3') | int }}"
       connect_timeout: "{{ env_var('ILUM_KYUUBI_CONNECT_TIMEOUT', '60') | int }}"
 
+    duckdb_s3:
+      type: duckdb
+      path: "{{ env_var('WINTAP_DBT_DATABASE', 'target/wintap_s3.duckdb') }}"
+      threads: "{{ env_var('WINTAP_DBT_THREADS', '4') | int }}"
+      extensions:
+        - httpfs
+        - parquet
+
     spark:
       type: spark
       method: session
-      host: "{{ env_var('SPARK_CONNECT_HOST', 'spk10.llnl.gov') }}"
+      host: "{{ env_var('SPARK_CONNECT_HOST', 'spark.acme.dev') }}"
       port: "{{ env_var('SPARK_CONNECT_PORT', '15002') | int }}"
       schema: "{{ env_var('WINTAP_DBT_SCHEMA', 'wintap_smoke') }}"
       threads: "{{ env_var('WINTAP_DBT_THREADS', '4') | int }}"
       server_side_parameters:
-        spark.remote: "{{ env_var('SPARK_REMOTE', 'sc://' ~ env_var('SPARK_CONNECT_HOST', 'spk10.llnl.gov') ~ ':' ~ env_var('SPARK_CONNECT_PORT', '15002')) }}"
+        spark.remote: "{{ env_var('SPARK_REMOTE', 'sc://' ~ env_var('SPARK_CONNECT_HOST', 'spark.acme.dev') ~ ':' ~ env_var('SPARK_CONNECT_PORT', '15002')) }}"

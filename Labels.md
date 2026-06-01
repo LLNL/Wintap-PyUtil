@@ -1,4 +1,7 @@
 # Labels
+
+> Current status: dbt is now the canonical ETL path. Label/Sigma/MITRE/LOLBAS outputs are represented in dbt as typed empty stubs until real enrichment source loading is wired in. The current Spark/S3 validation focuses on raw/process/file/network models first; enrichment remains delayed work.
+
 Datasets are labeled in 2 ways: manually by humans and programmatically.
 
 For manual labels, we work with the red team attackers and develop a graph of activity composed of processes, files, network, etc. These graphs are persisted as NetworkX JSON format and are in the "Sources" directory. From these graphs, we extract the unqique identifiers and ultimately create a summarized table that can be joined to PROCESS using the PID_HASH.

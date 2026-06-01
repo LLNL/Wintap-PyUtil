@@ -1,3 +1,7 @@
+# Process path scaling notes
+
+Current status: `process_path` has been ported into dbt for the DuckDB path. Spark compatibility is not yet proven and is one of the expected delayed issues when trying the full Spark/S3 graph. If it fails on Spark, validate core Silver/Gold summaries first and return to this model separately.
+
 For larger datasets, processing by partitioning is required. 
 
 Pseudo code:

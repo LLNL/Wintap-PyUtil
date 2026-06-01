@@ -2,6 +2,8 @@
 
 `Wintap-PyUtil/wintappy/schema` contains empty parquet files used as schema stubs when optional data is missing. This was identified as important for making the pipeline robust and outsider-friendly.
 
+Current dbt status: optional registry/image-load and enrichment handling is now mostly implemented as typed empty dbt SQL models rather than by copying parquet templates. For Spark/S3 partial datasets, use `WINTAP_DBT_AVAILABLE_RAW_EVENTS` to tell dbt which raw event folders exist.
+
 ## Current template files
 
 ```text

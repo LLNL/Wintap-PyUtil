@@ -2,6 +2,8 @@
 
 This is the current manual runbook for the canonical DBT-based Wintap/Lintap ETL path.
 
+The historical/default path builds local raw Parquet into DuckDB. A Spark Connect/S3 POC is also now working and should be used for the next full-model validation pass.
+
 ## Single source of truth
 
 Use one run root:
@@ -76,6 +78,45 @@ The DBT database path is controlled by:
 
 ```text
 WINTAP_DBT_DATABASE
+```
+
+## Build against S3 with Spark Connect
+
+Current validated Spark/S3 variables:
+
+```sh
+export WINTAP_DBT_DATASET=s3a://ilum-data/lintap
+export WINTAP_DBT_START_DAY=20260530
+export WINTAP_DBT_END_DAY=20260530
+export WINTAP_DBT_INCLUDE_MONITORING=False
+export WINTAP_DBT_AVAILABLE_RAW_EVENTS=raw_host,raw_process,raw_macip,raw_process_conn_incr,raw_process_file
+export WINTAP_DBT_SCHEMA=wintap_smoke
+export SPARK_CONNECT_HOST=spark.acme.dev
+export SPARK_CONNECT_PORT=15002
+export SPARK_REMOTE=sc://spark.acme.dev:15002
+```
+
+POC build:
+
+```sh
+make dbt-build DBT_TARGET=spark DBT_SELECT=poc_s3_raw_process
+```
+
+Recommended next staged tests are in:
+
+```text
+wintap_dbt/STATUS_AND_NEXT_STEPS.md
+```
+
+## Build against S3 with local DuckDB
+
+The `duckdb_s3` target is configured and `dbt debug` passes, but actual S3 reads require local credentials for the S3 bucket. This path does not inherit Ilum Spark connector object-storage credentials.
+
+```sh
+export WINTAP_DBT_DATASET=s3a://ilum-data/lintap
+export WINTAP_DBT_DATABASE=/tmp/wintap-s3.duckdb
+make dbt-debug DBT_TARGET=duckdb_s3
+make dbt-build DBT_TARGET=duckdb_s3 DBT_SELECT=poc_s3_raw_process
 ```
 
 ## Run tests

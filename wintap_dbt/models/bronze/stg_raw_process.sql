@@ -1,8 +1,10 @@
 {% if target.type == 'spark' %}
 select
     *,
+    CommandLine as ProcessArgs,
+    cast(null as string) as UniqueProcessKey,
     count(*) over (
-        partition by PidHash, Hostname, ProcessName, ProcessArgs, dayPK, hourPK
+        partition by PidHash, Hostname, ProcessName, CommandLine, dayPK, hourPK
     ) as num_dups
 from {{ raw_scan_for(['raw_process']) }}
 where {{ day_filter() }}

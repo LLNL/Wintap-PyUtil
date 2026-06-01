@@ -1,3 +1,7 @@
+# Label and enrichment outputs
+
+> Current status: dbt is now the canonical ETL path. `process_uber_summary` exists in dbt, but label/Sigma/MITRE/LOLBAS inputs are still typed empty stubs until enrichment loading is wired in. Current Spark/S3 all-model testing should focus on core raw/process/file/network summaries first.
+
 ## START HERE: process_uber_summary.parquet
  * This table is summarized to PID_HASH for every process instance in the time range.
  * It has summarized information for process, file, network, registry, and DLLs activity.

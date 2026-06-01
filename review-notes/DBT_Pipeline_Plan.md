@@ -64,13 +64,13 @@ Profiles should expose separate targets rather than requiring file edits:
 | Target | Adapter | Intended use |
 | --- | --- | --- |
 | `dev` | DuckDB | Local development and regression testing. |
-| `spark` | dbt-spark `session` | Spark Connect/gRPC endpoint, currently validated against `spk10.llnl.gov:15002`. |
+| `spark` | dbt-spark `session` | Spark Connect/gRPC endpoint, currently validated against `spark.acme.dev:15002`. |
 | `ilum` | dbt-spark `thrift`/Kyuubi | Future/alternate Ilum SQL gateway path if a Thrift endpoint is available. |
 
 The current Spark Connect proof of concept uses:
 
 ```text
-SPARK_REMOTE=sc://spk10.llnl.gov:15002
+SPARK_REMOTE=sc://spark.acme.dev:15002
 WINTAP_DBT_DATASET=s3a://ilum-data/lintap
 ```
 
@@ -143,6 +143,7 @@ This dual-engine guidance changes the priority order:
 3. Move engine-specific syntax into macros or source definitions instead of duplicating models.
 4. Replace remaining DuckDB-only SQL constructs in Silver/Gold with portable SQL or dispatched macros.
 5. Add a small cross-target smoke test matrix: DuckDB local fixture, Spark `dbt debug`, Spark POC model against S3.
+6. Next immediate milestone: staged Spark/S3 validation of all available Bronze/Silver/Gold models using `WINTAP_DBT_AVAILABLE_RAW_EVENTS=raw_host,raw_process,raw_macip,raw_process_conn_incr,raw_process_file`.
 
 ## Proposed pipeline boundary
 
@@ -514,6 +515,23 @@ DBT should add tests in four categories.
 
 - `mergedtoraw.py` removed.
 - Replace `rawtorolling`, `rawtostdview`, and `ubersummary` internals with DBT calls, or keep them clearly labeled as legacy wrappers.
+
+## Current Spark/S3 next-step plan
+
+The POC model has passed against the current S3 sample. The next milestone is not new architecture; it is dependency-order validation of the existing graph:
+
+1. `dbt build --target spark --select path:models/bronze`
+2. core Silver models: `process host host_ip process_conn_incr process_net_conn process_file files all_files`
+3. Gold summaries: `process_summary process_file_summary process_net_summary process_uber_summary`
+4. full `dbt build --target spark` after fixing portability issues.
+
+Known issues intentionally delayed until this all-model pass:
+
+- remaining `group by all`;
+- recursive `process_path` Spark compatibility;
+- optional registry/image-load missing from current S3 sample;
+- monitoring/pidstat compatibility;
+- local DuckDB S3 credentials.
 
 ## Risks and mitigations
 

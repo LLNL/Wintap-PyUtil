@@ -7,7 +7,7 @@ DBT is now the **primary canonical ETL path** for Wintap/Lintap post-processing.
 The intended flow is:
 
 ```text
-sensor raw_sensor parquet -> Wintap-PyUtil/wintap_dbt -> DuckDB analysis database -> notebooks / SQL / future parquet export
+sensor raw_sensor parquet -> Wintap-PyUtil/wintap_dbt -> DuckDB analysis database or Spark catalog tables -> notebooks / SQL / future parquet export
 ```
 
 Older Python ETL commands and TeleTap scripts remain useful as historical reference, compatibility tooling, or focused development utilities, but they should be treated as **legacy** unless explicitly revived.
@@ -49,8 +49,8 @@ Canonical post-processing repository.
 Current primary implementation:
 
 - `wintap_dbt/`
-  - DBT/DuckDB project for bronze, silver, and gold transformations.
-  - Builds from `raw_sensor` parquet into a DuckDB database.
+  - DBT project for bronze, silver, and gold transformations on DuckDB or Spark.
+  - Builds from `raw_sensor` parquet into a DuckDB database or Spark catalog tables.
   - Handles source drift in the bronze layer.
   - Provides basic tests and `build_summary` row-count monitoring.
 
@@ -66,6 +66,7 @@ Supporting project infrastructure:
     - `make dbt-test`
     - `make dbt-docs`
   - Environment-driven DBT config via `WINTAP_DATA_ROOT` and derived `WINTAP_DBT_*` variables.
+  - Spark Connect/S3 POC target currently validated against `sc://spark.acme.dev:15002` and `s3a://ilum-data/lintap/raw_sensor`.
 
 Legacy Python ETL still present:
 
@@ -116,7 +117,9 @@ graph LR
     DBTBronze --> DBTSilver[DBT silver: normalized detail models]
     DBTSilver --> DBTGold[DBT gold: process summaries / process_uber_summary]
     DBTGold --> DuckDB[(DuckDB analysis database)]
+    DBTGold --> Spark[(Spark catalog tables)]
     DuckDB --> Analytics[SQL / notebooks / workbench / future exports]
+    Spark --> Analytics
 
     RawSensor -. legacy .-> RawToRolling[rawtorolling.py]
     RawToRolling -. legacy .-> RawToStd[rawtostdview.py]

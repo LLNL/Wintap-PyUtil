@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='table', pre_hook="{{ configure_duckdb_s3_unsigned() }}") }}
 
 select
     PidHash,

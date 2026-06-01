@@ -4,7 +4,9 @@
 
 Build and harden a robust, outsider-friendly Wintap/Lintap data pipeline.
 
-The pipeline should start from canonical `raw_sensor` parquet and produce analysis-ready DuckDB/summary models. DBT is now the primary canonical ETL engine. Older Python and TeleTap ETL paths remain only as legacy/reference/development scaffolding unless explicitly revived.
+The pipeline should start from canonical `raw_sensor` parquet and produce analysis-ready DuckDB/Spark summary models. DBT is now the primary canonical ETL engine. Older Python and TeleTap ETL paths remain only as legacy/reference/development scaffolding unless explicitly revived.
+
+Current POC milestone: dbt can read `raw_process` from S3 through the Ilum Spark connector and materialize a Spark table. We are ready to expand testing from the POC model to all available Bronze/Silver/Gold models.
 
 Secondary goals:
 
@@ -19,7 +21,7 @@ Secondary goals:
 Wintap/Lintap sensor
   -> parquet/raw_sensor/<event>/dayPK=YYYYMMDD/hourPK=HH/[protoPK=tcp|udp]
   -> Wintap-PyUtil/wintap_dbt
-  -> DuckDB analysis database
+  -> DuckDB analysis database or Spark catalog tables
   -> SQL / notebooks / future parquet export
 ```
 
@@ -28,7 +30,7 @@ Wintap/Lintap sensor
 - `raw_sensor` is the only canonical input to post-processing.
 - `merged` is deprecated and should not be part of the normal pipeline.
 - DBT in `Wintap-PyUtil/wintap_dbt` owns canonical ETL transformations.
-- DBT currently builds to DuckDB; parquet export is future work.
+- DBT currently supports DuckDB and Spark targets; full-graph Spark compatibility is in progress.
 - Canonical raw partition names are `dayPK`, `hourPK`, and `protoPK`.
 - New raw naming drift should be fixed at the source instead of adding long-lived downstream aliases.
 - DBT bronze models should assume new canonical data where source cleanup has been completed.
@@ -45,6 +47,7 @@ Wintap/Lintap sensor
 - DBT builds validated on:
   - ACME4 Windows sample: `/home/ubuntu/data/lintap/lintap-dev/ACME4`
   - LINTAP Linux sample: `/home/ubuntu/data/debug/parquet`
+  - S3/Spark POC sample: `s3a://ilum-data/lintap/raw_sensor` via `sc://spark.acme.dev:15002`
 - `Wintap-PyUtil` converted toward `uv` project management.
 - Makefile DBT targets added:
   - `make dbt-debug`
@@ -60,6 +63,7 @@ Wintap/Lintap sensor
 ## Known current limitations
 
 - DBT parquet export is not implemented yet.
+- Full Spark compatibility for every Silver/Gold model is not complete; likely issues include remaining `group by all`, recursive `process_path`, and Linux/Windows schema drift.
 - Optional enrichment sources are not fully wired into DBT; current models are typed empty stubs.
 - Old Python console scripts (`rawtorolling`, `rawtostdview`, `ubersummary`) remain in the package as legacy/reference tools.
 - Some documentation and analytics examples may still expect historical `stdview-*` parquet directories.

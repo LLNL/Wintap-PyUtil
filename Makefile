@@ -66,6 +66,11 @@ dbt-check-config:
 	@test -n "$$WINTAP_DBT_END_DAY" || (echo "WINTAP_DBT_END_DAY is required" && exit 1)
 	@if [ "$(DBT_TARGET)" = "ilum" ] || [ "$${WINTAP_DBT_TARGET:-dev}" = "ilum" ]; then \
 		test -n "$$ILUM_KYUUBI_HOST" || (echo "ILUM_KYUUBI_HOST is required for DBT_TARGET=ilum" && exit 1); \
+	elif [ "$(DBT_TARGET)" = "spark" ] || [ "$${WINTAP_DBT_TARGET:-dev}" = "spark" ]; then \
+		test -n "$$SPARK_CONNECT_HOST" || (echo "SPARK_CONNECT_HOST is required for DBT_TARGET=spark" && exit 1); \
+	elif [ "$(DBT_TARGET)" = "duckdb_s3" ] || [ "$${WINTAP_DBT_TARGET:-dev}" = "duckdb_s3" ]; then \
+		test -n "$$WINTAP_DBT_DATABASE" || (echo "WINTAP_DBT_DATABASE is required" && exit 1); \
+		mkdir -p "$$(dirname "$$WINTAP_DBT_DATABASE")"; \
 	else \
 		test -n "$$WINTAP_DATA_ROOT" || (echo "WINTAP_DATA_ROOT is required" && exit 1); \
 		test -n "$$WINTAP_DBT_DATABASE" || (echo "WINTAP_DBT_DATABASE is required" && exit 1); \

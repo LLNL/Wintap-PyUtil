@@ -20,7 +20,7 @@ These files are now reference/legacy material. DBT is the primary ETL implementa
 
 ## Bronze models
 
-Bronze models replace Python-generated raw views and absorb raw-source drift.
+Bronze models replace Python-generated raw views and absorb raw-source drift. They are the first layer to validate when expanding the Spark/S3 POC beyond `poc_s3_raw_process`.
 
 | DBT model | Raw input | Notes |
 | --- | --- | --- |
@@ -29,8 +29,8 @@ Bronze models replace Python-generated raw views and absorb raw-source drift.
 | `stg_raw_process` | `raw_process` | Required; synthesizes missing `ProcessArgs` from `CommandLine` and missing `UniqueProcessKey` as `NULL`. |
 | `stg_raw_process_conn_incr` | `raw_process_conn_incr` | Optional but important; new source output should use `protoPK`. |
 | `stg_raw_process_file` | `raw_process_file` | File activity. |
-| `stg_raw_process_registry` | `raw_process_registry` | Optional; DBT emits an empty typed relation if absent. |
-| `stg_raw_imageload` | `raw_imageload` | Optional; DBT emits an empty typed relation if absent. |
+| `stg_raw_process_registry` | `raw_process_registry` | Optional; DBT emits an empty typed relation if absent. Current S3 sample does not include it. |
+| `stg_raw_imageload` | `raw_imageload` | Optional; DBT emits an empty typed relation if absent. Current S3 sample does not include it. |
 
 ## Silver detail models
 
@@ -54,6 +54,7 @@ Silver models are DBT translations of the old standard-detail objects from `rawt
 
 Special porting notes:
 
+- For Spark/S3 validation, test Silver models in dependency order and delay `process_path` if recursive/list syntax fails.
 - Legacy `process` SQL used create/update steps; DBT should keep this as CTE-based select logic.
 - Legacy `rawtostdview.py` referenced stale `process_path_2.sql`; DBT uses the `process_path.sql` approach directly.
 - If large datasets struggle with `process_path`, consider a wrapper strategy to build per host later.
@@ -74,6 +75,28 @@ Gold models translate `process_summary.sql`, enrichment summary SQL, and `uber_s
 | `process_mitre_summary` | `process_mitre_summary` | future MITRE source; currently typed empty stub |
 | `sigma_labels_summary` | `sigma_labels_summary` | future Sigma source; currently typed empty stub |
 | `process_uber_summary` | `process_uber_summary` | `process_summary`, enrichment summary models |
+
+## Current all-model test focus
+
+Current S3 sample includes:
+
+```text
+raw_host, raw_process, raw_macip, raw_process_conn_incr, raw_process_file
+```
+
+Use:
+
+```sh
+export WINTAP_DBT_AVAILABLE_RAW_EVENTS=raw_host,raw_process,raw_macip,raw_process_conn_incr,raw_process_file
+```
+
+Then validate:
+
+1. Bronze models.
+2. Core Silver models.
+3. Process/file/network Gold summaries.
+4. `process_uber_summary`.
+5. Monitoring/tests after core models are stable.
 
 ## Monitoring model
 

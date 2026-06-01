@@ -1,10 +1,29 @@
 # Ilum smoke test for Wintap dbt/Spark
 
-This runbook validates the minimum Ilum path for the `wintap_dbt` proof of concept:
+This runbook validates the minimum Ilum path for the `wintap_dbt` proof of concept.
 
-1. start a long-running Spark/Kyuubi connector service that exposes a Thrift endpoint;
-2. run `dbt debug` from an Ilum job/container against that endpoint;
-3. run the POC dbt model to prove Spark can read Wintap Parquet from S3 and write a managed table.
+Current live/validated connector:
+
+```text
+Spark Connect/gRPC service name: spark
+Host: spark.acme.dev
+Port: 15002
+SPARK_REMOTE=sc://spark.acme.dev:15002
+```
+
+Current validated S3 input:
+
+```text
+s3a://ilum-data/lintap/raw_sensor
+```
+
+The older Thrift/Kyuubi flow is still documented below because some Ilum deployments expose that shape, but for the current running connector use the `spark` dbt target, not `ilum`.
+
+This runbook validates:
+
+1. a long-running Spark connector service exposing Spark SQL access;
+2. `dbt debug` from an Ilum/local job against that endpoint;
+3. the POC dbt model proving Spark can read Wintap Parquet from S3 and write a managed table.
 
 The instructions below are intentionally explicit but still contain a few deployment-specific placeholders. Ilum REST payloads and UI labels can vary by version; when in doubt, create the object in the Ilum UI first, inspect/export the generated JSON/YAML, then map the same fields into the example payloads.
 
@@ -19,18 +38,24 @@ wintap_dbt/models/bronze/poc_s3_raw_process.sql
 wintap_dbt/scripts/submit_ilum_dbt_job.py
 ```
 
-The dbt Spark profile is controlled by environment variables:
+The dbt Spark profiles are controlled by environment variables. Use `spark` for Spark Connect/gRPC and `ilum` only for a Thrift/Kyuubi endpoint:
 
 ```yaml
-wintap_dbt:
-  target: "{{ env_var('WINTAP_DBT_TARGET', 'dev') }}"
-  outputs:
-    ilum:
-      type: spark
-      method: "{{ env_var('ILUM_KYUUBI_METHOD', 'thrift') }}"
-      host: "{{ env_var('ILUM_KYUUBI_HOST') }}"
-      port: "{{ env_var('ILUM_KYUUBI_PORT', '10009') | int }}"
-      schema: "{{ env_var('WINTAP_DBT_SCHEMA', 'wintap') }}"
+spark:
+  type: spark
+  method: session
+  host: "{{ env_var('SPARK_CONNECT_HOST', 'spark.acme.dev') }}"
+  port: "{{ env_var('SPARK_CONNECT_PORT', '15002') | int }}"
+  schema: "{{ env_var('WINTAP_DBT_SCHEMA', 'wintap_smoke') }}"
+  server_side_parameters:
+    spark.remote: "{{ env_var('SPARK_REMOTE', 'sc://spark.acme.dev:15002') }}"
+
+ilum:
+  type: spark
+  method: "{{ env_var('ILUM_KYUUBI_METHOD', 'thrift') }}"
+  host: "{{ env_var('ILUM_KYUUBI_HOST') }}"
+  port: "{{ env_var('ILUM_KYUUBI_PORT', '10009') | int }}"
+  schema: "{{ env_var('WINTAP_DBT_SCHEMA', 'wintap') }}"
 ```
 
 The POC model reads:
@@ -94,18 +119,24 @@ export ILUM_GIT_REPO="https://github.com/LLNL/Wintap-PyUtil.git"
 export ILUM_GIT_BRANCH="<this-branch>"
 
 # Wintap data in S3. This path should contain raw_sensor/ beneath it.
-export WINTAP_DBT_DATASET="s3a://<bucket>/<prefix>/parquet"
-export WINTAP_DBT_START_DAY="20250101"
-export WINTAP_DBT_END_DAY="20250101"
+export WINTAP_DBT_DATASET="s3a://ilum-data/lintap"
+export WINTAP_DBT_START_DAY="20260530"
+export WINTAP_DBT_END_DAY="20260530"
+export WINTAP_DBT_INCLUDE_MONITORING=False
+export WINTAP_DBT_AVAILABLE_RAW_EVENTS=raw_host,raw_process,raw_macip,raw_process_conn_incr,raw_process_file
 
 # dbt/Spark namespace
 export WINTAP_DBT_SCHEMA="wintap_smoke"
 
-# Kyuubi/Thrift endpoint produced by the connector service.
-# Fill these in after step 1.
-export ILUM_KYUUBI_HOST="<kyuubi-service-host>"
-export ILUM_KYUUBI_PORT="10009"
-export ILUM_KYUUBI_METHOD="thrift"
+# Current Spark Connect/gRPC endpoint.
+export SPARK_CONNECT_HOST="spark.acme.dev"
+export SPARK_CONNECT_PORT="15002"
+export SPARK_REMOTE="sc://spark.acme.dev:15002"
+
+# For Thrift/Kyuubi only, use target=ilum and set:
+# export ILUM_KYUUBI_HOST="<kyuubi-service-host>"
+# export ILUM_KYUUBI_PORT="10009"
+# export ILUM_KYUUBI_METHOD="thrift"
 ```
 
 Use a small day range for the first smoke test. The POC only needs a day/hour containing a few `raw_process` rows.

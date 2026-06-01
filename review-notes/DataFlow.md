@@ -6,15 +6,17 @@ The canonical pipeline is now DBT-first:
 
 ```text
 Wintap/Lintap sensor parquet
-  -> canonical raw_sensor layout
+  -> canonical raw_sensor layout, local or S3
   -> DBT bronze models
   -> DBT silver models
   -> DBT gold models
-  -> DuckDB analysis database
+  -> DuckDB analysis database or Spark catalog tables
   -> notebooks / SQL / future parquet export
 ```
 
 Legacy Python ETL commands (`rawtorolling`, `rawtostdview`, `ubersummary`) and TeleTap scripts remain in the tree, but are no longer the preferred path for new processing.
+
+Current Spark/S3 POC status: `poc_s3_raw_process` passes against `s3a://ilum-data/lintap/raw_sensor` using Spark Connect at `sc://spark.acme.dev:15002`. The next validation step is running all available Bronze/Silver/Gold model subsets against that same S3 sample.
 
 ## Stage 0: Sensor parquet production
 
@@ -79,7 +81,7 @@ DBT project location:
 Wintap-PyUtil/wintap_dbt/
 ```
 
-Bronze models read `raw_sensor` parquet and normalize raw-source drift. They own compatibility shims so downstream models can depend on stable columns and relations.
+Bronze models read `raw_sensor` parquet from local files, S3 through DuckDB/httpfs, or S3 through Spark. They normalize raw-source drift and own compatibility shims so downstream models can depend on stable columns and relations.
 
 Implemented bronze behavior includes:
 

@@ -25,8 +25,21 @@
     {#
       Avoid compile-time filesystem checks in Spark/Ilum. S3 access is owned by
       the Spark driver, and dbt compilation may not have equivalent credentials.
+
+      For broader Spark builds, set WINTAP_DBT_AVAILABLE_RAW_EVENTS to a
+      comma-separated allow-list so optional missing event families compile to
+      typed empty models instead of path reads that will fail at execution time.
+      Example: raw_host,raw_process,raw_macip,raw_process_conn_incr,raw_process_file
     #}
-    {{ return(true) }}
+    {%- set available = env_var('WINTAP_DBT_AVAILABLE_RAW_EVENTS', '') -%}
+    {%- if available | trim == '' -%}
+        {{ return(true) }}
+    {%- endif -%}
+    {%- set normalized = [] -%}
+    {%- for item in available.split(',') -%}
+        {%- do normalized.append(item | trim | lower) -%}
+    {%- endfor -%}
+    {{ return(event_type | lower in normalized) }}
 {%- endmacro %}
 
 {% macro first_existing_raw_event(event_types) -%}

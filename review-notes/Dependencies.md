@@ -16,6 +16,8 @@
 
 - `duckdb`
 - `dbt-duckdb`
+- `dbt-spark[PyHive,session]`
+- `pyspark[connect]`
 - `pyarrow`
 - `pandas`
 - `boto3`, `s3fs`, `fsspec`
@@ -51,6 +53,15 @@ The DBT project lives in:
 Wintap-PyUtil/wintap_dbt/
 ```
 
+The DBT project supports multiple targets:
+
+| Target | Adapter | Purpose |
+| --- | --- | --- |
+| `dev` | DuckDB | Local filesystem raw Parquet to local DuckDB. |
+| `duckdb_s3` | DuckDB | S3 raw Parquet to local DuckDB, requires local S3 credentials. |
+| `spark` | dbt-spark session | Spark Connect/gRPC, currently validated with `sc://spark.acme.dev:15002`. |
+| `ilum` | dbt-spark thrift | Future/alternate Kyuubi/Thrift endpoint. |
+
 The DuckDB profile writes to the required environment variable:
 
 ```text
@@ -65,6 +76,7 @@ Useful commands:
 cd Wintap-PyUtil
 make dbt-build
 make dbt-test
+make dbt-build DBT_TARGET=spark DBT_SELECT=poc_s3_raw_process
 
 source wintap-run.env
 make dbt-build

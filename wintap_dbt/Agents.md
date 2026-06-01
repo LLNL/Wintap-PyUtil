@@ -7,6 +7,34 @@ This summary is formatted as a comprehensive technical instruction document (Age
 ## Mission
 Migrate the existing dbt pipeline from the **Wintap-PyUtil** project (branch: `grants-add-dbt`, directory: `wintap_dbt`) from a local DuckDB/Parquet environment to a distributed **Spark** architecture managed by **Ilum**. The final implementation must support reading from **S3**, writing to a persistent Spark catalog (Hive/Iceberg/Delta), and execution via a custom Python application using the **Ilum REST API**.
 
+## Current POC status
+
+A working milestone has been committed:
+
+```text
+7452604 Add Ilum Spark dbt POC milestone
+```
+
+Validated Spark Connect endpoint:
+
+```text
+SPARK_REMOTE=sc://spark.acme.dev:15002
+```
+
+Validated S3 sample:
+
+```text
+s3a://ilum-data/lintap/raw_sensor
+```
+
+The POC model `poc_s3_raw_process` passes and materializes 728442 grouped/source rows. The next task is staged validation of all available Bronze/Silver/Gold models using:
+
+```sh
+export WINTAP_DBT_AVAILABLE_RAW_EVENTS=raw_host,raw_process,raw_macip,raw_process_conn_incr,raw_process_file
+```
+
+Known delayed issues: remaining `group by all`, recursive `process_path`, optional registry/image-load absence, monitoring/pidstat, enrichment stubs, and local DuckDB S3 credentials.
+
 ## Technical Architecture
 *   **Orchestration & Execution:** Ilum (Kubernetes-native Spark management).
 *   **SQL Gateway:** Apache Kyuubi (fronting the Spark engine).
