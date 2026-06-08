@@ -103,6 +103,32 @@ Wintap raw_sensor data path: .../parquet/raw_sensor
 
 The same paths are also written to `WintapLogger`.
 
+## Linux eBPF network sensor update
+
+A focused source-side investigation was performed for Linux network events where the local/sensor-side IP address was consistently `0.0.0.0`.
+
+Findings and changes are documented in:
+
+```text
+Wintap-PyUtil/review-notes/LinuxEbpfNetworkSensor.md
+```
+
+Implemented in the `wintap` repository:
+
+- TCP connection lifecycle events now use the kernel `sock/inet_sock_set_state` tracepoint instead of `sys_enter_connect` / `sys_enter_accept` for endpoint addresses.
+- This tracepoint provides both local and remote IPv4 endpoints after the kernel has assigned socket state, fixing the root cause where syscall-entry tracing emitted `saddr = 0`.
+- Placeholder TCP send/recv events with unknown endpoints are no longer emitted from `sendto` / `recvfrom` syscall entry paths.
+- C# IP conversion in `NetworkSensor.cs` was adjusted to preserve raw address byte order.
+
+Validation performed:
+
+```sh
+cd /home/ubuntu/git/wintap/wintap/platform/linux/sensor/ebpf/tracers
+make network_ops_tracer.bpf.o
+```
+
+The eBPF object compiled successfully. Full .NET build validation was blocked by local NuGet restore state for `AWSSDK.S3`.
+
 ## Current limitations
 
 Still not complete:
@@ -112,3 +138,4 @@ Still not complete:
 - Old Python ETL commands still exist and are not yet wrappers around DBT.
 - The legacy `merged` tooling still exists in code/docs, but is no longer the desired normal path.
 - Already-collected LINTAP data may use `proto`; new source output uses the canonical `protoPK` partition.
+- Linux TCP local endpoint capture has been improved for connection lifecycle events, but UDP local endpoint capture, TCP byte-count events with endpoints, IPv6, and accept/close PID attribution remain follow-up work.

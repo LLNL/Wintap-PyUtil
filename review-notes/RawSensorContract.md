@@ -79,6 +79,28 @@ Current names often follow:
 
 This can remain as an implementation detail, but outsiders should be taught the directory contract rather than the file-name parser.
 
+## Network endpoint semantics
+
+For canonical network increments (`raw_process_conn_incr`), downstream models should preserve a clear distinction between the sensor/local endpoint and remote peer endpoint.
+
+Expected TCP connection lifecycle semantics for Linux after the eBPF update:
+
+| Concept | Wintap source field | Meaning |
+| --- | --- | --- |
+| Local/sensor IP | `TcpConnection.SourceAddress` | IP address selected on the monitored host for the connection. |
+| Local/sensor port | `TcpConnection.SourcePort` | Local port selected on the monitored host. |
+| Remote peer IP | `TcpConnection.DestinationAddress` | Remote endpoint IP. |
+| Remote peer port | `TcpConnection.DestinationPort` | Remote endpoint port. |
+
+For established external TCP connection records, `0.0.0.0` in the local/sensor IP field should be treated as anomalous unless the remote endpoint is also a wildcard/local special case. The prior Linux TCP tracer emitted `0.0.0.0` because it collected connect events at syscall entry before the local address was assigned; this has been changed source-side to use `sock/inet_sock_set_state` for TCP connection lifecycle events.
+
+Known caveats:
+
+- UDP local endpoint capture is not fully fixed yet.
+- TCP per-send/per-receive byte-count events with endpoint addresses are future work.
+- IPv6 endpoint population is future work.
+- TCP accept/close process attribution may require additional socket/fd correlation.
+
 ## Required vs optional sources
 
 Minimum required for a meaningful build:

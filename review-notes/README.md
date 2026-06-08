@@ -20,11 +20,12 @@ This directory contains first-pass review notes and current implementation statu
 9. [`DataModel.md`](DataModel.md) — DBT-era dataset/model conventions and historical layer mapping.
 10. [`Dependencies.md`](Dependencies.md) — runtime/tool dependencies and relevant entry points.
 11. [`Teletap.md`](Teletap.md) — focused notes on the current Linux/TeleTap scaffolding.
-12. [`OpenQuestions.md`](OpenQuestions.md) — remaining follow-up work and deferred questions.
+12. [`LinuxEbpfNetworkSensor.md`](LinuxEbpfNetworkSensor.md) — current Linux eBPF network sensor findings, local-IP fix, risks, and follow-up work.
+13. [`OpenQuestions.md`](OpenQuestions.md) — remaining follow-up work and deferred questions.
 
 ## Scope of this pass
 
-The emphasis is the data path from initial parquet files into analysis notebooks. This pass does **not** fully audit sensor collection internals, the web UI, AI/chat features, or every notebook.
+The original emphasis was the data path from initial parquet files into analysis notebooks. A later focused pass reviewed the Linux eBPF network sensor because upstream local endpoint quality directly affects raw network parquet and downstream DBT models. This pass still does **not** fully audit all sensor collection internals, the web UI, AI/chat features, or every notebook.
 
 ## Current code status summary
 
@@ -32,3 +33,4 @@ The emphasis is the data path from initial parquet files into analysis notebooks
 - `Wintap-PyUtil` now uses `uv` project configuration and includes `dbt-duckdb`.
 - The .NET sensor has been adjusted to emit canonical metadata names (`raw_host`, `raw_macip`) at the source.
 - Legacy `merged` tooling remains in the tree but is no longer the desired normal path.
+- A focused Linux eBPF network sensor review identified why TCP local/source IPs were emitted as `0.0.0.0`; the tracer was changed to use `sock/inet_sock_set_state` for TCP connection lifecycle records.

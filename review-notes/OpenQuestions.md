@@ -71,9 +71,23 @@ raw_process_conn_incr/dayPK=YYYYMMDD/hourPK=HH/protoPK=tcp|udp
 
 DBT now expects `protoPK`; run a complete build/test against newly collected data.
 
+### 5. Validate Linux eBPF TCP local endpoint fix end-to-end
+
+A source-side fix was made so Linux TCP connection lifecycle events use `sock/inet_sock_set_state` rather than syscall-entry connect/accept tracing. The eBPF object compiles, but it still needs runtime validation against newly collected data.
+
+Validation goals:
+
+- outbound TCP connect records have non-zero local/sensor IP and port,
+- remote IP/port are populated correctly,
+- downstream `raw_process_conn_incr` / DBT views preserve local vs remote endpoint semantics,
+- counts of `local_ip_addr = '0.0.0.0'` for established external TCP connections drop to zero or near-zero,
+- PID/process attribution quality is measured for connect, accept, and close events.
+
+See also: [`LinuxEbpfNetworkSensor.md`](LinuxEbpfNetworkSensor.md).
+
 ## Medium priority
 
-### 5. Confirm LINTAP timestamp semantics
+### 6. Confirm LINTAP timestamp semantics
 
 TeleTap `summary_ddl.sql` mixes `win32_to_epoch(...)` and direct `to_timestamp(eventtime)`.
 
@@ -83,7 +97,7 @@ Confirm actual Linux raw parquet timestamp units for:
 - file events,
 - network events.
 
-### 6. Normalize image-load naming when safe
+### 7. Normalize image-load naming when safe
 
 Naming is inconsistent across older docs/code:
 
@@ -93,7 +107,7 @@ Naming is inconsistent across older docs/code:
 
 Current DBT uses `raw_imageload` as the raw event and `process_image_load` as the silver model. This should remain documented unless a source-side naming cleanup is made.
 
-### 7. Inventory schema templates and optional relations
+### 8. Inventory schema templates and optional relations
 
 DBT has typed empty stubs for current optional inputs, but a more complete inventory would help future source types.
 
@@ -105,7 +119,7 @@ Useful output:
 - empty-relation strategy,
 - models depending on it.
 
-### 8. Make deduplication strategy explicit
+### 9. Make deduplication strategy explicit
 
 Legacy Python used `GROUP BY ALL` for raw views and tracked duplicate counts. DBT should document and test its intended dedupe behavior.
 
@@ -117,7 +131,7 @@ Questions to confirm later:
 
 ## Low priority
 
-### 9. Analytics/notebook expectations vary
+### 10. Analytics/notebook expectations vary
 
 Some workshop docs use older pipenv/make flows and published `stdview` URLs. ACME4 explore uses `uv` and modern project structure.
 
@@ -127,7 +141,7 @@ Follow-up:
 - document whether they consume DBT DuckDB output or exported parquet,
 - update older workshop references if needed.
 
-### 10. Backdated/reprocessing policy
+### 11. Backdated/reprocessing policy
 
 S3 tooling historically noted backdated data where upload time differs from data-capture time. DBT currently builds a requested day range, but there is not yet a broader policy for automatic affected-partition reprocessing.
 
