@@ -1,7 +1,7 @@
-import marimo as mo
+import marimo
 
-__generated_with = "0.13.15"
-app = mo.App(width="full")
+__generated_with = "0.23.16"
+app = marimo.App(width="full")
 
 
 @app.cell
@@ -46,14 +46,12 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # Wintap/Lintap DBT QA Dashboard
+    mo.md("""
+    # Wintap/Lintap DBT QA Dashboard
 
-        Quick overview for a DBT-built Wintap/Lintap DuckDB database. The database path is resolved from
-        `WINTAP_DBT_DATABASE`, or from `WINTAP_DATA_ROOT/duckdb/wintap.duckdb` when only `WINTAP_DATA_ROOT` is set.
-        """
-    )
+    Quick overview for a DBT-built Wintap/Lintap DuckDB database. The database path is resolved from
+    `WINTAP_DBT_DATABASE`, or from `WINTAP_DATA_ROOT/duckdb/wintap.duckdb` when only `WINTAP_DATA_ROOT` is set.
+    """)
     return
 
 

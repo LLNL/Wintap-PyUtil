@@ -63,7 +63,7 @@ dbt-check-config:
 	@test -n "$$WINTAP_DBT_DATABASE" || (echo "WINTAP_DBT_DATABASE is required" && exit 1)
 	@test -n "$$WINTAP_DBT_START_DAY" || (echo "WINTAP_DBT_START_DAY is required" && exit 1)
 	@test -n "$$WINTAP_DBT_END_DAY" || (echo "WINTAP_DBT_END_DAY is required" && exit 1)
-	@test -d "$$WINTAP_DBT_DATASET/raw_sensor" || (echo "$$WINTAP_DBT_DATASET/raw_sensor does not exist" && exit 1)
+	#@test -d "$$WINTAP_DBT_DATASET/raw_sensor" || (echo "$$WINTAP_DBT_DATASET/raw_sensor does not exist" && exit 1)
 	@mkdir -p "$$(dirname "$$WINTAP_DBT_DATABASE")"
 
 print-dbt-config: dbt-check-config
@@ -90,5 +90,8 @@ qa-pid-hash: dbt-check-config
 
 qa-dashboard: dbt-check-config
 	$(DBT_UV_RUN) --project . marimo run notebooks/wintap_dbt_overview.py
+
+qa-pidstat: dbt-check-config
+	$(DBT_UV_RUN) --project . marimo run ../Lintap/teletap/grokdata_marimo.py
 
 .PHONY: fmt fmt-check lint test ci venv build clean source-install setup requirements cleanpynb dbt-check-config print-dbt-config dbt-debug dbt-build dbt-test dbt-docs qa-pid-hash qa-dashboard

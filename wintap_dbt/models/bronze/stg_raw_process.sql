@@ -8,5 +8,5 @@ select
     {% endif -%}
     count(*) as num_dups
 from {{ raw_scan_for(['raw_process']) }}
-where {{ day_filter() }}
+where {{ partition_filter() }}
 group by all

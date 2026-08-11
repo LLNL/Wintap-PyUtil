@@ -6,15 +6,7 @@
     {%- if not execute -%}
         {{ return(true) }}
     {%- endif -%}
-    {%- set sql -%}
-        select count(*) as num_files
-        from glob('{{ raw_sensor_glob(event_type) }}')
-    {%- endset -%}
-    {%- set results = run_query(sql) -%}
-    {%- if results is none or results|length == 0 -%}
-        {{ return(false) }}
-    {%- endif -%}
-    {{ return(results.columns[0].values()[0] > 0) }}
+    {{ return(matching_raw_sensor_partition_globs(event_type) | length > 0) }}
 {%- endmacro %}
 
 {% macro first_existing_raw_event(event_types) -%}
@@ -42,9 +34,13 @@
     {%- if event_type is none -%}
         {{ return(false) }}
     {%- endif -%}
+    {%- set globs = matching_raw_sensor_partition_globs(event_type) -%}
+    {%- if globs | length == 0 -%}
+        {{ return(false) }}
+    {%- endif -%}
     {%- set sql -%}
         select column_name
-        from (describe select * from {{ parquet_relation(event_type) }})
+        from (describe select * from parquet_scan({{ raw_globs_sql(globs) }}, hive_partitioning=1, union_by_name=true))
         where lower(column_name) = lower('{{ column_name }}')
         limit 1
     {%- endset -%}

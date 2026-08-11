@@ -23,6 +23,7 @@ With the Makefile, DBT-specific values are derived from that root when unset:
 
 ```text
 WINTAP_DBT_DATASET=$WINTAP_DATA_ROOT/parquet
+WINTAP_DBT_RAW_SENSOR_DATASET=$WINTAP_DBT_DATASET
 WINTAP_DBT_DATABASE=$WINTAP_DATA_ROOT/duckdb/wintap.duckdb
 WINTAP_DBT_START_DAY=<minimum discovered dayPK>
 WINTAP_DBT_END_DAY=<maximum discovered dayPK>
@@ -30,6 +31,12 @@ PIDSTAT_DATA_PATH=$WINTAP_DATA_ROOT/pidstat
 ```
 
 You can still export any of those variables to override the defaults. DBT itself requires `WINTAP_DBT_DATASET`, `WINTAP_DBT_START_DAY`, `WINTAP_DBT_END_DAY`, and `WINTAP_DBT_DATABASE`; the Makefile fills them from `WINTAP_DATA_ROOT` for normal runs.
+
+For split I/O, keep `WINTAP_DBT_DATABASE` local and point `WINTAP_DBT_RAW_SENSOR_DATASET` at the parquet dataset root that contains `raw_sensor/`. If that raw dataset lives on S3, the dbt DuckDB profile now loads `httpfs` and configures an S3 secret from the usual AWS environment variables. For Garage/path-style endpoints, also set `AWS_ENDPOINT_URL`, `AWS_DEFAULT_REGION` or `AWS_REGION`, and `DUCKDB_USE_SSL`.
+
+Raw parquet scans also narrow their file globs to the requested `dayPK=` partitions from `WINTAP_DBT_START_DAY` through `WINTAP_DBT_END_DAY`, which helps when reading a small window out of a much larger remote dataset. The compile-time raw-event alias and optional-column checks use the same narrowed day partition set instead of probing the full event prefix.
+
+If `WINTAP_DBT_START_HOUR` and/or `WINTAP_DBT_END_HOUR` are set, dbt further narrows raw scans to `hourPK=HH` partitions within the inclusive `start day/hour` to `end day/hour` window. When omitted, all hours in the requested day range are included.
 
 ## Running
 
