@@ -1,0 +1,8 @@
+select
+    cast(null as varchar) pid_hash,
+    cast(null as varchar[]) label_sources,
+    cast(0 as bigint) label_num_sources,
+    cast(null as varchar[]) label_annonations,
+    cast(0 as bigint) label_num_uniq_annotations,
+    cast(0 as bigint) label_num_hits
+where false

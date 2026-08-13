@@ -1,0 +1,96 @@
+[project]
+name = "wintappy"
+dynamic = ["version"]
+description = "Python and DuckDB utilities for processing Wintap/Lintap telemetry data"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = { text = "MIT" }
+authors = [
+  { name = "LLNL", email = "grantj@llnl.gov" }
+]
+dependencies = [
+  "altair",
+  "boto3",
+  "dbt-duckdb>=1.9,<1.10",
+  "duckdb",
+  "dynaconf",
+  "fsspec",
+  "gitpython",
+  "humanfriendly",
+  "importlib-resources",
+  "ipyfilechooser",
+  "jinja2",
+  "jinjasql",
+  "lxml",
+  "magic-duckdb",
+  "marimo",
+  "matplotlib",
+  "mitreattack-python",
+  "networkx",
+  "pandas",
+  "pyarrow",
+  "python-dotenv",
+  "pyyaml",
+  "s3fs",
+  "toml",
+  "tqdm",
+]
+
+[project.urls]
+Homepage = "https://github.com/LLNL/Wintap-PyUtil"
+
+[project.scripts]
+collectbinaries = "wintappy.etlutils.collectbinaries:main"
+dbhelpers = "wintappy.etlutils.dbhelpers:main"
+downloadfroms3 = "wintappy.etlutils.downloadfroms3:main"
+run_enrichment = "wintappy.etlutils.run_enrichment:main"
+rawtorolling = "wintappy.etlutils.rawtorolling:main"
+rawtostdview = "wintappy.etlutils.rawtostdview:main"
+ubersummary = "wintappy.etlutils.ubersummary:main"
+
+[dependency-groups]
+dev = [
+  "black[jupyter]",
+  "isort",
+  "ipykernel",
+  "mypy",
+  "nbstripout",
+  "pytest",
+  "sqlfluff",
+  "types-pyyaml",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = { attr = "wintappy.VERSION" }
+
+[tool.setuptools.packages.find]
+exclude = ["examples*", "scripts*", "tests*"]
+
+[tool.setuptools.package-data]
+wintappy = ["**/*.sql", "schema/**/*.parquet"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+ignore_missing_imports = true
+python_version = "3.10"
+pretty = true
+
+[tool.pytest.ini_options]
+pythonpath = ["wintappy"]
+
+[tool.sqlfluff.core]
+dialect = "duckdb"
+sql_file_exts = ".sql"
+max_line_length = 100
+ignore = "templating"
+exclude_rules = "L009"

@@ -1,0 +1,10 @@
+wintap_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('WINTAP_DBT_DATABASE') }}"
+      threads: 4
+      extensions:
+        - httpfs
+        - parquet

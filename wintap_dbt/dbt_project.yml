@@ -1,0 +1,39 @@
+name: 'wintap_dbt'
+version: '0.1.0'
+config-version: 2
+
+profile: 'wintap_dbt'
+
+model-paths: ['models']
+macro-paths: ['macros']
+test-paths: ['tests']
+seed-paths: ['seeds']
+analysis-paths: ['analyses']
+snapshot-paths: ['snapshots']
+
+on-run-start:
+  - "{{ configure_raw_sensor_access() }}"
+
+target-path: 'target'
+clean-targets:
+  - 'target'
+  - 'dbt_packages'
+
+vars:
+  dataset: "{{ env_var('WINTAP_DBT_DATASET') }}"
+  raw_sensor_dataset: "{{ env_var('WINTAP_DBT_RAW_SENSOR_DATASET', env_var('WINTAP_DBT_DATASET')) }}"
+  start_day: "{{ env_var('WINTAP_DBT_START_DAY') }}"
+  end_day: "{{ env_var('WINTAP_DBT_END_DAY') }}"
+  start_hour: "{{ env_var('WINTAP_DBT_START_HOUR', '') }}"
+  end_hour: "{{ env_var('WINTAP_DBT_END_HOUR', '') }}"
+
+models:
+  wintap_dbt:
+    bronze:
+      +materialized: view
+    silver:
+      +materialized: table
+    gold:
+      +materialized: table
+    monitoring:
+      +materialized: view

@@ -78,7 +78,17 @@ tramp
 # Ignore dynaconf secret files
 .secrets.*
 
-# Local config file. A common practice is to have many, so ignore those also.
+# Local config files. A common practice is to have many, so ignore those also.
 wintappy_settings.toml*
+wintap-run.env
+
+# uv lockfile is generated locally until dependency pinning policy is finalized.
+uv.lock
+
+# DBT artifacts and local databases
 dbt/logs/dbt.log
 dbt/xdr/xdr-dev.duckdb
+wintap_dbt/logs/
+wintap_dbt/target/
+wintap_dbt/dbt_packages/
+wintap_dbt/*.duckdb

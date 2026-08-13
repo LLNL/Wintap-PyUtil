@@ -1,47 +1,106 @@
 <img width="200" src="https://user-images.githubusercontent.com/50601643/218871643-2d3af433-0923-4786-b5e5-24c6a72e803e.png">
 
 # Wintap-PyUtil
-Python utilities for working with Wintap data
 
-# Minimum System Requirements
-Python 3.10
+Python, DuckDB, and DBT utilities for processing Wintap/Lintap telemetry data.
 
-# Getting Started
+DBT is now the primary post-processing path. The canonical input is a `raw_sensor` parquet dataset:
 
-Setup the python venv and install from source for development testing.
+```text
+<dataset>/raw_sensor/<event_type>/dayPK=YYYYMMDD/hourPK=HH/*.parquet
+<dataset>/raw_sensor/raw_process_conn_incr/dayPK=YYYYMMDD/hourPK=HH/protoPK=tcp|udp/*.parquet
+```
+
+For the full current run process, start with:
+
+```text
+review-notes/PipelineRunbook.md
+```
+
+## Minimum system requirements
+
+- Python 3.10, 3.11, or 3.12
+- [uv](https://docs.astral.sh/uv/)
+- DuckDB CLI for QA scripts
+- DuckDB-compatible parquet data
+
+Install uv if needed:
 
 ```bash
-$ make venv
-$ pipenv run -- pip3 install -e .
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Import the module in a python notebook or file, or use the commandline tools
+## DBT pipeline quick setup
+
+Create a local run config from the example:
 
 ```bash
-$ pipenv run rawtorolling --help
-usage: rawtorolling.py [-h] [-d DATASET] [-s START] [-e END] [-l LOG_LEVEL]
-
-Convert raw Wintap data into standard form, partitioned by day
-
-options:
-  -h, --help            show this help message and exit
-  -d DATASET, --dataset DATASET
-                        Path to the dataset dir to process
-  -s START, --start START
-                        Start date (YYYYMMDD)
-  -e END, --end END     End date (YYYYMMDD)
-  -l LOG_LEVEL, --log-level LOG_LEVEL
-                        Logging Level: INFO, WARN, ERROR, DEBUG
+cd Wintap-PyUtil
+cp wintap-run.env.example wintap-run.env
+# edit wintap-run.env
+source wintap-run.env
 ```
 
-```python
-from wintappy.datautils.rawutil import init_db
+The local config defines one run root and derived DBT settings:
 
-connection = init_db()
-print(connection.query('select 1'))
+```text
+WINTAP_DATA_ROOT
+WINTAP_DBT_DATASET
+WINTAP_DBT_DATABASE
+WINTAP_DBT_START_DAY
+WINTAP_DBT_END_DAY
 ```
 
-See `wintappy/examples/` for additional examples.
+Useful targets:
 
-# Release
+```bash
+make print-dbt-config
+make dbt-debug
+make dbt-build
+make dbt-test
+make qa-pid-hash
+make dbt-docs
+```
+
+DBT Makefile targets use `uv run --isolated --dev` by default so a missing or broken local `.venv` does not block processing. Override with `DBT_UV_RUN='uv run'` only if you intentionally want to use the project virtual environment.
+
+## Development setup
+
+Create the development environment and install the package in editable mode:
+
+```bash
+uv sync --dev
+```
+
+Run commands through uv:
+
+```bash
+uv run python -c "import wintappy; print(wintappy.VERSION)"
+```
+
+## Legacy Python ETL commands
+
+The pre-DBT Python/DuckDB pipeline remains available as legacy/reference tooling while the DBT path is hardened:
+
+```bash
+uv run rawtorolling --help
+uv run rawtostdview --help
+uv run ubersummary --help
+```
+
+Use DBT for new processing work.
+
+## Development tasks
+
+```bash
+make fmt          # black + isort
+make fmt-check    # formatting checks
+make lint         # mypy + sqlfluff
+make test         # pytest
+make ci           # fmt-check + lint + test + dbt-build
+make clean
+```
+
+## Release
+
 LLNL-CODE-837816
