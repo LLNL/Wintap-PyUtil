@@ -27,7 +27,7 @@ WINTAP_DBT_RAW_SENSOR_DATASET=$WINTAP_DBT_DATASET
 WINTAP_DBT_DATABASE=$WINTAP_DATA_ROOT/duckdb/wintap.duckdb
 WINTAP_DBT_START_DAY=<minimum discovered dayPK>
 WINTAP_DBT_END_DAY=<maximum discovered dayPK>
-PIDSTAT_DATA_PATH=$WINTAP_DATA_ROOT/pidstat
+PIDSTAT_DATA_PATH=$WINTAP_DATA_ROOT/parquet/raw_sensor/pidstat
 ```
 
 You can still export any of those variables to override the defaults. DBT itself requires `WINTAP_DBT_DATASET`, `WINTAP_DBT_START_DAY`, `WINTAP_DBT_END_DAY`, and `WINTAP_DBT_DATABASE`; the Makefile fills them from `WINTAP_DATA_ROOT` for normal runs.
@@ -61,7 +61,7 @@ make dbt-build
 make qa-dashboard
 ```
 
-Pidstat CSV data is optional. If `$PIDSTAT_DATA_PATH` or `$WINTAP_DATA_ROOT/pidstat` contains CSV files, DBT loads them into `pidstat_metrics`; otherwise the model is built as an empty typed table.
+Pidstat parquet data is optional. If `$PIDSTAT_DATA_PATH` or `$WINTAP_DATA_ROOT/parquet/raw_sensor/pidstat` contains parquet files, DBT loads them into `pidstat_metrics`; otherwise the model is built as an empty typed table.
 
 ## Layers
 
@@ -79,7 +79,7 @@ Implemented:
 - Gold models ported from legacy summary SQL.
 - `process_uber_summary` with typed empty enrichment stubs.
 - Schema tests for core keys and canonical network partitions.
-- Optional pidstat CSV loading into DBT.
+- Optional pidstat parquet loading into DBT, including `hostname` and container-attribution columns.
 - TeleTap-style summary/chart views in DBT monitoring models.
 - QA script for `pid_hash` primary/foreign-key orphan checks.
 - Marimo QA/overview dashboard.
