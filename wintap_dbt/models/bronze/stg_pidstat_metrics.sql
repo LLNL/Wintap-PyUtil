@@ -1,4 +1,4 @@
-{% if pidstat_data_exists() %}
+{% if raw_event_exists('pidstat') %}
 select
     time,
     uid,
@@ -27,10 +27,13 @@ select
     container_runtime,
     container_id,
     filename
-from read_parquet(
-    '{{ pidstat_parquet_glob() }}',
+from parquet_scan(
+    {{ raw_sensor_partition_globs_sql('pidstat') }},
+    hive_partitioning=1,
+    union_by_name=true,
     filename=true
 )
+where {{ partition_filter() }}
 {% else %}
 select
     cast(null as timestamp) as time,

@@ -27,7 +27,6 @@ WINTAP_DBT_RAW_SENSOR_DATASET=$WINTAP_DBT_DATASET
 WINTAP_DBT_DATABASE=$WINTAP_DATA_ROOT/duckdb/wintap.duckdb
 WINTAP_DBT_START_DAY=<minimum discovered dayPK>
 WINTAP_DBT_END_DAY=<maximum discovered dayPK>
-PIDSTAT_DATA_PATH=$WINTAP_DATA_ROOT/parquet/raw_sensor/pidstat
 ```
 
 You can still export any of those variables to override the defaults. DBT itself requires `WINTAP_DBT_DATASET`, `WINTAP_DBT_START_DAY`, `WINTAP_DBT_END_DAY`, and `WINTAP_DBT_DATABASE`; the Makefile fills them from `WINTAP_DATA_ROOT` for normal runs.
@@ -61,7 +60,7 @@ make dbt-build
 make qa-dashboard
 ```
 
-Pidstat parquet data is optional. If `$PIDSTAT_DATA_PATH` or `$WINTAP_DATA_ROOT/parquet/raw_sensor/pidstat` contains parquet files, DBT loads them into `pidstat_metrics`; otherwise the model is built as an empty typed table.
+Pidstat parquet data is an optional raw event. If `<raw_sensor_dataset>/raw_sensor/pidstat` contains parquet files in the canonical `dayPK=/hourPK=` layout, DBT loads them into `pidstat_metrics`; otherwise the model is built as an empty typed table.
 
 ## Layers
 
