@@ -1,3 +1,4 @@
+{# Create the DuckDB S3 secret when raw_sensor input is read from S3. #}
 {% macro configure_raw_sensor_access() -%}
     {%- set raw_sensor_dataset = var('raw_sensor_dataset') -%}
     {%- if not execute or not raw_sensor_dataset.startswith('s3://') -%}

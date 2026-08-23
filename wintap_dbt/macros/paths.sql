@@ -1,19 +1,24 @@
+{# Return the general dataset root used for outputs such as the DuckDB database. #}
 {% macro dataset_path() -%}
     {{ var('dataset') }}
 {%- endmacro %}
 
+{# Return the dataset root that contains canonical raw_sensor parquet input. #}
 {% macro raw_sensor_dataset_path() -%}
     {{ var('raw_sensor_dataset').rstrip('/') }}
 {%- endmacro %}
 
+{# Build the canonical raw_sensor directory for one event type. #}
 {% macro raw_sensor_path(event_type) -%}
     {{ raw_sensor_dataset_path() }}/raw_sensor/{{ event_type }}
 {%- endmacro %}
 
+{# Build a recursive parquet glob for one raw_sensor event type. #}
 {% macro raw_sensor_glob(event_type) -%}
     {{ raw_sensor_path(event_type) }}/**/*.parquet
 {%- endmacro %}
 
+{# Expand the configured inclusive day window into dayPK strings. #}
 {% macro requested_day_pks() -%}
     {%- set start_day = modules.datetime.datetime.strptime(var('start_day') | string, '%Y%m%d') -%}
     {%- set end_day = modules.datetime.datetime.strptime(var('end_day') | string, '%Y%m%d') -%}
@@ -28,6 +33,7 @@
     {{ return(ns.day_pks) }}
 {%- endmacro %}
 
+{# Normalize an optional hour env var to HH format and enforce 00-23. #}
 {% macro normalized_hour(hour_value, default_hour) -%}
     {%- set raw_hour = hour_value | string | trim -%}
     {%- if raw_hour == '' -%}
@@ -40,18 +46,22 @@
     {{ return('%02d' % hour_int) }}
 {%- endmacro %}
 
+{# Report whether the build is constrained to an hour-level window. #}
 {% macro hour_window_enabled() -%}
     {{ return((var('start_hour') | string | trim) != '' or (var('end_hour') | string | trim) != '') }}
 {%- endmacro %}
 
+{# Return the inclusive lower hour bound for partition filtering. #}
 {% macro start_hour_pk() -%}
     {{ return(normalized_hour(var('start_hour'), '00')) }}
 {%- endmacro %}
 
+{# Return the inclusive upper hour bound for partition filtering. #}
 {% macro end_hour_pk() -%}
     {{ return(normalized_hour(var('end_hour'), '23')) }}
 {%- endmacro %}
 
+{# Build the requested day/hour parquet globs for one raw event type. #}
 {% macro raw_sensor_partition_globs(event_type) -%}
     {%- set ns = namespace(globs=[]) -%}
     {%- if not hour_window_enabled() -%}
@@ -79,6 +89,7 @@
     {{ return(ns.globs) }}
 {%- endmacro %}
 
+{# Keep only requested globs that currently contain at least one file. #}
 {% macro matching_raw_sensor_partition_globs(event_type) -%}
     {%- set requested_globs = raw_sensor_partition_globs(event_type) -%}
     {%- if not execute -%}
@@ -100,6 +111,7 @@
     {{ return(ns.existing_globs) }}
 {%- endmacro %}
 
+{# Prefer existing globs at runtime, but fall back to requested globs for compilation. #}
 {% macro raw_sensor_partition_globs_for_scan(event_type) -%}
     {%- set matching_globs = matching_raw_sensor_partition_globs(event_type) -%}
     {%- if matching_globs | length > 0 -%}
@@ -108,6 +120,7 @@
     {{ return(raw_sensor_partition_globs(event_type)) }}
 {%- endmacro %}
 
+{# Render one or more globs as SQL for DuckDB parquet_scan/glob calls. #}
 {% macro raw_globs_sql(globs) -%}
     {%- if globs | length == 1 -%}
         '{{ globs[0] }}'
@@ -120,15 +133,18 @@
     {%- endif -%}
 {%- endmacro %}
 
+{# Render the final SQL glob expression used to scan one raw event type. #}
 {% macro raw_sensor_partition_globs_sql(event_type) -%}
     {{ raw_globs_sql(raw_sensor_partition_globs_for_scan(event_type)) }}
 {%- endmacro %}
 
+{# Build a day-only partition predicate for already-scanned raw rows. #}
 {% macro day_filter(alias='') -%}
     {%- set prefix = alias ~ '.' if alias else '' -%}
     cast({{ prefix }}dayPK as bigint) between {{ var('start_day') }} and {{ var('end_day') }}
 {%- endmacro %}
 
+{# Build the inclusive day/hour predicate used after parquet_scan. #}
 {% macro partition_filter(alias='') -%}
     {%- if not hour_window_enabled() -%}
         {{ day_filter(alias) }}
