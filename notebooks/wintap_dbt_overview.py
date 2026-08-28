@@ -13,6 +13,8 @@ def _():
     import duckdb
     import marimo as mo
     import pandas as pd
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
 
     def db_path() -> str:
         if os.getenv("WINTAP_DBT_DATABASE"):
@@ -41,7 +43,7 @@ def _():
             ).fetchone()[0]
         )
 
-    return Path, alt, db_path, duckdb, mo, query_df, table_exists
+    return Path, alt, db_path, duckdb, go, make_subplots, mo, query_df, table_exists
 
 
 @app.cell
@@ -261,15 +263,15 @@ def _(con, mo, query_df):
 @app.cell
 def _(alt, mo, timeline):
     if timeline.empty or "error" in timeline.columns:
-        chart = mo.ui.table(timeline, pagination=False)
+        timeline_chart = mo.ui.table(timeline, pagination=False)
     else:
-        chart = alt.Chart(timeline).mark_bar().encode(
+        timeline_chart = alt.Chart(timeline).mark_bar().encode(
             x=alt.X("time_chunk:T", title="Time"),
             y=alt.Y("num_rows:Q", title="Rows / samples"),
             color="event_type:N",
             tooltip=["time_chunk:T", "event_type:N", "num_rows:Q"],
         ).properties(height=320)
-    chart
+    timeline_chart
     return
 
 
@@ -329,35 +331,44 @@ def _(mo, top_files, top_network, top_processes):
 
 
 @app.cell
-def _(con, mo, query_df, table_exists):
-    pidstat_available = table_exists(con, "pidstat_metrics")
+def _(con, mo, query_df):
     pidstat_summary = query_df(
         con,
         """
         select
-            count(*) as samples,
-            min(time) as first_seen,
-            max(time) as last_seen,
-            max(cpu_percent) as max_cpu_percent,
-            max(mem_percent) as max_mem_percent,
-            max(kb_read_per_sec) as max_kb_read_per_sec,
-            max(kb_write_per_sec) as max_kb_write_per_sec,
+            coalesce(sum(samples), 0) as samples,
+            min(first_seen) as first_seen,
+            max(last_seen) as last_seen,
+            max(max_cpu_percent) as max_cpu_percent,
+            max(max_mem_percent) as max_mem_percent,
+            max(max_kb_read_per_sec) as max_kb_read_per_sec,
+            max(max_kb_write_per_sec) as max_kb_write_per_sec,
+            count(distinct hostname) as num_hosts,
             count(distinct pid) as num_pids,
-            count(distinct command) as num_commands
-        from pidstat_metrics
+            count(distinct command) as num_commands,
+            count(distinct container_id) filter (where container_id is not null) as num_containers
+        from pidstat_process_summary
         """,
+    )
+    pidstat_available = bool(
+        "error" not in pidstat_summary.columns
+        and not pidstat_summary.empty
+        and int(pidstat_summary.loc[0, "samples"] or 0) > 0
     )
     top_pidstat = query_df(
         con,
         """
-        select command, pid,
-               max(cpu_percent) as max_cpu_percent,
-               max(mem_percent) as max_mem_percent,
-               max(kb_read_per_sec) as max_kb_read_per_sec,
-               max(kb_write_per_sec) as max_kb_write_per_sec,
-               count(*) as samples
-        from pidstat_metrics
-        group by command, pid
+        select hostname, container_runtime, container_id, pid_ns_inode, command, pid,
+               samples,
+               max_cpu_percent,
+               avg_cpu_percent,
+               max_mem_percent,
+               avg_mem_percent,
+               max_kb_read_per_sec,
+               avg_kb_read_per_sec,
+               max_kb_write_per_sec,
+               avg_kb_write_per_sec
+        from pidstat_process_summary
         order by max_cpu_percent desc nulls last, max_mem_percent desc nulls last
         limit 30
         """,
@@ -370,12 +381,402 @@ def _(con, mo, query_df, table_exists):
 def _(mo, pidstat_available, pidstat_summary, top_pidstat):
     mo.vstack(
         [
-            mo.md(f"**pidstat_metrics model exists:** `{pidstat_available}`"),
+            mo.md(f"**pidstat rows available:** `{pidstat_available}`"),
             mo.ui.table(pidstat_summary, pagination=False),
             mo.md("### Top pidstat processes"),
             mo.ui.table(top_pidstat, pagination=False),
         ]
     )
+    return
+
+
+@app.cell
+def _(con, mo, pidstat_available, query_df):
+    pidstat_hosts = query_df(
+        con,
+        """
+        select distinct hostname
+        from pidstat_process_summary
+        where hostname is not null
+        order by hostname
+        """,
+    )
+    host_options = ["All hosts"]
+    if not pidstat_hosts.empty and "error" not in pidstat_hosts.columns:
+        host_options.extend(pidstat_hosts["hostname"].dropna().tolist())
+
+    pidstat_metric = mo.ui.dropdown(
+        ["CPU %", "Memory %", "Read KB/s", "Write KB/s"],
+        value="CPU %",
+        label="Pidstat time-series metric",
+        full_width=True,
+    )
+    pidstat_aggregation = mo.ui.dropdown(
+        ["Per process instance", "Aggregate by command"],
+        value="Per process instance",
+        label="Aggregation",
+        full_width=True,
+    )
+    pidstat_host = mo.ui.dropdown(
+        host_options,
+        value="All hosts",
+        label="Host filter",
+        searchable=True,
+        full_width=True,
+    )
+    pidstat_min_peak_metric = mo.ui.number(
+        start=0,
+        step=0.1,
+        value=25.0,
+        label="Minimum peak selected metric",
+        full_width=True,
+    )
+    pidstat_command_filter = mo.ui.text(
+        value="",
+        placeholder="e.g. setroubleshootd",
+        label="Command contains",
+        full_width=True,
+    )
+    pidstat_max_series = mo.ui.slider(
+        start=1,
+        stop=30,
+        step=1,
+        value=12,
+        show_value=True,
+        include_input=True,
+        label="Max processes to plot",
+        full_width=True,
+    )
+    controls = mo.hstack(
+        [pidstat_metric, pidstat_aggregation, pidstat_host, pidstat_command_filter, pidstat_min_peak_metric, pidstat_max_series],
+        widths=[0.16, 0.16, 0.2, 0.18, 0.14, 0.16],
+    )
+    if not pidstat_available:
+        pidstat_controls_panel = mo.vstack([controls, mo.md("No pidstat rows matched the current build.")])
+    else:
+        pidstat_controls_panel = mo.vstack([controls])
+    pidstat_controls_panel
+    return pidstat_aggregation, pidstat_command_filter, pidstat_host, pidstat_max_series, pidstat_metric, pidstat_min_peak_metric
+
+
+@app.cell
+def _(con, pidstat_aggregation, pidstat_available, pidstat_command_filter, pidstat_host, pidstat_max_series, pidstat_metric, pidstat_min_peak_metric, query_df):
+    pidstat_metric_columns = {
+        "CPU %": "cpu_percent",
+        "Memory %": "mem_percent",
+        "Read KB/s": "kb_read_per_sec",
+        "Write KB/s": "kb_write_per_sec",
+    }
+    pidstat_peak_columns = {
+        "CPU %": "max_cpu_percent",
+        "Memory %": "max_mem_percent",
+        "Read KB/s": "max_kb_read_per_sec",
+        "Write KB/s": "max_kb_write_per_sec",
+    }
+    pidstat_aggregation_mode = pidstat_aggregation.value or "Per process instance"
+    pidstat_metric_label = pidstat_metric.value or "CPU %"
+    pidstat_metric_column = pidstat_metric_columns[pidstat_metric_label]
+    pidstat_peak_metric_column = pidstat_peak_columns[pidstat_metric_label]
+    pidstat_peak_metric_threshold = float(pidstat_min_peak_metric.value or 0)
+    pidstat_series_limit = int(pidstat_max_series.value or 12)
+    pidstat_host_value = pidstat_host.value or "All hosts"
+    pidstat_command_filter_value = (pidstat_command_filter.value or "").strip()
+    pidstat_host_filter_sql = ""
+    if pidstat_host_value != "All hosts":
+        selected_pidstat_host = pidstat_host_value.replace("'", "''")
+        pidstat_host_filter_sql = f"and hostname = '{selected_pidstat_host}'"
+    pidstat_command_filter_sql = ""
+    if pidstat_command_filter_value:
+        selected_pidstat_command = pidstat_command_filter_value.replace("'", "''")
+        pidstat_command_filter_sql = f"and lower(command) like lower('%{selected_pidstat_command}%')"
+
+    if not pidstat_available:
+        pidstat_timeseries = query_df(con, "select cast(null as timestamp) as time_bucket, cast(null as varchar) as process_label, cast(null as double) as metric_value, cast(null as bigint) as concurrent_pids where false")
+    elif pidstat_aggregation_mode == "Aggregate by command":
+        pidstat_timeseries = query_df(
+            con,
+            f"""
+            with selected_commands as (
+                select
+                    hostname,
+                    container_runtime,
+                    container_id,
+                    pid_ns_inode,
+                    command,
+                    max({pidstat_peak_metric_column}) as peak_metric_value,
+                    sum(samples) as samples,
+                    count(distinct pid) as family_pids,
+                    concat_ws(
+                        ' | ',
+                        hostname,
+                        command,
+                        case
+                            when container_id is not null and container_id <> '' then concat('ctr=', container_id)
+                            else null
+                        end
+                    ) as process_label
+                from pidstat_process_summary
+                where {pidstat_peak_metric_column} >= {pidstat_peak_metric_threshold}
+                {pidstat_host_filter_sql}
+                {pidstat_command_filter_sql}
+                group by all
+                order by max({pidstat_peak_metric_column}) desc nulls last, sum(samples) desc, hostname, command
+                limit {pidstat_series_limit}
+            )
+            select
+                time_bucket(interval 1 minute, m.time) as time_bucket,
+                s.process_label,
+                sum(m.{pidstat_metric_column}) as metric_value,
+                max(s.peak_metric_value) as peak_metric_value,
+                count(*) as samples,
+                count(distinct m.pid) as concurrent_pids
+            from pidstat_metrics m
+            join selected_commands s
+              on m.hostname = s.hostname
+             and m.command = s.command
+             and m.pid_ns_inode is not distinct from s.pid_ns_inode
+             and m.container_runtime is not distinct from s.container_runtime
+             and m.container_id is not distinct from s.container_id
+            group by all
+            order by time_bucket, process_label
+            """,
+        )
+    else:
+        pidstat_timeseries = query_df(
+            con,
+            f"""
+            with selected_processes as (
+                select
+                    hostname,
+                    container_runtime,
+                    container_id,
+                    pid_ns_inode,
+                    pid,
+                    command,
+                    {pidstat_peak_metric_column} as peak_metric_value,
+                    samples,
+                    concat_ws(
+                        ' | ',
+                        hostname,
+                        command,
+                        cast(pid as varchar),
+                        case
+                            when container_id is not null and container_id <> '' then concat('ctr=', container_id)
+                            else null
+                        end
+                    ) as process_label
+                from pidstat_process_summary
+                where {pidstat_peak_metric_column} >= {pidstat_peak_metric_threshold}
+                {pidstat_host_filter_sql}
+                {pidstat_command_filter_sql}
+                order by {pidstat_peak_metric_column} desc nulls last, samples desc, hostname, command, pid
+                limit {pidstat_series_limit}
+            )
+            select
+                time_bucket(interval 1 minute, m.time) as time_bucket,
+                s.process_label,
+                avg(m.{pidstat_metric_column}) as metric_value,
+                max(s.peak_metric_value) as peak_metric_value,
+                count(*) as samples,
+                count(distinct m.pid) as concurrent_pids
+            from pidstat_metrics m
+            join selected_processes s
+              on m.hostname = s.hostname
+             and m.pid = s.pid
+             and m.command = s.command
+             and m.pid_ns_inode is not distinct from s.pid_ns_inode
+             and m.container_runtime is not distinct from s.container_runtime
+             and m.container_id is not distinct from s.container_id
+            group by all
+            order by time_bucket, process_label
+            """,
+        )
+    return (
+        pidstat_aggregation_mode,
+        pidstat_command_filter_value,
+        pidstat_host_value,
+        pidstat_metric_column,
+        pidstat_metric_label,
+        pidstat_peak_metric_threshold,
+        pidstat_series_limit,
+        pidstat_timeseries,
+    )
+
+
+@app.cell
+def _(go, mo, pidstat_aggregation_mode, pidstat_available, pidstat_command_filter_value, pidstat_host_value, pidstat_metric_label, pidstat_peak_metric_threshold, pidstat_series_limit, pidstat_timeseries):
+    if not pidstat_available:
+        pidstat_chart = mo.md("Pidstat time series is unavailable because the current build has no pidstat rows.")
+    elif pidstat_timeseries.empty or "error" in pidstat_timeseries.columns:
+        pidstat_chart = mo.ui.table(pidstat_timeseries, pagination=False)
+    else:
+        pidstat_figure = go.Figure()
+        for process_label, process_df in pidstat_timeseries.groupby("process_label", sort=False):
+            pidstat_figure.add_trace(
+                go.Scatter(
+                    x=process_df["time_bucket"],
+                    y=process_df["metric_value"],
+                    mode="lines",
+                    name=process_label,
+                    hovertemplate=(
+                        "Process=%{fullData.name}<br>"
+                        "Time=%{x}<br>"
+                        f"{pidstat_metric_label}=%{{y:.2f}}<br>"
+                        "Bucket samples=%{customdata[0]}<br>"
+                        "Peak selected metric=%{customdata[1]:.2f}<br>"
+                        "Concurrent PIDs=%{customdata[2]}<extra></extra>"
+                    ),
+                    customdata=process_df[["samples", "peak_metric_value", "concurrent_pids"]].to_numpy(),
+                )
+            )
+        pidstat_figure.update_layout(
+            height=520,
+            margin=dict(l=50, r=20, t=30, b=40),
+            hovermode="x unified",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+            xaxis_title="Time",
+            yaxis_title=pidstat_metric_label,
+        )
+        pidstat_figure.update_xaxes(rangeslider_visible=True)
+        pidstat_chart = pidstat_figure
+    pidstat_panel = mo.vstack(
+        [
+            mo.md(
+                f"### Pidstat time series\n"
+                f"Mode: `{pidstat_aggregation_mode}`. Showing up to `{pidstat_series_limit}` series ranked by peak `{pidstat_metric_label}` with threshold `{pidstat_peak_metric_threshold}`. "
+                f"Host filter: `{pidstat_host_value}`. Command filter: `{pidstat_command_filter_value or 'none'}`. Bucketed to 1 minute."
+            ),
+            pidstat_chart,
+        ]
+    )
+    pidstat_panel
+    return
+
+
+@app.cell
+def _(con, pidstat_available, pidstat_host_value, query_df):
+    pidstat_event_host_filter_sql = ""
+    if pidstat_host_value != "All hosts":
+        selected_event_host = pidstat_host_value.replace("'", "''")
+        pidstat_event_host_filter_sql = f"where hostname = '{selected_event_host}'"
+
+    if not pidstat_available:
+        pidstat_event_volume = query_df(
+            con,
+            "select cast(null as timestamp) as time_bucket, cast(null as varchar) as event_type, cast(null as double) as event_count where false",
+        )
+    else:
+        pidstat_event_volume = query_df(
+            con,
+            f"""
+            select *
+            from (
+                select
+                    time_bucket(interval 1 minute, process_started) as time_bucket,
+                    'process' as event_type,
+                    sum(coalesce(num_process_start, 0) + coalesce(num_process_stop, 0)) as event_count
+                from process
+                {pidstat_event_host_filter_sql}
+                group by all
+
+                union all
+
+                select
+                    time_bucket(interval 1 minute, min_event) as time_bucket,
+                    'file' as event_type,
+                    sum(event_count) as event_count
+                from process_file
+                {pidstat_event_host_filter_sql}
+                group by all
+
+                union all
+
+                select
+                    time_bucket(interval 1 minute, incr_start) as time_bucket,
+                    'network' as event_type,
+                    sum(total_events) as event_count
+                from process_conn_incr
+                {pidstat_event_host_filter_sql}
+                group by all
+
+                union all
+
+                select
+                    time_bucket(interval 1 minute, min_event) as time_bucket,
+                    'registry' as event_type,
+                    sum(event_count) as event_count
+                from process_registry
+                {pidstat_event_host_filter_sql}
+                group by all
+
+                union all
+
+                select
+                    time_bucket(interval 1 minute, first_seen) as time_bucket,
+                    'image_load' as event_type,
+                    sum(coalesce(num_load, 0) + coalesce(num_unload, 0)) as event_count
+                from process_image_load
+                {pidstat_event_host_filter_sql}
+                group by all
+            ) event_counts
+            where time_bucket is not null
+            order by time_bucket, event_type
+            """,
+        )
+    return (pidstat_event_volume,)
+
+
+@app.cell
+def _(go, make_subplots, mo, pidstat_available, pidstat_event_volume, pidstat_host_value):
+    if not pidstat_available:
+        pidstat_event_chart = mo.md("Event-volume comparison is unavailable because the current build has no pidstat rows.")
+    elif pidstat_event_volume.empty or "error" in pidstat_event_volume.columns:
+        pidstat_event_chart = mo.ui.table(pidstat_event_volume, pagination=False)
+    else:
+        event_groups = list(pidstat_event_volume.groupby("event_type", sort=False))
+        pidstat_event_figure = make_subplots(
+            rows=len(event_groups),
+            cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.03,
+            subplot_titles=[event_type for event_type, _ in event_groups],
+        )
+        for row_num, (event_type, event_df) in enumerate(event_groups, start=1):
+            pidstat_event_figure.add_trace(
+                go.Scatter(
+                    x=event_df["time_bucket"],
+                    y=event_df["event_count"],
+                    mode="lines",
+                    name=event_type,
+                    hovertemplate=(
+                        "Type=%{fullData.name}<br>"
+                        "Time=%{x}<br>"
+                        "Event count=%{y:.0f}<extra></extra>"
+                    ),
+                )
+                ,
+                row=row_num,
+                col=1,
+            )
+            pidstat_event_figure.update_yaxes(title_text=event_type, row=row_num, col=1)
+        pidstat_event_figure.update_layout(
+            height=max(360, 220 * len(event_groups)),
+            margin=dict(l=50, r=20, t=30, b=40),
+            hovermode="x unified",
+            showlegend=False,
+        )
+        pidstat_event_figure.update_xaxes(title_text="Time", rangeslider_visible=True, row=len(event_groups), col=1)
+        pidstat_event_chart = pidstat_event_figure
+    pidstat_event_panel = mo.vstack(
+        [
+            mo.md(
+                f"### Event volume over time\n"
+                f"One-minute bucketed event counts by type for host filter `{pidstat_host_value}`. Each event family gets its own y-scale so lower-volume types remain visible while you compare them against the pidstat chart above."
+            ),
+            pidstat_event_chart,
+        ]
+    )
+    pidstat_event_panel
     return
 
 

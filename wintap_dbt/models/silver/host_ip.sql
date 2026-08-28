@@ -8,8 +8,8 @@ select
     ipaddr ip_addr,
     'missing?' interface,
     mtu,
-    to_timestamp(min(cast(eventtime as bigint))) first_seen,
-    to_timestamp(max(cast(eventtime as bigint))) last_seen,
+    {{ unix_or_timestamp_expr('min(eventtime)') }} first_seen,
+    {{ unix_or_timestamp_expr('max(eventtime)') }} last_seen,
     count(*) num_rows
 from {{ ref('stg_raw_macip') }}
 group by all

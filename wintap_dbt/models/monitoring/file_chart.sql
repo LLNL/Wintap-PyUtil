@@ -1,11 +1,11 @@
 select
-    time_bucket(interval 10 seconds, to_timestamp(cast(eventtime as bigint))) as time_chunk,
+    time_bucket(interval 10 seconds, min_event) as time_chunk,
     'file' as event_type,
-    count(distinct processname) as uniq_process_name,
-    count(distinct pid) as uniq_pid,
-    count(distinct file_path) as uniq_files,
-    sum(eventcount) as events,
+    count(distinct process_name) as uniq_process_name,
+    count(distinct os_pid) as uniq_pid,
+    count(distinct filename) as uniq_files,
+    sum(event_count) as events,
     count(*) as num_rows
-from {{ ref('stg_raw_process_file') }}
+from {{ ref('process_file') }}
 group by all
 order by time_chunk

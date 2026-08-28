@@ -121,3 +121,32 @@ models:
         tests:
           - not_null
           - no_forbidden_pid_hash_values
+
+  - name: pidstat_metrics
+    description: Normalized silver detail model for pidstat performance samples.
+    columns:
+      - name: time
+        tests:
+          - not_null
+      - name: hostname
+        tests:
+          - not_null
+      - name: pid
+        tests:
+          - not_null
+
+  - name: pidstat_process_summary
+    description: Gold pidstat summary keyed by host, container, and process identity.
+    columns:
+      - name: hostname
+        tests:
+          - not_null
+      - name: pid
+        tests:
+          - not_null
+      - name: first_seen
+        tests:
+          - not_null
+      - name: last_seen
+        tests:
+          - not_null

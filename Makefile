@@ -2,7 +2,7 @@ packages=./wintappy
 analytics=./wintappy/analytics
 
 UV_RUN=uv run
-DBT_UV_RUN ?= uv run --isolated --dev
+DBT_UV_RUN ?= uv run --dev
 DBT_DIR=wintap_dbt
 DBT=$(DBT_UV_RUN) --project . dbt
 
@@ -34,6 +34,10 @@ test:
 ci: fmt-check lint test dbt-build
 
 venv:
+	uv sync --all-extras --dev
+
+rebuild-venv:
+	rm -rf .venv
 	uv sync --all-extras --dev
 
 build:
@@ -92,4 +96,4 @@ qa-dashboard: dbt-check-config
 qa-pidstat: dbt-check-config
 	$(DBT_UV_RUN) --project . marimo run ../Lintap/teletap/grokdata_marimo.py
 
-.PHONY: fmt fmt-check lint test ci venv build clean source-install setup requirements cleanpynb dbt-check-config print-dbt-config dbt-debug dbt-build dbt-test dbt-docs qa-pid-hash qa-dashboard
+.PHONY: fmt fmt-check lint test ci venv rebuild-venv build clean source-install setup requirements cleanpynb dbt-check-config print-dbt-config dbt-debug dbt-build dbt-test dbt-docs qa-pid-hash qa-dashboard
