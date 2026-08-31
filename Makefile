@@ -2,7 +2,7 @@ packages=./wintappy
 analytics=./wintappy/analytics
 
 UV_RUN=uv run
-DBT_UV_RUN ?= uv run --isolated --dev
+DBT_UV_RUN ?= uv run --dev
 DBT_DIR=wintap_dbt
 DBT=$(DBT_UV_RUN) --project . dbt
 
@@ -10,13 +10,11 @@ WINTAP_DBT_DATASET ?= $(WINTAP_DATA_ROOT)/parquet
 WINTAP_DBT_DATABASE ?= $(WINTAP_DATA_ROOT)/duckdb/wintap.duckdb
 WINTAP_DBT_START_DAY ?= $(shell if [ -n "$(WINTAP_DATA_ROOT)" ] && [ -d "$(WINTAP_DATA_ROOT)/parquet/raw_sensor" ]; then find "$(WINTAP_DATA_ROOT)/parquet/raw_sensor" -type d -name 'dayPK=*' 2>/dev/null | sed 's|.*/dayPK=||' | sort | head -1; fi)
 WINTAP_DBT_END_DAY ?= $(shell if [ -n "$(WINTAP_DATA_ROOT)" ] && [ -d "$(WINTAP_DATA_ROOT)/parquet/raw_sensor" ]; then find "$(WINTAP_DATA_ROOT)/parquet/raw_sensor" -type d -name 'dayPK=*' 2>/dev/null | sed 's|.*/dayPK=||' | sort | tail -1; fi)
-PIDSTAT_DATA_PATH ?= $(WINTAP_DATA_ROOT)/pidstat
 
 export WINTAP_DBT_DATASET
 export WINTAP_DBT_DATABASE
 export WINTAP_DBT_START_DAY
 export WINTAP_DBT_END_DAY
-export PIDSTAT_DATA_PATH
 
 fmt:
 	$(UV_RUN) black $(packages)
@@ -36,6 +34,10 @@ test:
 ci: fmt-check lint test dbt-build
 
 venv:
+	uv sync --all-extras --dev
+
+rebuild-venv:
+	rm -rf .venv
 	uv sync --all-extras --dev
 
 build:
@@ -94,4 +96,4 @@ qa-dashboard: dbt-check-config
 qa-pidstat: dbt-check-config
 	$(DBT_UV_RUN) --project . marimo run ../Lintap/teletap/grokdata_marimo.py
 
-.PHONY: fmt fmt-check lint test ci venv build clean source-install setup requirements cleanpynb dbt-check-config print-dbt-config dbt-debug dbt-build dbt-test dbt-docs qa-pid-hash qa-dashboard
+.PHONY: fmt fmt-check lint test ci venv rebuild-venv build clean source-install setup requirements cleanpynb dbt-check-config print-dbt-config dbt-debug dbt-build dbt-test dbt-docs qa-pid-hash qa-dashboard

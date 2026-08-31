@@ -1,7 +1,9 @@
+{# Return the canonical raw_sensor directory for one event type. #}
 {% macro raw_event_path(event_type) -%}
     {{ raw_sensor_path(event_type) }}
 {%- endmacro %}
 
+{# Report whether the requested raw event has any files in the selected window. #}
 {% macro raw_event_exists(event_type) -%}
     {%- if not execute -%}
         {{ return(true) }}
@@ -9,6 +11,7 @@
     {{ return(matching_raw_sensor_partition_globs(event_type) | length > 0) }}
 {%- endmacro %}
 
+{# Return the first alias that resolves to existing raw parquet. #}
 {% macro first_existing_raw_event(event_types) -%}
     {%- for event_type in event_types -%}
         {%- if raw_event_exists(event_type) -%}
@@ -18,6 +21,7 @@
     {{ return(none) }}
 {%- endmacro %}
 
+{# Scan the first available raw event from a list of historical aliases. #}
 {% macro raw_scan_for(event_types) -%}
     {%- set event_type = first_existing_raw_event(event_types) -%}
     {%- if event_type is none -%}
@@ -26,6 +30,7 @@
     {{ parquet_relation(event_type) }}
 {%- endmacro %}
 
+{# Probe whether a column exists in the first available raw event alias. #}
 {% macro raw_column_exists(event_types, column_name) -%}
     {%- if not execute -%}
         {{ return(true) }}

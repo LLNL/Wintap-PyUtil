@@ -55,6 +55,7 @@ dev = [
   "ipykernel",
   "mypy",
   "nbstripout",
+  "plotly",
   "pytest",
   "sqlfluff",
   "types-pyyaml",

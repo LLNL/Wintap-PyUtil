@@ -1,13 +1,13 @@
 select
-    time_bucket(interval 10 seconds, to_timestamp(cast(eventtime as bigint))) as time_chunk,
+    time_bucket(interval 10 seconds, incr_start) as time_chunk,
     'network' as event_type,
-    count(distinct processname) as uniq_process_name,
-    count(distinct pid) as uniq_pid,
-    count(distinct connid) as uniq_conn_id,
-    count(distinct localipaddr) as uniq_local_ip,
-    count(distinct remoteipaddr) as uniq_remote_ip,
-    sum(eventcount) as events,
+    count(distinct process_name) as uniq_process_name,
+    count(distinct os_pid) as uniq_pid,
+    count(distinct conn_id) as uniq_conn_id,
+    count(distinct local_ip_addr) as uniq_local_ip,
+    count(distinct remote_ip_addr) as uniq_remote_ip,
+    sum(total_events) as events,
     count(*) as num_rows
-from {{ ref('stg_raw_process_conn_incr') }}
+from {{ ref('process_conn_incr') }}
 group by all
 order by time_chunk
