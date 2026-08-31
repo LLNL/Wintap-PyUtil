@@ -136,7 +136,7 @@ models:
           - not_null
 
   - name: pidstat_process_summary
-    description: Gold pidstat summary keyed by host, container, and process identity.
+    description: Gold pidstat summary grouped by host, container, PID, and command; this is not a lifetime-stable process identity.
     columns:
       - name: hostname
         tests:

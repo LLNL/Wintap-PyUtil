@@ -383,7 +383,7 @@ def _(mo, pidstat_available, pidstat_summary, top_pidstat):
         [
             mo.md(f"**pidstat rows available:** `{pidstat_available}`"),
             mo.ui.table(pidstat_summary, pagination=False),
-            mo.md("### Top pidstat processes"),
+            mo.md("### Top pidstat PID/command groups"),
             mo.ui.table(top_pidstat, pagination=False),
         ]
     )
@@ -412,8 +412,8 @@ def _(con, mo, pidstat_available, query_df):
         full_width=True,
     )
     pidstat_aggregation = mo.ui.dropdown(
-        ["Per process instance", "Aggregate by command"],
-        value="Per process instance",
+        ["PID/command grouping", "Aggregate by command"],
+        value="PID/command grouping",
         label="Aggregation",
         full_width=True,
     )
@@ -444,7 +444,7 @@ def _(con, mo, pidstat_available, query_df):
         value=12,
         show_value=True,
         include_input=True,
-        label="Max processes to plot",
+        label="Max series to plot",
         full_width=True,
     )
     controls = mo.hstack(
@@ -473,7 +473,7 @@ def _(con, pidstat_aggregation, pidstat_available, pidstat_command_filter, pidst
         "Read KB/s": "max_kb_read_per_sec",
         "Write KB/s": "max_kb_write_per_sec",
     }
-    pidstat_aggregation_mode = pidstat_aggregation.value or "Per process instance"
+    pidstat_aggregation_mode = pidstat_aggregation.value or "PID/command grouping"
     pidstat_metric_label = pidstat_metric.value or "CPU %"
     pidstat_metric_column = pidstat_metric_columns[pidstat_metric_label]
     pidstat_peak_metric_column = pidstat_peak_columns[pidstat_metric_label]
@@ -619,7 +619,7 @@ def _(go, mo, pidstat_aggregation_mode, pidstat_available, pidstat_command_filte
                     mode="lines",
                     name=process_label,
                     hovertemplate=(
-                        "Process=%{fullData.name}<br>"
+                        "Series=%{fullData.name}<br>"
                         "Time=%{x}<br>"
                         f"{pidstat_metric_label}=%{{y:.2f}}<br>"
                         "Bucket samples=%{customdata[0]}<br>"
