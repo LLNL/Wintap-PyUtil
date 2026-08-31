@@ -106,6 +106,18 @@ make qa-dashboard
 
 Pidstat parquet data is an optional raw event. If `<raw_sensor_dataset>/raw_sensor/pidstat` contains parquet files in the canonical `dayPK=/hourPK=` layout, DBT loads them into `pidstat_metrics`; otherwise the model is built as an empty typed table.
 
+### Pidstat CPU Units
+
+Raw `pidstat.cpu_percent` is retained for compatibility and means **core-summed
+process CPU percent**: `100` equals one fully occupied logical CPU, so a process
+can exceed `100` on a multicore host. The normalized `pidstat_metrics` model
+also exposes this value as `cpu_core_percent`, and the gold process summary uses
+`max_cpu_core_percent` and `avg_cpu_core_percent`. Divide by the host's logical
+CPU count to compare it with host-normalized CPU values such as `.NET
+System.Runtime cpu-usage`. The gold `max_cpu_percent`/`avg_cpu_percent` and
+monitoring `max_cpu` columns remain compatibility aliases of these core-summed
+values; new queries should use the explicit `*_cpu_core_percent` names.
+
 ## Layers
 
 - `models/bronze` — raw parquet scans and compatibility layer.

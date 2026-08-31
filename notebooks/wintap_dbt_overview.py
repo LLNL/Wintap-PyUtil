@@ -339,7 +339,7 @@ def _(con, mo, query_df):
             coalesce(sum(samples), 0) as samples,
             min(first_seen) as first_seen,
             max(last_seen) as last_seen,
-            max(max_cpu_percent) as max_cpu_percent,
+            max(max_cpu_core_percent) as max_cpu_core_percent,
             max(max_mem_percent) as max_mem_percent,
             max(max_kb_read_per_sec) as max_kb_read_per_sec,
             max(max_kb_write_per_sec) as max_kb_write_per_sec,
@@ -360,8 +360,8 @@ def _(con, mo, query_df):
         """
         select hostname, container_runtime, container_id, pid_ns_inode, command, pid,
                samples,
-               max_cpu_percent,
-               avg_cpu_percent,
+               max_cpu_core_percent,
+               avg_cpu_core_percent,
                max_mem_percent,
                avg_mem_percent,
                max_kb_read_per_sec,
@@ -369,7 +369,7 @@ def _(con, mo, query_df):
                max_kb_write_per_sec,
                avg_kb_write_per_sec
         from pidstat_process_summary
-        order by max_cpu_percent desc nulls last, max_mem_percent desc nulls last
+        order by max_cpu_core_percent desc nulls last, max_mem_percent desc nulls last
         limit 30
         """,
     )
@@ -406,8 +406,8 @@ def _(con, mo, pidstat_available, query_df):
         host_options.extend(pidstat_hosts["hostname"].dropna().tolist())
 
     pidstat_metric = mo.ui.dropdown(
-        ["CPU %", "Memory %", "Read KB/s", "Write KB/s"],
-        value="CPU %",
+        ["CPU (core-summed %)", "Memory %", "Read KB/s", "Write KB/s"],
+        value="CPU (core-summed %)",
         label="Pidstat time-series metric",
         full_width=True,
     )
@@ -462,19 +462,19 @@ def _(con, mo, pidstat_available, query_df):
 @app.cell
 def _(con, pidstat_aggregation, pidstat_available, pidstat_command_filter, pidstat_host, pidstat_max_series, pidstat_metric, pidstat_min_peak_metric, query_df):
     pidstat_metric_columns = {
-        "CPU %": "cpu_percent",
+        "CPU (core-summed %)": "cpu_core_percent",
         "Memory %": "mem_percent",
         "Read KB/s": "kb_read_per_sec",
         "Write KB/s": "kb_write_per_sec",
     }
     pidstat_peak_columns = {
-        "CPU %": "max_cpu_percent",
+        "CPU (core-summed %)": "max_cpu_core_percent",
         "Memory %": "max_mem_percent",
         "Read KB/s": "max_kb_read_per_sec",
         "Write KB/s": "max_kb_write_per_sec",
     }
     pidstat_aggregation_mode = pidstat_aggregation.value or "PID/command grouping"
-    pidstat_metric_label = pidstat_metric.value or "CPU %"
+    pidstat_metric_label = pidstat_metric.value or "CPU (core-summed %)"
     pidstat_metric_column = pidstat_metric_columns[pidstat_metric_label]
     pidstat_peak_metric_column = pidstat_peak_columns[pidstat_metric_label]
     pidstat_peak_metric_threshold = float(pidstat_min_peak_metric.value or 0)

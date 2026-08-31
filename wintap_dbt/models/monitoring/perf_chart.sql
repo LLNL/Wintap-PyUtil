@@ -1,7 +1,10 @@
+-- Preserve the compatibility view's existing column order.
+-- noqa: disable=ST06
 select
     time_bucket(interval 10 seconds, time) as time_chunk,
     'performance' as event_type,
     count(distinct command) as uniq_process_name,
+    max(cpu_core_percent) as max_cpu_core_percent,
     max(cpu_percent) as max_cpu,
     max(mem_percent) as max_mem,
     max(kb_read_per_sec) as max_read,

@@ -134,6 +134,10 @@ models:
       - name: pid
         tests:
           - not_null
+      - name: cpu_percent
+        description: Raw-compatible core-summed process CPU percent; 100 means one fully occupied logical CPU.
+      - name: cpu_core_percent
+        description: Explicit alias of cpu_percent for core-summed process CPU percent.
 
   - name: pidstat_process_summary
     description: Gold pidstat summary grouped by host, container, PID, and command; this is not a lifetime-stable process identity.
@@ -150,3 +154,27 @@ models:
       - name: last_seen
         tests:
           - not_null
+      - name: max_cpu_core_percent
+        description: Maximum core-summed process CPU percent in the PID/command group.
+      - name: avg_cpu_core_percent
+        description: Average core-summed process CPU percent in the PID/command group.
+      - name: max_cpu_percent
+        description: Compatibility alias of max_cpu_core_percent.
+      - name: avg_cpu_percent
+        description: Compatibility alias of avg_cpu_core_percent.
+
+  - name: perf_chart
+    description: Ten-second pidstat monitoring metrics.
+    columns:
+      - name: max_cpu_core_percent
+        description: Explicit maximum core-summed process CPU percent.
+      - name: max_cpu
+        description: Compatibility alias of max_cpu_core_percent.
+
+  - name: telemetry_event_summary
+    description: Monitoring summary across telemetry event families.
+    columns:
+      - name: max_cpu_core_percent
+        description: Explicit maximum core-summed process CPU percent for performance rows.
+      - name: max_cpu
+        description: Compatibility alias of max_cpu_core_percent for performance rows.
